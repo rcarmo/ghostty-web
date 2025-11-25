@@ -27,29 +27,31 @@ const WS_PORT = 3001;
 // Locate ghostty-web assets
 // ============================================================================
 
-function findGhosttyWeb() {
-  const possiblePaths = [
-    // Development: running from repo root (demo/bin/demo.js -> ../../dist)
-    path.join(__dirname, '..', '..', 'dist'),
-    // When installed as dependency (demo/node_modules/ghostty-web/dist)
-    path.join(__dirname, '..', 'node_modules', 'ghostty-web', 'dist'),
-    // When in a monorepo or hoisted
-    path.join(__dirname, '..', '..', 'node_modules', 'ghostty-web', 'dist'),
-    path.join(__dirname, '..', '..', '..', 'node_modules', 'ghostty-web', 'dist'),
-  ];
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
-  for (const p of possiblePaths) {
-    const jsPath = path.join(p, 'ghostty-web.js');
-    if (fs.existsSync(jsPath)) {
-      // Find WASM file - check both dist/ and parent directory
-      let wasmPath = path.join(p, 'ghostty-vt.wasm');
-      if (!fs.existsSync(wasmPath)) {
-        wasmPath = path.join(path.dirname(p), 'ghostty-vt.wasm');
-      }
-      if (fs.existsSync(wasmPath)) {
-        return { distPath: p, wasmPath };
-      }
+function findGhosttyWeb() {
+  // First, check for local development (repo root dist/)
+  const localDist = path.join(__dirname, '..', '..', 'dist');
+  const localJs = path.join(localDist, 'ghostty-web.js');
+  const localWasm = path.join(__dirname, '..', '..', 'ghostty-vt.wasm');
+
+  if (fs.existsSync(localJs) && fs.existsSync(localWasm)) {
+    return { distPath: localDist, wasmPath: localWasm, isDev: true };
+  }
+
+  // Use require.resolve to find the installed ghostty-web package
+  try {
+    const ghosttyWebMain = require.resolve('ghostty-web');
+    const ghosttyWebRoot = path.dirname(ghosttyWebMain.replace(/[/\\]dist[/\\].*$/, ''));
+    const distPath = path.join(ghosttyWebRoot, 'dist');
+    const wasmPath = path.join(ghosttyWebRoot, 'ghostty-vt.wasm');
+
+    if (fs.existsSync(path.join(distPath, 'ghostty-web.js')) && fs.existsSync(wasmPath)) {
+      return { distPath, wasmPath, isDev: false };
     }
+  } catch (e) {
+    // require.resolve failed, package not found
   }
 
   console.error('Error: Could not find ghostty-web package.');
@@ -59,10 +61,7 @@ function findGhosttyWeb() {
   process.exit(1);
 }
 
-const { distPath, wasmPath } = findGhosttyWeb();
-const isDev =
-  distPath.includes(path.join('demo', '..', 'dist')) ||
-  distPath === path.join(__dirname, '..', '..', 'dist');
+const { distPath, wasmPath, isDev } = findGhosttyWeb();
 
 // ============================================================================
 // HTML Template
