@@ -606,10 +606,10 @@ index bc92597f5..d988967f7 100644
      _ = @import("../../lib/allocator.zig");
 diff --git a/src/terminal/c/terminal.zig b/src/terminal/c/terminal.zig
 new file mode 100644
-index 000000000..c39b0791c
+index 000000000..e79702488
 --- /dev/null
 +++ b/src/terminal/c/terminal.zig
-@@ -0,0 +1,604 @@
+@@ -0,0 +1,611 @@
 +//! C API wrapper for Terminal
 +//!
 +//! This provides a C-compatible interface to Ghostty's Terminal for WASM export.
@@ -640,6 +640,10 @@ index 000000000..c39b0791c
 +
 +    /// The terminal instance
 +    terminal: Terminal,
++
++    /// Persistent VT stream for parsing (preserves state across writes)
++    /// This is critical for handling escape sequences split across WebSocket messages.
++    stream: ReadonlyStream,
 +
 +    /// Dirty tracking - which rows have changed since last clear
 +    dirty_rows: []bool,
@@ -765,9 +769,13 @@ index 000000000..c39b0791c
 +    wrapper.* = .{
 +        .alloc = alloc,
 +        .terminal = terminal,
++        .stream = undefined, // Will be initialized below
 +        .dirty_rows = dirty_rows,
 +        .config = config,
 +    };
++
++    // Initialize the persistent VT stream (must be done after terminal is set)
++    wrapper.stream = wrapper.terminal.vtStream();
 +
 +    return @ptrCast(wrapper);
 +}
@@ -776,6 +784,7 @@ index 000000000..c39b0791c
 +    const wrapper: *TerminalWrapper = @ptrCast(@alignCast(ptr orelse return));
 +    const alloc = wrapper.alloc;
 +
++    wrapper.stream.deinit();
 +    alloc.free(wrapper.dirty_rows);
 +    wrapper.terminal.deinit(alloc);
 +    alloc.destroy(wrapper);
@@ -811,12 +820,10 @@ index 000000000..c39b0791c
 +pub fn write(ptr: ?*anyopaque, data: [*]const u8, len: usize) callconv(.c) void {
 +    const wrapper: *TerminalWrapper = @ptrCast(@alignCast(ptr orelse return));
 +
-+    // Create stream for this write operation
-+    var stream = wrapper.terminal.vtStream();
-+
-+    // Write data to terminal stream (this parses VT sequences)
++    // Use persistent stream to preserve parser state across writes
++    // This is critical for handling escape sequences split across WebSocket messages
 +    const slice = data[0..len];
-+    stream.nextSlice(slice) catch |err| {
++    wrapper.stream.nextSlice(slice) catch |err| {
 +        log.err("Write failed: {}", .{err});
 +        return;
 +    };
