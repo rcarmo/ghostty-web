@@ -445,6 +445,10 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
     bufLen: number
   ): number; // Returns cells written or -1 on error
   ghostty_terminal_is_row_wrapped(terminal: TerminalHandle, row: number): number;
+
+  // Response API (for DSR and other terminal queries)
+  ghostty_terminal_has_response(terminal: TerminalHandle): boolean;
+  ghostty_terminal_read_response(terminal: TerminalHandle, bufPtr: number, bufLen: number): number; // Returns bytes written, 0 if no response, -1 on error
 }
 
 // ============================================================================
