@@ -21,6 +21,8 @@ export interface IRenderable {
   getCursor(): { x: number; y: number; visible: boolean };
   getDimensions(): { cols: number; rows: number };
   isRowDirty(y: number): boolean;
+  /** Returns true if a full redraw is needed (e.g., screen change) */
+  needsFullRedraw?(): boolean;
   clearDirty(): void;
 }
 
@@ -251,9 +253,16 @@ export class CanvasRenderer {
     scrollbackProvider?: IScrollbackProvider,
     scrollbarOpacity: number = 1
   ): void {
+    // getCursor() calls update() internally to ensure fresh state.
+    // Multiple update() calls are safe - dirty state persists until clearDirty().
     const cursor = buffer.getCursor();
     const dims = buffer.getDimensions();
     const scrollbackLength = scrollbackProvider ? scrollbackProvider.getScrollbackLength() : 0;
+
+    // Check if buffer needs full redraw (e.g., screen change between normal/alternate)
+    if (buffer.needsFullRedraw?.()) {
+      forceAll = true;
+    }
 
     // Resize canvas if dimensions changed
     const needsResize =
@@ -454,10 +463,10 @@ export class CanvasRenderer {
     // Update last cursor position
     this.lastCursorPosition = { x: cursor.x, y: cursor.y };
 
-    // Clear dirty flags after rendering
-    if (!forceAll) {
-      buffer.clearDirty();
-    }
+    // ALWAYS clear dirty flags after rendering, regardless of forceAll.
+    // This is critical - if we don't clear after a full redraw, the dirty
+    // state persists and the next frame might not detect new changes properly.
+    buffer.clearDirty();
   }
 
   /**
@@ -503,9 +512,13 @@ export class CanvasRenderer {
       [fg_r, fg_g, fg_b, bg_r, bg_g, bg_b] = [bg_r, bg_g, bg_b, fg_r, fg_g, fg_b];
     }
 
-    // Always draw background to clear previous character
-    this.ctx.fillStyle = this.rgbToCSS(bg_r, bg_g, bg_b);
-    this.ctx.fillRect(cellX, cellY, cellWidth, this.metrics.height);
+    // Only draw cell background if it's different from the default (black)
+    // This lets the theme background (drawn in renderLine) show through for default cells
+    const isDefaultBg = bg_r === 0 && bg_g === 0 && bg_b === 0;
+    if (!isDefaultBg) {
+      this.ctx.fillStyle = this.rgbToCSS(bg_r, bg_g, bg_b);
+      this.ctx.fillRect(cellX, cellY, cellWidth, this.metrics.height);
+    }
 
     // Skip rendering if invisible
     if (cell.flags & CellFlags.INVISIBLE) {

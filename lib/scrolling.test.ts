@@ -335,11 +335,12 @@ describe('Terminal Scrolling', () => {
 });
 
 /**
+ *
  * Tests for scrolling methods and events (Phase 2)
  */
 describe('Scrolling Methods', () => {
-  let term: Terminal | null = null;
-  let container: HTMLDivElement | null = null;
+  let term: Terminal;
+  let container: HTMLDivElement;
 
   beforeEach(async () => {
     container = document.createElement('div');
@@ -351,8 +352,8 @@ describe('Scrolling Methods', () => {
   afterEach(() => {
     term.dispose();
     document.body.removeChild(container);
-    term = null;
-    container = null;
+    term = null!;
+    container = null!;
   });
 
   test('scrollLines() should scroll viewport up', async () => {
@@ -492,8 +493,8 @@ describe('Scrolling Methods', () => {
 });
 
 describe('Scroll Events', () => {
-  let term: Terminal | null = null;
-  let container: HTMLDivElement | null = null;
+  let term: Terminal;
+  let container: HTMLDivElement;
 
   beforeEach(async () => {
     container = document.createElement('div');
@@ -503,10 +504,10 @@ describe('Scroll Events', () => {
   });
 
   afterEach(() => {
-    term!.dispose();
+    term.dispose();
     document.body.removeChild(container!);
-    term = null;
-    container = null;
+    term = null!;
+    container = null!;
   });
 
   test('onScroll should fire when scrolling', async () => {
@@ -589,8 +590,8 @@ describe('Scroll Events', () => {
 });
 
 describe('Custom Wheel Event Handler', () => {
-  let term: Terminal | null = null;
-  let container: HTMLDivElement | null = null;
+  let term: Terminal;
+  let container: HTMLDivElement;
 
   beforeEach(async () => {
     container = document.createElement('div');
@@ -602,8 +603,8 @@ describe('Custom Wheel Event Handler', () => {
   afterEach(() => {
     term!.dispose();
     document.body.removeChild(container!);
-    term = null;
-    container = null;
+    term = null!;
+    container = null!;
   });
 
   test('attachCustomWheelEventHandler() should set handler', async () => {

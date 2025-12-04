@@ -342,45 +342,44 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
   ghostty_key_event_set_mods(event: number, mods: number): void;
   ghostty_key_event_set_utf8(event: number, ptr: number, len: number): void;
 
-  // Terminal
+  // Terminal lifecycle
   ghostty_terminal_new(cols: number, rows: number): TerminalHandle;
   ghostty_terminal_new_with_config(cols: number, rows: number, configPtr: number): TerminalHandle;
   ghostty_terminal_free(terminal: TerminalHandle): void;
-  ghostty_terminal_write(terminal: TerminalHandle, dataPtr: number, dataLen: number): void;
   ghostty_terminal_resize(terminal: TerminalHandle, cols: number, rows: number): void;
-  ghostty_terminal_get_cols(terminal: TerminalHandle): number;
-  ghostty_terminal_get_rows(terminal: TerminalHandle): number;
-  ghostty_terminal_get_cursor_x(terminal: TerminalHandle): number;
-  ghostty_terminal_get_cursor_y(terminal: TerminalHandle): number;
-  ghostty_terminal_get_cursor_visible(terminal: TerminalHandle): boolean;
+  ghostty_terminal_write(terminal: TerminalHandle, dataPtr: number, dataLen: number): void;
+
+  // RenderState API - high-performance rendering (ONE call gets ALL data)
+  ghostty_render_state_update(terminal: TerminalHandle): number; // 0=none, 1=partial, 2=full
+  ghostty_render_state_get_cols(terminal: TerminalHandle): number;
+  ghostty_render_state_get_rows(terminal: TerminalHandle): number;
+  ghostty_render_state_get_cursor_x(terminal: TerminalHandle): number;
+  ghostty_render_state_get_cursor_y(terminal: TerminalHandle): number;
+  ghostty_render_state_get_cursor_visible(terminal: TerminalHandle): boolean;
+  ghostty_render_state_get_bg_color(terminal: TerminalHandle): number; // 0xRRGGBB
+  ghostty_render_state_get_fg_color(terminal: TerminalHandle): number; // 0xRRGGBB
+  ghostty_render_state_is_row_dirty(terminal: TerminalHandle, row: number): boolean;
+  ghostty_render_state_mark_clean(terminal: TerminalHandle): void;
+  ghostty_render_state_get_viewport(
+    terminal: TerminalHandle,
+    bufPtr: number,
+    bufLen: number
+  ): number; // Returns total cells written or -1 on error
+
+  // Terminal modes
   ghostty_terminal_is_alternate_screen(terminal: TerminalHandle): boolean;
-  ghostty_terminal_is_row_wrapped(terminal: TerminalHandle, row: number): boolean;
-  ghostty_terminal_is_dirty(terminal: TerminalHandle): boolean;
-  ghostty_terminal_is_row_dirty(terminal: TerminalHandle, row: number): boolean;
-  ghostty_terminal_clear_dirty(terminal: TerminalHandle): void;
-  ghostty_terminal_get_hyperlink_uri(
-    terminal: TerminalHandle,
-    hyperlinkId: number,
-    bufPtr: number,
-    bufLen: number
-  ): number; // returns bytes written
-  ghostty_terminal_get_line(
-    terminal: TerminalHandle,
-    row: number,
-    bufPtr: number,
-    bufLen: number
-  ): number;
+  ghostty_terminal_has_mouse_tracking(terminal: TerminalHandle): number;
+  ghostty_terminal_get_mode(terminal: TerminalHandle, mode: number, isAnsi: boolean): number;
+
+  // Scrollback API
+  ghostty_terminal_get_scrollback_length(terminal: TerminalHandle): number;
   ghostty_terminal_get_scrollback_line(
     terminal: TerminalHandle,
     offset: number,
     bufPtr: number,
     bufLen: number
-  ): number;
-  ghostty_terminal_get_scrollback_length(terminal: TerminalHandle): number;
-  ghostty_terminal_get_mode(terminal: TerminalHandle, mode: number, isAnsi: number): number;
-  ghostty_terminal_has_bracketed_paste(terminal: TerminalHandle): number;
-  ghostty_terminal_has_focus_events(terminal: TerminalHandle): number;
-  ghostty_terminal_has_mouse_tracking(terminal: TerminalHandle): number;
+  ): number; // Returns cells written or -1 on error
+  ghostty_terminal_is_row_wrapped(terminal: TerminalHandle, row: number): number;
 }
 
 // ============================================================================
@@ -388,15 +387,57 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
 // ============================================================================
 
 /**
- * Terminal configuration for WASM.
- * All colors use 0xRRGGBB format. A value of 0 means "use default".
+ * Dirty state from RenderState
+ */
+export enum DirtyState {
+  NONE = 0,
+  PARTIAL = 1,
+  FULL = 2,
+}
+
+/**
+ * Cursor state from RenderState (8 bytes packed)
+ * Layout: x(u16) + y(u16) + viewport_x(i16) + viewport_y(i16) + visible(bool) + blinking(bool) + style(u8) + _pad(u8)
+ */
+export interface RenderStateCursor {
+  x: number;
+  y: number;
+  viewportX: number; // -1 if not in viewport
+  viewportY: number;
+  visible: boolean;
+  blinking: boolean;
+  style: 'block' | 'underline' | 'bar';
+}
+
+/**
+ * Colors from RenderState (12 bytes packed)
+ */
+export interface RenderStateColors {
+  background: RGB;
+  foreground: RGB;
+  cursor: RGB | null;
+}
+
+/**
+ * Size of cursor struct in WASM (8 bytes)
+ */
+export const CURSOR_STRUCT_SIZE = 8;
+
+/**
+ * Size of colors struct in WASM (12 bytes)
+ */
+export const COLORS_STRUCT_SIZE = 12;
+
+/**
+ * Terminal configuration (passed to ghostty_terminal_new_with_config)
+ * All color values use 0xRRGGBB format. A value of 0 means "use default".
  */
 export interface GhosttyTerminalConfig {
   scrollbackLimit?: number;
-  fgColor?: number; // 0xRRGGBB
-  bgColor?: number; // 0xRRGGBB
-  cursorColor?: number; // 0xRRGGBB
-  palette?: number[]; // 16 colors, 0xRRGGBB format
+  fgColor?: number;
+  bgColor?: number;
+  cursorColor?: number;
+  palette?: number[];
 }
 
 /**

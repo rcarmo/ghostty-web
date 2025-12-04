@@ -29,69 +29,33 @@ index 4f8fef88e..ca9fb1d4d 100644
  #include <ghostty/vt/key.h>
 diff --git a/include/ghostty/vt/terminal.h b/include/ghostty/vt/terminal.h
 new file mode 100644
-index 000000000..078a0b872
+index 000000000..e371164b6
 --- /dev/null
 +++ b/include/ghostty/vt/terminal.h
-@@ -0,0 +1,499 @@
+@@ -0,0 +1,192 @@
 +/**
 + * @file terminal.h
 + *
-+ * Complete terminal emulator API for WASM integration.
++ * Minimal, high-performance terminal emulator API for WASM.
++ *
++ * The key optimization is the RenderState API which provides a pre-computed
++ * snapshot of all render data in a single update call, avoiding multiple
++ * WASM boundary crossings.
++ *
++ * Basic usage:
++ *   1. Create terminal: ghostty_terminal_new(80, 24)
++ *   2. Write data: ghostty_terminal_write(term, data, len)
++ *   3. Each frame:
++ *      - ghostty_render_state_update(term)
++ *      - ghostty_render_state_get_viewport(term, buffer, size)
++ *      - Render the buffer
++ *      - ghostty_render_state_mark_clean(term)
++ *   4. Free: ghostty_terminal_free(term)
 + */
 +
 +#ifndef GHOSTTY_VT_TERMINAL_H
 +#define GHOSTTY_VT_TERMINAL_H
 +
-+/** @defgroup terminal Terminal Emulator
-+ *
-+ * Complete terminal emulator with VT100/ANSI parsing and screen buffer management.
-+ *
-+ * This API exports Ghostty's production-tested terminal emulator for use in
-+ * WASM environments. It handles all VT sequence parsing, screen buffer management,
-+ * scrollback, cursor positioning, and text styling.
-+ *
-+ * ## Basic Usage
-+ *
-+ * 1. Create a terminal with ghostty_terminal_new()
-+ * 2. Write data with ghostty_terminal_write() (parses VT sequences)
-+ * 3. Read screen content with ghostty_terminal_get_line()
-+ * 4. Query cursor position with ghostty_terminal_get_cursor_x/y()
-+ * 5. Free with ghostty_terminal_free() when done
-+ *
-+ * ## Example
-+ *
-+ * @code{.c}
-+ * #include <ghostty/vt.h>
-+ * #include <string.h>
-+ *
-+ * int main() {
-+ *   // Create 80x24 terminal
-+ *   GhosttyTerminal term = ghostty_terminal_new(80, 24);
-+ *   if (!term) return 1;
-+ *
-+ *   // Write some text with color
-+ *   const char* data = "Hello \x1b[31mRed\x1b[0m World!";
-+ *   ghostty_terminal_write(term, (const uint8_t*)data, strlen(data));
-+ *
-+ *   // Read first line
-+ *   GhosttyCell cells[80];
-+ *   int count = ghostty_terminal_get_line(term, 0, cells, 80);
-+ *
-+ *   // Check cursor position
-+ *   int x = ghostty_terminal_get_cursor_x(term);
-+ *   int y = ghostty_terminal_get_cursor_y(term);
-+ *
-+ *   // Cleanup
-+ *   ghostty_terminal_free(term);
-+ *   return 0;
-+ * }
-+ * @endcode
-+ *
-+ * @{
-+ */
-+
-+#include <ghostty/vt/allocator.h>
-+#include <ghostty/vt/result.h>
 +#include <stdbool.h>
 +#include <stddef.h>
 +#include <stdint.h>
@@ -100,137 +64,67 @@ index 000000000..078a0b872
 +extern "C" {
 +#endif
 +
-+/**
-+ * Opaque terminal handle.
-+ *
-+ * Represents a terminal emulator instance. Create with ghostty_terminal_new()
-+ * and free with ghostty_terminal_free().
-+ */
++/** Opaque terminal handle */
 +typedef void* GhosttyTerminal;
 +
 +/**
-+ * Terminal configuration options.
-+ *
-+ * Used when creating a new terminal to specify behavior and limits.
-+ * All colors use 0xRRGGBB format. A value of 0 means "use default".
++ * Terminal configuration.
++ * All color values use 0xRRGGBB format. A value of 0 means "use default".
 + */
 +typedef struct {
-+    /**
-+     * Maximum scrollback lines (0 = unlimited, default = 10000).
-+     *
-+     * Limits memory usage by restricting how many lines of history are kept.
-+     * For WASM environments, a reasonable limit is recommended.
-+     */
++    /** Maximum scrollback lines (0 = unlimited) */
 +    uint32_t scrollback_limit;
-+
-+    /**
-+     * Initial foreground color (RGB, 0xRRGGBB format, 0 = use default).
-+     */
++    /** Default foreground color (0xRRGGBB, 0 = default) */
 +    uint32_t fg_color;
-+
-+    /**
-+     * Initial background color (RGB, 0xRRGGBB format, 0 = use default).
-+     */
++    /** Default background color (0xRRGGBB, 0 = default) */
 +    uint32_t bg_color;
-+
-+    /**
-+     * Cursor color (RGB, 0xRRGGBB format, 0 = use default).
-+     */
++    /** Cursor color (0xRRGGBB, 0 = default) */
 +    uint32_t cursor_color;
-+
-+    /**
-+     * ANSI color palette (16 colors, 0xRRGGBB format, 0 = use default).
-+     * Index 0-7: Normal colors (black, red, green, yellow, blue, magenta, cyan, white)
-+     * Index 8-15: Bright colors (same order)
-+     */
++    /** ANSI color palette (16 colors, 0xRRGGBB format, 0 = default) */
 +    uint32_t palette[16];
 +} GhosttyTerminalConfig;
 +
-+/**
-+ * Cell structure - represents a single character position.
-+ *
-+ * This is designed to be simple and C-compatible. Colors are always
-+ * exported as RGB (terminal color palette is resolved internally).
-+ *
-+ * Size: 16 bytes (efficient for bulk transfers across WASM boundary)
-+ */
++/** Cell structure - 16 bytes, pre-resolved colors */
 +typedef struct {
-+    /** Unicode codepoint (0 = empty cell) */
 +    uint32_t codepoint;
-+
-+    /** Foreground color - Red component (0-255) */
-+    uint8_t fg_r;
-+    /** Foreground color - Green component (0-255) */
-+    uint8_t fg_g;
-+    /** Foreground color - Blue component (0-255) */
-+    uint8_t fg_b;
-+
-+    /** Background color - Red component (0-255) */
-+    uint8_t bg_r;
-+    /** Background color - Green component (0-255) */
-+    uint8_t bg_g;
-+    /** Background color - Blue component (0-255) */
-+    uint8_t bg_b;
-+
-+    /** Style flags (see GHOSTTY_CELL_* constants) */
++    uint8_t fg_r, fg_g, fg_b;
++    uint8_t bg_r, bg_g, bg_b;
 +    uint8_t flags;
-+
-+    /** Character width: 0=combining, 1=normal, 2=wide (CJK) */
 +    uint8_t width;
-+
-+    /** Hyperlink ID (0 = no link, >0 = lookup in hyperlink set) */
 +    uint16_t hyperlink_id;
-+
-+    /** Padding for alignment (keeps struct at 16 bytes) */
-+    uint32_t _padding;
++    uint16_t _pad;
 +} GhosttyCell;
 +
-+/** Cell flag: Bold text */
++/** Cell flags */
 +#define GHOSTTY_CELL_BOLD          (1 << 0)
-+/** Cell flag: Italic text */
 +#define GHOSTTY_CELL_ITALIC        (1 << 1)
-+/** Cell flag: Underlined text */
 +#define GHOSTTY_CELL_UNDERLINE     (1 << 2)
-+/** Cell flag: Strikethrough text */
 +#define GHOSTTY_CELL_STRIKETHROUGH (1 << 3)
-+/** Cell flag: Inverse video (swap fg/bg) */
 +#define GHOSTTY_CELL_INVERSE       (1 << 4)
-+/** Cell flag: Invisible text */
 +#define GHOSTTY_CELL_INVISIBLE     (1 << 5)
-+/** Cell flag: Blinking text */
 +#define GHOSTTY_CELL_BLINK         (1 << 6)
-+/** Cell flag: Faint/dim text */
 +#define GHOSTTY_CELL_FAINT         (1 << 7)
 +
++/** Dirty state */
++typedef enum {
++    GHOSTTY_DIRTY_NONE = 0,
++    GHOSTTY_DIRTY_PARTIAL = 1,
++    GHOSTTY_DIRTY_FULL = 2
++} GhosttyDirty;
++
 +/* ============================================================================
-+ * Lifecycle Management
++ * Lifecycle
 + * ========================================================================= */
 +
-+/**
-+ * Create a new terminal instance with default configuration.
-+ *
-+ * Creates an 80x24 terminal with default settings (10,000 line scrollback,
-+ * standard color palette, autowrap enabled).
-+ *
-+ * @param cols Number of columns (typically 80, minimum 1)
-+ * @param rows Number of rows (typically 24, minimum 1)
-+ * @return Terminal handle, or NULL on allocation failure
-+ *
-+ * @see ghostty_terminal_new_with_config() for custom configuration
-+ * @see ghostty_terminal_free()
-+ */
++/** Create a new terminal with default settings */
 +GhosttyTerminal ghostty_terminal_new(int cols, int rows);
 +
 +/**
-+ * Create a new terminal instance with custom configuration.
-+ *
-+ * @param cols Number of columns (typically 80, minimum 1)
-+ * @param rows Number of rows (typically 24, minimum 1)
++ * Create a new terminal with custom configuration.
++ * @param cols Number of columns
++ * @param rows Number of rows
 + * @param config Configuration options (NULL = use defaults)
-+ * @return Terminal handle, or NULL on allocation failure
-+ *
-+ * @see ghostty_terminal_new()
-+ * @see ghostty_terminal_free()
++ * @return Terminal handle, or NULL on failure
 + */
 +GhosttyTerminal ghostty_terminal_new_with_config(
 +    int cols,
@@ -238,336 +132,141 @@ index 000000000..078a0b872
 +    const GhosttyTerminalConfig* config
 +);
 +
-+/**
-+ * Free a terminal instance.
-+ *
-+ * Releases all memory associated with the terminal. The handle becomes
-+ * invalid after this call.
-+ *
-+ * @param term Terminal to free (NULL is safe)
-+ */
++/** Free a terminal */
 +void ghostty_terminal_free(GhosttyTerminal term);
 +
-+/**
-+ * Resize the terminal.
-+ *
-+ * Changes the terminal dimensions. Content is preserved where possible,
-+ * with appropriate reflowing or truncation.
-+ *
-+ * @param term Terminal instance
-+ * @param cols New column count (minimum 1)
-+ * @param rows New row count (minimum 1)
-+ */
++/** Resize terminal */
 +void ghostty_terminal_resize(GhosttyTerminal term, int cols, int rows);
 +
-+/* ============================================================================
-+ * Input/Output
-+ * ========================================================================= */
-+
-+/**
-+ * Write data to terminal (parses VT sequences and updates screen).
-+ *
-+ * This is the main entry point - all terminal output goes through here.
-+ * The data is parsed as VT100/ANSI escape sequences and the screen
-+ * buffer is updated accordingly.
-+ *
-+ * Supports:
-+ * - Text output (UTF-8)
-+ * - CSI sequences (colors, cursor movement, etc.)
-+ * - OSC sequences (title, colors, etc.)
-+ * - All standard VT100/xterm sequences
-+ *
-+ * @param term Terminal instance
-+ * @param data UTF-8 encoded data (may contain VT sequences)
-+ * @param len Length of data in bytes
-+ *
-+ * @note This function marks affected rows as dirty for rendering optimization
-+ */
++/** Write data to terminal (parses VT sequences) */
 +void ghostty_terminal_write(GhosttyTerminal term, const uint8_t* data, size_t len);
 +
 +/* ============================================================================
-+ * Screen Queries
++ * RenderState API - High-performance rendering
 + * ========================================================================= */
 +
-+/**
-+ * Get terminal width in columns.
-+ *
-+ * @param term Terminal instance
-+ * @return Number of columns, or 0 if term is NULL
-+ */
-+int ghostty_terminal_get_cols(GhosttyTerminal term);
++/** Update render state from terminal. Call once per frame. */
++GhosttyDirty ghostty_render_state_update(GhosttyTerminal term);
++
++/** Get dimensions */
++int ghostty_render_state_get_cols(GhosttyTerminal term);
++int ghostty_render_state_get_rows(GhosttyTerminal term);
++
++/** Get cursor state (individual getters for WASM efficiency) */
++int ghostty_render_state_get_cursor_x(GhosttyTerminal term);
++int ghostty_render_state_get_cursor_y(GhosttyTerminal term);
++bool ghostty_render_state_get_cursor_visible(GhosttyTerminal term);
++
++/** Get default colors as 0xRRGGBB */
++uint32_t ghostty_render_state_get_bg_color(GhosttyTerminal term);
++uint32_t ghostty_render_state_get_fg_color(GhosttyTerminal term);
++
++/** Check if a row is dirty */
++bool ghostty_render_state_is_row_dirty(GhosttyTerminal term, int y);
++
++/** Mark render state as clean (call after rendering) */
++void ghostty_render_state_mark_clean(GhosttyTerminal term);
 +
 +/**
-+ * Get terminal height in rows.
-+ *
-+ * @param term Terminal instance
-+ * @return Number of rows, or 0 if term is NULL
++ * Get ALL viewport cells in one call - the key performance optimization!
++ * Buffer must be at least (rows * cols) cells.
++ * Returns total cells written, or -1 on error.
 + */
-+int ghostty_terminal_get_rows(GhosttyTerminal term);
-+
-+/**
-+ * Get cursor X position (column).
-+ *
-+ * @param term Terminal instance
-+ * @return Column position (0-indexed), or 0 if term is NULL
-+ */
-+int ghostty_terminal_get_cursor_x(GhosttyTerminal term);
-+
-+/**
-+ * Get cursor Y position (row).
-+ *
-+ * @param term Terminal instance
-+ * @return Row position (0-indexed), or 0 if term is NULL
-+ */
-+int ghostty_terminal_get_cursor_y(GhosttyTerminal term);
-+
-+/**
-+ * Get cursor visibility state.
-+ *
-+ * @param term Terminal instance
-+ * @return true if cursor is visible, false otherwise
-+ */
-+bool ghostty_terminal_get_cursor_visible(GhosttyTerminal term);
-+
-+/**
-+ * Check if terminal is in alternate screen buffer mode.
-+ */
-+bool ghostty_terminal_is_alternate_screen(GhosttyTerminal term);
-+
-+/**
-+ * Check if a row is wrapped from the previous row.
-+ */
-+bool ghostty_terminal_is_row_wrapped(GhosttyTerminal term, int row);
-+
-+/**
-+ * Get scrollback length (number of lines in history).
-+ *
-+ * @param term Terminal instance
-+ * @return Number of scrollback lines, or 0 if none/NULL
-+ */
-+int ghostty_terminal_get_scrollback_length(GhosttyTerminal term);
-+
-+/* ============================================================================
-+ * Cell Data Access
-+ * ========================================================================= */
-+
-+/**
-+ * Get a line of cells from the visible screen.
-+ *
-+ * Retrieves an entire row of cells at once for efficient rendering.
-+ * Colors are returned as RGB values (palette indices are resolved).
-+ *
-+ * @param term Terminal instance
-+ * @param y Line number (0-indexed, 0 = top visible line)
-+ * @param out_buffer Output buffer (must have space for at least 'cols' cells)
-+ * @param buffer_size Size of output buffer in cells (should be >= cols)
-+ * @return Number of cells written (equals cols on success), or -1 on error
-+ *
-+ * @note Always writes exactly 'cols' cells, padding with empty cells if needed
-+ */
-+int ghostty_terminal_get_line(
++int ghostty_render_state_get_viewport(
 +    GhosttyTerminal term,
-+    int y,
 +    GhosttyCell* out_buffer,
 +    size_t buffer_size
 +);
-+
-+/**
-+ * Get a line from scrollback history.
-+ *
-+ * @param term Terminal instance
-+ * @param y Line number (0 = oldest scrollback line)
-+ * @param out_buffer Output buffer
-+ * @param buffer_size Size of output buffer in cells
-+ * @return Number of cells written, or -1 on error/not implemented
-+ *
-+ * @note Currently not implemented - returns -1
-+ */
-+int ghostty_terminal_get_scrollback_line(
-+    GhosttyTerminal term,
-+    int y,
-+    GhosttyCell* out_buffer,
-+    size_t buffer_size
-+);
-+
-+/* ============================================================================
-+ * Dirty Tracking (for efficient rendering)
-+ * ========================================================================= */
-+
-+/**
-+ * Check if any part of the screen is dirty.
-+ *
-+ * Dirty tracking helps optimize rendering by identifying what changed.
-+ * After writing to the terminal, check which rows are dirty and only
-+ * re-render those.
-+ *
-+ * @param term Terminal instance
-+ * @return true if any row needs redrawing, false otherwise
-+ *
-+ * @see ghostty_terminal_is_row_dirty()
-+ * @see ghostty_terminal_clear_dirty()
-+ */
-+bool ghostty_terminal_is_dirty(GhosttyTerminal term);
-+
-+/**
-+ * Check if a specific row is dirty.
-+ *
-+ * @param term Terminal instance
-+ * @param y Row number (0-indexed)
-+ * @return true if row needs redrawing, false otherwise
-+ */
-+bool ghostty_terminal_is_row_dirty(GhosttyTerminal term, int y);
-+
-+/**
-+ * Clear all dirty flags (call after rendering).
-+ *
-+ * After reading dirty rows and re-rendering them, call this to mark
-+ * the screen as clean.
-+ *
-+ * @param term Terminal instance
-+ */
-+void ghostty_terminal_clear_dirty(GhosttyTerminal term);
-+
-+/* ============================================================================
-+ * Hyperlink Support
-+ * ========================================================================= */
-+
-+/**
-+ * Get hyperlink URI by ID.
-+ *
-+ * Retrieves the URI string for a hyperlink ID obtained from a GhosttyCell.
-+ * The URI is written to the provided buffer.
-+ *
-+ * @param term Terminal instance
-+ * @param hyperlink_id Hyperlink ID from GhosttyCell (must be > 0)
-+ * @param out_buffer Buffer to write URI string (UTF-8)
-+ * @param buffer_size Size of output buffer in bytes
-+ * @return Number of bytes written (not including null terminator), or 0 if:
-+ *         - hyperlink_id is 0 or invalid
-+ *         - URI doesn't exist
-+ *         - buffer is too small (URI is truncated)
-+ *
-+ * @note The returned string is NOT null-terminated. Use the return value
-+ *       to determine the actual length.
-+ */
-+int ghostty_terminal_get_hyperlink_uri(
-+    GhosttyTerminal term,
-+    uint16_t hyperlink_id,
-+    uint8_t* out_buffer,
-+    size_t buffer_size
-+);
-+
 +
 +/* ============================================================================
 + * Terminal Modes
 + * ========================================================================= */
 +
-+/**
-+ * Query terminal mode state.
-+ *
-+ * This function queries whether a specific terminal mode is enabled or disabled.
-+ * Modes can be either ANSI modes or DEC private modes (indicated by is_ansi parameter).
-+ *
-+ * Common DEC modes (is_ansi = false):
-+ * - 25   = Cursor visible (DECTCEM)
-+ * - 1000 = Mouse tracking (normal)
-+ * - 1002 = Mouse tracking (button events)
-+ * - 1003 = Mouse tracking (any events)
-+ * - 1004 = Focus event reporting
-+ * - 1047 = Alternate screen buffer
-+ * - 1049 = Alternate screen buffer with cursor save
-+ * - 2004 = Bracketed paste mode
-+ *
-+ * Common ANSI modes (is_ansi = true):
-+ * - 4 = Insert/replace mode (IRM)
-+ *
-+ * @param term Terminal instance
-+ * @param mode_number Mode number to query
-+ * @param is_ansi true for ANSI modes, false for DEC private modes
-+ * @return true if mode is enabled, false if disabled or mode is invalid
-+ */
-+bool ghostty_terminal_get_mode(GhosttyTerminal term, int mode_number, bool is_ansi);
++/** Check if alternate screen is active */
++bool ghostty_terminal_is_alternate_screen(GhosttyTerminal term);
 +
-+/**
-+ * Check if bracketed paste mode is enabled (DEC mode 2004).
-+ *
-+ * Bracketed paste wraps pasted text with escape sequences to distinguish
-+ * it from typed text: ESC[200~ ... ESC[201~
-+ *
-+ * @param term Terminal instance
-+ * @return true if bracketed paste is enabled
-+ */
-+bool ghostty_terminal_has_bracketed_paste(GhosttyTerminal term);
-+
-+/**
-+ * Check if focus event reporting is enabled (DEC mode 1004).
-+ *
-+ * When enabled, the terminal reports focus in/out events:
-+ * - Focus in:  ESC[I
-+ * - Focus out: ESC[O
-+ *
-+ * @param term Terminal instance
-+ * @return true if focus events are enabled
-+ */
-+bool ghostty_terminal_has_focus_events(GhosttyTerminal term);
-+
-+/**
-+ * Check if any mouse tracking mode is enabled.
-+ *
-+ * Returns true if any of these DEC modes are enabled:
-+ * - 1000: Normal mouse tracking
-+ * - 1002: Button event tracking
-+ * - 1003: Any event tracking
-+ *
-+ * @param term Terminal instance
-+ * @return true if mouse tracking is enabled
-+ */
++/** Check if any mouse tracking mode is enabled */
 +bool ghostty_terminal_has_mouse_tracking(GhosttyTerminal term);
 +
++/**
++ * Query arbitrary terminal mode by number.
++ * @param mode Mode number (e.g., 25 for cursor visibility, 2004 for bracketed paste)
++ * @param is_ansi true for ANSI modes, false for DEC modes
++ * @return true if mode is enabled
++ */
++bool ghostty_terminal_get_mode(GhosttyTerminal term, int mode, bool is_ansi);
++
++/* ============================================================================
++ * Scrollback API
++ * ========================================================================= */
++
++/** Get number of scrollback lines (history, not including active screen) */
++int ghostty_terminal_get_scrollback_length(GhosttyTerminal term);
++
++/**
++ * Get a line from the scrollback buffer.
++ * @param offset 0 = oldest line, (length-1) = most recent scrollback line
++ * @param out_buffer Buffer to write cells to
++ * @param buffer_size Size of buffer in cells (must be >= cols)
++ * @return Number of cells written, or -1 on error
++ */
++int ghostty_terminal_get_scrollback_line(
++    GhosttyTerminal term,
++    int offset,
++    GhosttyCell* out_buffer,
++    size_t buffer_size
++);
++
++/** Check if a row is a continuation from previous row (soft-wrapped) */
++bool ghostty_terminal_is_row_wrapped(GhosttyTerminal term, int y);
 +
 +#ifdef __cplusplus
 +}
 +#endif
 +
-+/** @} */
-+
 +#endif /* GHOSTTY_VT_TERMINAL_H */
 diff --git a/src/lib_vt.zig b/src/lib_vt.zig
-index e95eee5f4..687ccc6a3 100644
+index 03a883e20..35f6b787f 100644
 --- a/src/lib_vt.zig
 +++ b/src/lib_vt.zig
-@@ -137,6 +137,29 @@ comptime {
+@@ -140,6 +140,35 @@ comptime {
          @export(&c.sgr_unknown_partial, .{ .name = "ghostty_sgr_unknown_partial" });
          @export(&c.sgr_attribute_tag, .{ .name = "ghostty_sgr_attribute_tag" });
          @export(&c.sgr_attribute_value, .{ .name = "ghostty_sgr_attribute_value" });
++        // Terminal lifecycle
 +        @export(&c.terminal_new, .{ .name = "ghostty_terminal_new" });
 +        @export(&c.terminal_new_with_config, .{ .name = "ghostty_terminal_new_with_config" });
 +        @export(&c.terminal_free, .{ .name = "ghostty_terminal_free" });
 +        @export(&c.terminal_resize, .{ .name = "ghostty_terminal_resize" });
 +        @export(&c.terminal_write, .{ .name = "ghostty_terminal_write" });
-+        @export(&c.terminal_get_cols, .{ .name = "ghostty_terminal_get_cols" });
-+        @export(&c.terminal_get_rows, .{ .name = "ghostty_terminal_get_rows" });
-+        @export(&c.terminal_get_cursor_x, .{ .name = "ghostty_terminal_get_cursor_x" });
-+        @export(&c.terminal_get_cursor_y, .{ .name = "ghostty_terminal_get_cursor_y" });
-+        @export(&c.terminal_get_cursor_visible, .{ .name = "ghostty_terminal_get_cursor_visible" });
++
++        // RenderState API - high-performance rendering
++        @export(&c.render_state_update, .{ .name = "ghostty_render_state_update" });
++        @export(&c.render_state_get_cols, .{ .name = "ghostty_render_state_get_cols" });
++        @export(&c.render_state_get_rows, .{ .name = "ghostty_render_state_get_rows" });
++        @export(&c.render_state_get_cursor_x, .{ .name = "ghostty_render_state_get_cursor_x" });
++        @export(&c.render_state_get_cursor_y, .{ .name = "ghostty_render_state_get_cursor_y" });
++        @export(&c.render_state_get_cursor_visible, .{ .name = "ghostty_render_state_get_cursor_visible" });
++        @export(&c.render_state_get_bg_color, .{ .name = "ghostty_render_state_get_bg_color" });
++        @export(&c.render_state_get_fg_color, .{ .name = "ghostty_render_state_get_fg_color" });
++        @export(&c.render_state_is_row_dirty, .{ .name = "ghostty_render_state_is_row_dirty" });
++        @export(&c.render_state_mark_clean, .{ .name = "ghostty_render_state_mark_clean" });
++        @export(&c.render_state_get_viewport, .{ .name = "ghostty_render_state_get_viewport" });
++
++        // Terminal modes
 +        @export(&c.terminal_is_alternate_screen, .{ .name = "ghostty_terminal_is_alternate_screen" });
-+        @export(&c.terminal_is_row_wrapped, .{ .name = "ghostty_terminal_is_row_wrapped" });
-+        @export(&c.terminal_get_scrollback_length, .{ .name = "ghostty_terminal_get_scrollback_length" });
-+        @export(&c.terminal_get_line, .{ .name = "ghostty_terminal_get_line" });
-+        @export(&c.terminal_get_scrollback_line, .{ .name = "ghostty_terminal_get_scrollback_line" });
-+        @export(&c.terminal_is_dirty, .{ .name = "ghostty_terminal_is_dirty" });
-+        @export(&c.terminal_is_row_dirty, .{ .name = "ghostty_terminal_is_row_dirty" });
-+        @export(&c.terminal_clear_dirty, .{ .name = "ghostty_terminal_clear_dirty" });
-+        @export(&c.terminal_get_hyperlink_uri, .{ .name = "ghostty_terminal_get_hyperlink_uri" });
-+        @export(&c.terminal_get_mode, .{ .name = "ghostty_terminal_get_mode" });
-+        @export(&c.terminal_has_bracketed_paste, .{ .name = "ghostty_terminal_has_bracketed_paste" });
-+        @export(&c.terminal_has_focus_events, .{ .name = "ghostty_terminal_has_focus_events" });
 +        @export(&c.terminal_has_mouse_tracking, .{ .name = "ghostty_terminal_has_mouse_tracking" });
++        @export(&c.terminal_get_mode, .{ .name = "ghostty_terminal_get_mode" });
++
++        // Scrollback API
++        @export(&c.terminal_get_scrollback_length, .{ .name = "ghostty_terminal_get_scrollback_length" });
++        @export(&c.terminal_get_scrollback_line, .{ .name = "ghostty_terminal_get_scrollback_line" });
++        @export(&c.terminal_is_row_wrapped, .{ .name = "ghostty_terminal_is_row_wrapped" });
  
          // On Wasm we need to export our allocator convenience functions.
          if (builtin.target.cpu.arch.isWasm()) {
 diff --git a/src/terminal/c/main.zig b/src/terminal/c/main.zig
-index bc92597f5..d988967f7 100644
+index bc92597f5..6a97183fe 100644
 --- a/src/terminal/c/main.zig
 +++ b/src/terminal/c/main.zig
 @@ -4,6 +4,7 @@ pub const key_event = @import("key_event.zig");
@@ -578,38 +277,44 @@ index bc92597f5..d988967f7 100644
  
  // The full C API, unexported.
  pub const osc_new = osc.new;
-@@ -52,6 +53,30 @@ pub const key_encoder_encode = key_encode.encode;
+@@ -52,6 +53,36 @@ pub const key_encoder_encode = key_encode.encode;
  
  pub const paste_is_safe = paste.is_safe;
  
++// Terminal lifecycle
 +pub const terminal_new = terminal.new;
 +pub const terminal_new_with_config = terminal.newWithConfig;
 +pub const terminal_free = terminal.free;
 +pub const terminal_resize = terminal.resize;
 +pub const terminal_write = terminal.write;
-+pub const terminal_get_cols = terminal.getCols;
-+pub const terminal_get_rows = terminal.getRows;
-+pub const terminal_get_cursor_x = terminal.getCursorX;
-+pub const terminal_get_cursor_y = terminal.getCursorY;
-+pub const terminal_get_cursor_visible = terminal.getCursorVisible;
++
++// RenderState API - high-performance rendering
++pub const render_state_update = terminal.renderStateUpdate;
++pub const render_state_get_cols = terminal.renderStateGetCols;
++pub const render_state_get_rows = terminal.renderStateGetRows;
++pub const render_state_get_cursor_x = terminal.renderStateGetCursorX;
++pub const render_state_get_cursor_y = terminal.renderStateGetCursorY;
++pub const render_state_get_cursor_visible = terminal.renderStateGetCursorVisible;
++pub const render_state_get_bg_color = terminal.renderStateGetBgColor;
++pub const render_state_get_fg_color = terminal.renderStateGetFgColor;
++pub const render_state_is_row_dirty = terminal.renderStateIsRowDirty;
++pub const render_state_mark_clean = terminal.renderStateMarkClean;
++pub const render_state_get_viewport = terminal.renderStateGetViewport;
++
++// Terminal modes
 +pub const terminal_is_alternate_screen = terminal.isAlternateScreen;
-+pub const terminal_is_row_wrapped = terminal.isRowWrapped;
-+pub const terminal_get_scrollback_length = terminal.getScrollbackLength;
-+pub const terminal_get_line = terminal.getLine;
-+pub const terminal_get_scrollback_line = terminal.getScrollbackLine;
-+pub const terminal_is_dirty = terminal.isDirty;
-+pub const terminal_is_row_dirty = terminal.isRowDirty;
-+pub const terminal_clear_dirty = terminal.clearDirty;
-+pub const terminal_get_hyperlink_uri = terminal.getHyperlinkUri;
-+pub const terminal_get_mode = terminal.getMode;
-+pub const terminal_has_bracketed_paste = terminal.hasBracketedPaste;
-+pub const terminal_has_focus_events = terminal.hasFocusEvents;
 +pub const terminal_has_mouse_tracking = terminal.hasMouseTracking;
++pub const terminal_get_mode = terminal.getMode;
++
++// Scrollback API
++pub const terminal_get_scrollback_length = terminal.getScrollbackLength;
++pub const terminal_get_scrollback_line = terminal.getScrollbackLine;
++pub const terminal_is_row_wrapped = terminal.isRowWrapped;
 +
  test {
      _ = color;
      _ = osc;
-@@ -59,6 +84,7 @@ test {
+@@ -59,6 +90,7 @@ test {
      _ = key_encode;
      _ = paste;
      _ = sgr;
@@ -619,74 +324,70 @@ index bc92597f5..d988967f7 100644
      _ = @import("../../lib/allocator.zig");
 diff --git a/src/terminal/c/terminal.zig b/src/terminal/c/terminal.zig
 new file mode 100644
-index 000000000..e79702488
+index 000000000..3868eb17b
 --- /dev/null
 +++ b/src/terminal/c/terminal.zig
-@@ -0,0 +1,642 @@
+@@ -0,0 +1,567 @@
 +//! C API wrapper for Terminal
 +//!
-+//! This provides a C-compatible interface to Ghostty's Terminal for WASM export.
++//! This provides a minimal, high-performance interface to Ghostty's Terminal
++//! for WASM export. The key optimization is using RenderState which provides
++//! a pre-computed snapshot of all render data in a single update call.
++//!
++//! API Design:
++//! - Lifecycle: new, free, resize, write
++//! - Rendering: render_state_update, render_state_get_viewport, etc.
++//!
++//! The RenderState approach means:
++//! - ONE call to update all state (render_state_update)
++//! - ONE call to get all cells (render_state_get_viewport)
++//! - No per-row or per-cell WASM boundary crossings!
 +
 +const std = @import("std");
 +const Allocator = std.mem.Allocator;
-+const assert = std.debug.assert;
 +const builtin = @import("builtin");
 +
 +const Terminal = @import("../Terminal.zig");
 +const ReadonlyStream = @import("../stream_readonly.zig").Stream;
-+const size = @import("../size.zig");
-+const pagepkg = @import("../page.zig");
-+const Cell = pagepkg.Cell;
-+const PageList = @import("../PageList.zig");
++const render = @import("../render.zig");
++const RenderState = render.RenderState;
 +const color = @import("../color.zig");
-+const point = @import("../point.zig");
-+const style = @import("../style.zig");
 +const modespkg = @import("../modes.zig");
++const point = @import("../point.zig");
++const Style = @import("../style.zig").Style;
 +
 +const log = std.log.scoped(.terminal_c);
 +
-+/// Wrapper struct that owns both the Terminal and its allocator.
-+/// This is what we return as an opaque pointer to C.
++/// Wrapper struct that owns the Terminal, stream, and RenderState.
 +const TerminalWrapper = struct {
-+    /// The allocator that owns all terminal memory
 +    alloc: Allocator,
-+
-+    /// The terminal instance
 +    terminal: Terminal,
-+
-+    /// Persistent VT stream for parsing (preserves state across writes)
-+    /// This is critical for handling escape sequences split across WebSocket messages.
 +    stream: ReadonlyStream,
-+
-+    /// Dirty tracking - which rows have changed since last clear
-+    dirty_rows: []bool,
-+
-+    /// Configuration used for terminal
-+    config: Config,
-+
-+    const Config = struct {
-+        scrollback_limit: u32,
-+        fg_color: u32,
-+        bg_color: u32,
-+        cursor_color: u32,
-+        palette: [16]u32,
-+    };
++    render_state: RenderState,
++    /// Track alternate screen state to detect screen switches
++    last_screen_is_alternate: bool = false,
 +};
 +
-+/// C-compatible cell structure (14 bytes actual, padded to 16 by compiler)
++/// C-compatible cell structure (16 bytes)
 +pub const GhosttyCell = extern struct {
-+    codepoint: u32,       // 0-3
-+    fg_r: u8,             // 4
-+    fg_g: u8,             // 5
-+    fg_b: u8,             // 6
-+    bg_r: u8,             // 7
-+    bg_g: u8,             // 8
-+    bg_b: u8,             // 9
-+    flags: u8,            // 10
-+    width: u8,            // 11
-+    hyperlink_id: u16,    // 12-13 (0 = no link, >0 = hyperlink ID in set)
-+    // Compiler adds 2 bytes padding here to align to 4 bytes
-+    // Total size: 16 bytes with padding
++    codepoint: u32,
++    fg_r: u8,
++    fg_g: u8,
++    fg_b: u8,
++    bg_r: u8,
++    bg_g: u8,
++    bg_b: u8,
++    flags: u8,
++    width: u8,
++    hyperlink_id: u16,
++    _pad: u16 = 0,
++};
++
++/// Dirty state
++pub const GhosttyDirty = enum(u8) {
++    none = 0,
++    partial = 1,
++    full = 2,
 +};
 +
 +/// C-compatible terminal configuration
@@ -699,7 +400,7 @@ index 000000000..e79702488
 +};
 +
 +// ============================================================================
-+// Lifecycle Management
++// Lifecycle
 +// ============================================================================
 +
 +pub fn new(cols: c_int, rows: c_int) callconv(.c) ?*anyopaque {
@@ -711,465 +412,457 @@ index 000000000..e79702488
 +    rows: c_int,
 +    config_: ?*const GhosttyTerminalConfig,
 +) callconv(.c) ?*anyopaque {
-+    // Use WASM allocator for WASM builds, GPA otherwise
 +    const alloc = if (builtin.target.cpu.arch.isWasm())
 +        std.heap.wasm_allocator
 +    else
 +        std.heap.c_allocator;
 +
-+    // Parse configuration
-+    const config: TerminalWrapper.Config = if (config_) |cfg| .{
-+        .scrollback_limit = cfg.scrollback_limit,
-+        .fg_color = cfg.fg_color,
-+        .bg_color = cfg.bg_color,
-+        .cursor_color = cfg.cursor_color,
-+        .palette = cfg.palette,
-+    } else .{
-+        .scrollback_limit = 10_000,
-+        .fg_color = 0,
-+        .bg_color = 0,
-+        .cursor_color = 0,
-+        .palette = [_]u32{0} ** 16,
-+    };
++    const wrapper = alloc.create(TerminalWrapper) catch return null;
 +
-+    // Allocate wrapper
-+    const wrapper = alloc.create(TerminalWrapper) catch |err| {
-+        log.err("Failed to allocate TerminalWrapper: {}", .{err});
-+        return null;
-+    };
++    // Parse config or use defaults
++    const scrollback_limit: usize = if (config_) |cfg|
++        if (cfg.scrollback_limit == 0) std.math.maxInt(usize) else cfg.scrollback_limit
++    else
++        10_000;
 +
 +    // Setup terminal colors
 +    var colors = Terminal.Colors.default;
-+    if (config.fg_color != 0) {
-+        const rgb = color.RGB{
-+            .r = @truncate((config.fg_color >> 16) & 0xFF),
-+            .g = @truncate((config.fg_color >> 8) & 0xFF),
-+            .b = @truncate(config.fg_color & 0xFF),
-+        };
-+        colors.foreground = color.DynamicRGB.init(rgb);
-+    }
-+    if (config.bg_color != 0) {
-+        const rgb = color.RGB{
-+            .r = @truncate((config.bg_color >> 16) & 0xFF),
-+            .g = @truncate((config.bg_color >> 8) & 0xFF),
-+            .b = @truncate(config.bg_color & 0xFF),
-+        };
-+        colors.background = color.DynamicRGB.init(rgb);
-+    }
-+    if (config.cursor_color != 0) {
-+        const rgb = color.RGB{
-+            .r = @truncate((config.cursor_color >> 16) & 0xFF),
-+            .g = @truncate((config.cursor_color >> 8) & 0xFF),
-+            .b = @truncate(config.cursor_color & 0xFF),
-+        };
-+        colors.cursor = color.DynamicRGB.init(rgb);
-+    }
-+    // Apply palette colors (0 = use default, non-zero = override)
-+    for (config.palette, 0..) |palette_color, i| {
-+        if (palette_color != 0) {
++    if (config_) |cfg| {
++        if (cfg.fg_color != 0) {
 +            const rgb = color.RGB{
-+                .r = @truncate((palette_color >> 16) & 0xFF),
-+                .g = @truncate((palette_color >> 8) & 0xFF),
-+                .b = @truncate(palette_color & 0xFF),
++                .r = @truncate((cfg.fg_color >> 16) & 0xFF),
++                .g = @truncate((cfg.fg_color >> 8) & 0xFF),
++                .b = @truncate(cfg.fg_color & 0xFF),
 +            };
-+            colors.palette.set(@intCast(i), rgb);
++            colors.foreground = color.DynamicRGB.init(rgb);
++        }
++        if (cfg.bg_color != 0) {
++            const rgb = color.RGB{
++                .r = @truncate((cfg.bg_color >> 16) & 0xFF),
++                .g = @truncate((cfg.bg_color >> 8) & 0xFF),
++                .b = @truncate(cfg.bg_color & 0xFF),
++            };
++            colors.background = color.DynamicRGB.init(rgb);
++        }
++        if (cfg.cursor_color != 0) {
++            const rgb = color.RGB{
++                .r = @truncate((cfg.cursor_color >> 16) & 0xFF),
++                .g = @truncate((cfg.cursor_color >> 8) & 0xFF),
++                .b = @truncate(cfg.cursor_color & 0xFF),
++            };
++            colors.cursor = color.DynamicRGB.init(rgb);
++        }
++        // Apply palette colors (0 = use default)
++        for (cfg.palette, 0..) |palette_color, i| {
++            if (palette_color != 0) {
++                const rgb = color.RGB{
++                    .r = @truncate((palette_color >> 16) & 0xFF),
++                    .g = @truncate((palette_color >> 8) & 0xFF),
++                    .b = @truncate(palette_color & 0xFF),
++                };
++                colors.palette.set(@intCast(i), rgb);
++            }
 +        }
 +    }
 +
-+    // Create terminal
-+    const terminal = Terminal.init(
-+        alloc,
-+        .{
-+            .cols = @intCast(cols),
-+            .rows = @intCast(rows),
-+            .max_scrollback = if (config.scrollback_limit == 0)
-+                std.math.maxInt(usize)
-+            else
-+                config.scrollback_limit,
-+            .colors = colors,
-+        },
-+    ) catch |err| {
-+        log.err("Failed to initialize Terminal: {}", .{err});
++    wrapper.terminal = Terminal.init(alloc, .{
++        .cols = @intCast(cols),
++        .rows = @intCast(rows),
++        .max_scrollback = scrollback_limit,
++        .colors = colors,
++    }) catch {
 +        alloc.destroy(wrapper);
 +        return null;
 +    };
-+
-+    // Allocate dirty tracking
-+    const rows_usize: usize = @intCast(rows);
-+    const dirty_rows = alloc.alloc(bool, rows_usize) catch |err| {
-+        log.err("Failed to allocate dirty tracking: {}", .{err});
-+        // Note: terminal.deinit() requires the allocator be passed
-+        var term_mut = terminal;
-+        term_mut.deinit(alloc);
-+        alloc.destroy(wrapper);
-+        return null;
-+    };
-+    @memset(dirty_rows, true); // Initially all dirty
 +
 +    wrapper.* = .{
 +        .alloc = alloc,
-+        .terminal = terminal,
-+        .stream = undefined, // Will be initialized below
-+        .dirty_rows = dirty_rows,
-+        .config = config,
++        .terminal = wrapper.terminal,
++        .stream = wrapper.terminal.vtStream(),
++        .render_state = RenderState.empty,
 +    };
 +
-+    // Initialize the persistent VT stream (must be done after terminal is set)
-+    wrapper.stream = wrapper.terminal.vtStream();
-+
-+    // Enable linefeed mode so \n performs carriage return (moves cursor to column 0)
-+    // Without this, \n only moves down without returning to column 0, causing staggered text
-+    wrapper.terminal.modes.set(.linefeed, true);
-+
++    // NOTE: linefeed mode must be FALSE to match native terminal behavior
++    // When true, LF does automatic CR which breaks apps like nvim
++    wrapper.terminal.modes.set(.linefeed, false);
 +    return @ptrCast(wrapper);
 +}
 +
 +pub fn free(ptr: ?*anyopaque) callconv(.c) void {
 +    const wrapper: *TerminalWrapper = @ptrCast(@alignCast(ptr orelse return));
 +    const alloc = wrapper.alloc;
-+
 +    wrapper.stream.deinit();
-+    alloc.free(wrapper.dirty_rows);
++    wrapper.render_state.deinit(alloc);
 +    wrapper.terminal.deinit(alloc);
 +    alloc.destroy(wrapper);
 +}
 +
 +pub fn resize(ptr: ?*anyopaque, cols: c_int, rows: c_int) callconv(.c) void {
 +    const wrapper: *TerminalWrapper = @ptrCast(@alignCast(ptr orelse return));
-+
-+    // Resize terminal
-+    wrapper.terminal.resize(
-+        wrapper.alloc,
-+        @intCast(cols),
-+        @intCast(rows),
-+    ) catch |err| {
-+        log.err("Resize failed: {}", .{err});
-+        return;
-+    };
-+
-+    // Reallocate dirty tracking
-+    const rows_usize: usize = @intCast(rows);
-+    const new_dirty = wrapper.alloc.realloc(wrapper.dirty_rows, rows_usize) catch |err| {
-+        log.err("Failed to reallocate dirty tracking: {}", .{err});
-+        return;
-+    };
-+    wrapper.dirty_rows = new_dirty;
-+    @memset(new_dirty, true); // All dirty after resize
++    wrapper.terminal.resize(wrapper.alloc, @intCast(cols), @intCast(rows)) catch return;
 +}
-+
-+// ============================================================================
-+// Input/Output
-+// ============================================================================
 +
 +pub fn write(ptr: ?*anyopaque, data: [*]const u8, len: usize) callconv(.c) void {
 +    const wrapper: *TerminalWrapper = @ptrCast(@alignCast(ptr orelse return));
++    wrapper.stream.nextSlice(data[0..len]) catch return;
++}
 +
-+    // Use persistent stream to preserve parser state across writes
-+    // This is critical for handling escape sequences split across WebSocket messages
-+    const slice = data[0..len];
-+    wrapper.stream.nextSlice(slice) catch |err| {
-+        log.err("Write failed: {}", .{err});
-+        return;
++// ============================================================================
++// RenderState API - High-performance rendering
++// ============================================================================
++
++/// Update render state from terminal. Call once per frame.
++/// Returns dirty state: 0=none, 1=partial, 2=full
++pub fn renderStateUpdate(ptr: ?*anyopaque) callconv(.c) GhosttyDirty {
++    const wrapper: *TerminalWrapper = @ptrCast(@alignCast(ptr orelse return .full));
++    
++    // Detect screen buffer switch (normal <-> alternate)
++    const current_is_alternate = wrapper.terminal.screens.active_key == .alternate;
++    const screen_switched = current_is_alternate != wrapper.last_screen_is_alternate;
++    wrapper.last_screen_is_alternate = current_is_alternate;
++    
++    // When screen switches, we must fully reset the render state to avoid
++    // stale cached cell data from the previous screen buffer.
++    if (screen_switched) {
++        wrapper.render_state.deinit(wrapper.alloc);
++        wrapper.render_state = RenderState.empty;
++    }
++    
++    wrapper.render_state.update(wrapper.alloc, &wrapper.terminal) catch return .full;
++    
++    // If screen switched, always return full dirty to force complete redraw
++    if (screen_switched) {
++        return .full;
++    }
++    
++    return switch (wrapper.render_state.dirty) {
++        .false => .none,
++        .partial => .partial,
++        .full => .full,
 +    };
-+
-+    // Mark all visible rows as dirty (conservative approach)
-+    @memset(wrapper.dirty_rows, true);
 +}
 +
-+// ============================================================================
-+// Screen Queries
-+// ============================================================================
-+
-+pub fn getCols(ptr: ?*anyopaque) callconv(.c) c_int {
++/// Get dimensions from render state
++pub fn renderStateGetCols(ptr: ?*anyopaque) callconv(.c) c_int {
 +    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return 0));
-+    return @intCast(wrapper.terminal.cols);
++    return @intCast(wrapper.render_state.cols);
 +}
 +
-+pub fn getRows(ptr: ?*anyopaque) callconv(.c) c_int {
++pub fn renderStateGetRows(ptr: ?*anyopaque) callconv(.c) c_int {
 +    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return 0));
-+    return @intCast(wrapper.terminal.rows);
++    return @intCast(wrapper.render_state.rows);
 +}
 +
-+pub fn getCursorX(ptr: ?*anyopaque) callconv(.c) c_int {
++/// Get cursor X position
++pub fn renderStateGetCursorX(ptr: ?*anyopaque) callconv(.c) c_int {
 +    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return 0));
-+    return @intCast(wrapper.terminal.screen.cursor.x);
++    return @intCast(wrapper.render_state.cursor.active.x);
 +}
 +
-+pub fn getCursorY(ptr: ?*anyopaque) callconv(.c) c_int {
++/// Get cursor Y position  
++pub fn renderStateGetCursorY(ptr: ?*anyopaque) callconv(.c) c_int {
 +    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return 0));
-+    return @intCast(wrapper.terminal.screen.cursor.y);
++    return @intCast(wrapper.render_state.cursor.active.y);
 +}
 +
-+pub fn getCursorVisible(ptr: ?*anyopaque) callconv(.c) bool {
++/// Check if cursor is visible
++pub fn renderStateGetCursorVisible(ptr: ?*anyopaque) callconv(.c) bool {
 +    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return false));
-+    // Check if cursor is visible based on modes
-+    return wrapper.terminal.modes.get(.cursor_visible);
++    return wrapper.render_state.cursor.visible;
 +}
++
++/// Get default background color as 0xRRGGBB
++pub fn renderStateGetBgColor(ptr: ?*anyopaque) callconv(.c) u32 {
++    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return 0));
++    const bg = wrapper.render_state.colors.background;
++    return (@as(u32, bg.r) << 16) | (@as(u32, bg.g) << 8) | bg.b;
++}
++
++/// Get default foreground color as 0xRRGGBB
++pub fn renderStateGetFgColor(ptr: ?*anyopaque) callconv(.c) u32 {
++    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return 0xCCCCCC));
++    const fg = wrapper.render_state.colors.foreground;
++    return (@as(u32, fg.r) << 16) | (@as(u32, fg.g) << 8) | fg.b;
++}
++
++/// Check if row is dirty
++pub fn renderStateIsRowDirty(ptr: ?*anyopaque, y: c_int) callconv(.c) bool {
++    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return true));
++    if (wrapper.render_state.dirty == .full) return true;
++    if (wrapper.render_state.dirty == .false) return false;
++    const y_usize: usize = @intCast(y);
++    if (y_usize >= wrapper.render_state.row_data.len) return false;
++    return wrapper.render_state.row_data.items(.dirty)[y_usize];
++}
++
++/// Mark render state as clean after rendering
++pub fn renderStateMarkClean(ptr: ?*anyopaque) callconv(.c) void {
++    const wrapper: *TerminalWrapper = @ptrCast(@alignCast(ptr orelse return));
++    wrapper.render_state.dirty = .false;
++    @memset(wrapper.render_state.row_data.items(.dirty), false);
++}
++
++/// Get ALL viewport cells in one call - reads directly from terminal screen buffer.
++/// This bypasses the RenderState cache to ensure fresh data for all rows.
++/// Returns total cells written (rows * cols), or -1 on error.
++pub fn renderStateGetViewport(
++    ptr: ?*anyopaque,
++    out: [*]GhosttyCell,
++    buf_size: usize,
++) callconv(.c) c_int {
++    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return -1));
++    const rs = &wrapper.render_state;
++    const t = &wrapper.terminal;
++    const rows = rs.rows;
++    const cols = rs.cols;
++    const total: usize = @as(usize, rows) * cols;
++
++    if (buf_size < total) return -1;
++
++    // Read directly from terminal's active screen, bypassing RenderState cache.
++    // This ensures we always get fresh data for ALL rows, not just dirty ones.
++    const pages = &t.screens.active.pages;
++
++    var idx: usize = 0;
++    for (0..rows) |y| {
++        // Get the row from the active viewport
++        const pin = pages.pin(.{ .active = .{ .y = @intCast(y) } }) orelse {
++            // Row doesn't exist, fill with defaults
++            for (0..cols) |_| {
++                out[idx] = .{
++                    .codepoint = 0,
++                    .fg_r = rs.colors.foreground.r,
++                    .fg_g = rs.colors.foreground.g,
++                    .fg_b = rs.colors.foreground.b,
++                    .bg_r = rs.colors.background.r,
++                    .bg_g = rs.colors.background.g,
++                    .bg_b = rs.colors.background.b,
++                    .flags = 0,
++                    .width = 1,
++                    .hyperlink_id = 0,
++                };
++                idx += 1;
++            }
++            continue;
++        };
++
++        const cells = pin.cells(.all);
++        const page = pin.node.data;
++
++        for (0..cols) |x| {
++            if (x >= cells.len) {
++                // Past end of row, fill with default
++                out[idx] = .{
++                    .codepoint = 0,
++                    .fg_r = rs.colors.foreground.r,
++                    .fg_g = rs.colors.foreground.g,
++                    .fg_b = rs.colors.foreground.b,
++                    .bg_r = rs.colors.background.r,
++                    .bg_g = rs.colors.background.g,
++                    .bg_b = rs.colors.background.b,
++                    .flags = 0,
++                    .width = 1,
++                    .hyperlink_id = 0,
++                };
++                idx += 1;
++                continue;
++            }
++
++            const cell = &cells[x];
++
++            // Get style from page styles (cell has style_id)
++            const sty: Style = if (cell.style_id > 0)
++                page.styles.get(page.memory, cell.style_id).*
++            else
++                .{};
++
++            // Resolve colors
++            const fg: color.RGB = switch (sty.fg_color) {
++                .none => rs.colors.foreground,
++                .palette => |i| rs.colors.palette[i],
++                .rgb => |rgb| rgb,
++            };
++            const bg: color.RGB = if (sty.bg(cell, &rs.colors.palette)) |rgb| rgb else rs.colors.background;
++
++            // Build flags
++            var flags: u8 = 0;
++            if (sty.flags.bold) flags |= 1 << 0;
++            if (sty.flags.italic) flags |= 1 << 1;
++            if (sty.flags.underline != .none) flags |= 1 << 2;
++            if (sty.flags.strikethrough) flags |= 1 << 3;
++            if (sty.flags.inverse) flags |= 1 << 4;
++            if (sty.flags.invisible) flags |= 1 << 5;
++            if (sty.flags.blink) flags |= 1 << 6;
++            if (sty.flags.faint) flags |= 1 << 7;
++
++            out[idx] = .{
++                .codepoint = cell.codepoint(),
++                .fg_r = fg.r,
++                .fg_g = fg.g,
++                .fg_b = fg.b,
++                .bg_r = bg.r,
++                .bg_g = bg.g,
++                .bg_b = bg.b,
++                .flags = flags,
++                .width = switch (cell.wide) {
++                    .narrow => 1,
++                    .wide => 2,
++                    .spacer_tail, .spacer_head => 0,
++                },
++                .hyperlink_id = if (cell.hyperlink) 1 else 0,
++            };
++            idx += 1;
++        }
++    }
++
++    return @intCast(total);
++}
++
++// ============================================================================
++// Terminal Modes (minimal set for compatibility)
++// ============================================================================
 +
 +pub fn isAlternateScreen(ptr: ?*anyopaque) callconv(.c) bool {
 +    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return false));
-+    return wrapper.terminal.active_screen == .alternate;
++    return wrapper.terminal.screens.active_key == .alternate;
 +}
 +
-+pub fn isRowWrapped(ptr: ?*anyopaque, row: c_int) callconv(.c) bool {
++pub fn hasMouseTracking(ptr: ?*anyopaque) callconv(.c) bool {
 +    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return false));
-+    if (row < 0 or row >= wrapper.terminal.rows) return false;
-+    if (row == 0) return false;
-+    const pt = point.Point{ .viewport = .{ .x = 0, .y = @intCast(row) }};
-+    const list_cell = wrapper.terminal.screen.pages.getCell(pt) orelse return false;
-+    return list_cell.row.wrap;
++    return wrapper.terminal.modes.get(.mouse_event_normal) or
++           wrapper.terminal.modes.get(.mouse_event_button) or
++           wrapper.terminal.modes.get(.mouse_event_any);
 +}
 +
++/// Query arbitrary terminal mode by number
++/// Returns true if mode is set, false otherwise
++pub fn getMode(ptr: ?*anyopaque, mode_num: c_int, is_ansi: bool) callconv(.c) bool {
++    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return false));
++    const mode = modespkg.modeFromInt(@intCast(mode_num), is_ansi) orelse return false;
++    return wrapper.terminal.modes.get(mode);
++}
++
++// ============================================================================
++// Scrollback API
++// ============================================================================
++
++/// Get the number of scrollback lines (history, not including active screen)
 +pub fn getScrollbackLength(ptr: ?*anyopaque) callconv(.c) c_int {
 +    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return 0));
-+    // Calculate scrollback length as difference between history top and active top
-+    const active_pin = wrapper.terminal.screen.pages.getTopLeft(.active);
-+    const screen_pin = wrapper.terminal.screen.pages.getTopLeft(.screen);
-+
-+    // Count rows between screen top and active top
-+    var count: c_int = 0;
-+    var pin = screen_pin;
-+    while (pin.node != active_pin.node or pin.y != active_pin.y) {
-+        count += 1;
-+        pin = pin.down(1) orelse break;
-+        if (count > 100000) break; // Safety limit
-+    }
-+    return count;
++    const pages = &wrapper.terminal.screens.active.pages;
++    // total_rows includes both scrollback and active area
++    // We subtract rows (active area) to get just scrollback
++    if (pages.total_rows <= pages.rows) return 0;
++    return @intCast(pages.total_rows - pages.rows);
 +}
 +
-+// ============================================================================
-+// Cell Data Access
-+// ============================================================================
-+
-+/// Convert Ghostty's internal Cell to C-compatible GhosttyCell
-+/// list_cell_opt can be null if we're using a default empty cell
-+fn convertCell(wrapper: *const TerminalWrapper, cell: Cell, list_cell_opt: @TypeOf(wrapper.terminal.screen.pages.getCell(.{.viewport = .{}}))) GhosttyCell {
-+    const terminal = &wrapper.terminal;
-+    const palette = &terminal.colors.palette.current;
-+
-+    // Get codepoint
-+    const cp = cell.content.codepoint;
-+
-+    // Get the style - either from the page or use default
-+    const cell_style: style.Style = if (cell.style_id == style.default_id)
-+        .{}
-+    else if (list_cell_opt) |list_cell|
-+        list_cell.node.data.styles.get(list_cell.node.data.memory, cell.style_id).*
-+    else
-+        .{};
-+
-+    // Resolve foreground color
-+    const fg_rgb: color.RGB = fg: {
-+        switch (cell_style.fg_color) {
-+            .none => {
-+                // Use default foreground
-+                if (terminal.colors.foreground.get()) |rgb| {
-+                    break :fg rgb;
-+                } else {
-+                    // Default to white
-+                    break :fg .{ .r = 0xEA, .g = 0xEA, .b = 0xEA };
-+                }
-+            },
-+            .palette => |idx| break :fg palette[idx],
-+            .rgb => |rgb| break :fg rgb,
-+        }
-+    };
-+
-+    // Resolve background color
-+    const bg_rgb: color.RGB = bg: {
-+        // Check for cell-level color override
-+        if (cell_style.bg(&cell, palette)) |rgb| {
-+            break :bg rgb;
-+        }
-+
-+        // Use default background
-+        if (terminal.colors.background.get()) |rgb| {
-+            break :bg rgb;
-+        } else {
-+            // Default to black
-+            break :bg .{ .r = 0x1D, .g = 0x1F, .b = 0x21 };
-+        }
-+    };
-+
-+    // Build flags bitfield
-+    var flags: u8 = 0;
-+    if (cell_style.flags.bold) flags |= 1 << 0;
-+    if (cell_style.flags.italic) flags |= 1 << 1;
-+    if (cell_style.flags.underline != .none) flags |= 1 << 2;
-+    if (cell_style.flags.strikethrough) flags |= 1 << 3;
-+    if (cell_style.flags.inverse) flags |= 1 << 4;
-+    if (cell_style.flags.invisible) flags |= 1 << 5;
-+    if (cell_style.flags.blink) flags |= 1 << 6;
-+    if (cell_style.flags.faint) flags |= 1 << 7;
-+
-+    // Map cell.wide enum to actual character width
-+    // narrow = 0 -> width 1, wide = 1 -> width 2, spacer_tail = 2 -> width 0
-+    const width: u8 = switch (cell.wide) {
-+        .narrow => 1,
-+        .wide => 2,
-+        .spacer_tail => 0,
-+        .spacer_head => 0,
-+    };
-+
-+    // Get hyperlink ID if cell has hyperlink
-+    const hyperlink_id: u16 = if (cell.hyperlink) blk: {
-+        if (list_cell_opt) |list_cell| {
-+            const page = &list_cell.node.data;
-+            const cell_offset = size.getOffset(Cell, page.memory, list_cell.cell);
-+            const map = page.hyperlink_map.map(page.memory);
-+            if (map.get(cell_offset)) |id| {
-+                break :blk id;
-+            }
-+        }
-+        break :blk 0;
-+    } else 0;
-+
-+    return .{
-+        .codepoint = cp,
-+        .fg_r = fg_rgb.r,
-+        .fg_g = fg_rgb.g,
-+        .fg_b = fg_rgb.b,
-+        .bg_r = bg_rgb.r,
-+        .bg_g = bg_rgb.g,
-+        .bg_b = bg_rgb.b,
-+        .flags = flags,
-+        .width = width,
-+        .hyperlink_id = hyperlink_id,
-+    };
-+}
-+
-+pub fn getLine(
-+    ptr: ?*anyopaque,
-+    y: c_int,
-+    out_buffer: [*]GhosttyCell,
-+    buffer_size: usize,
-+) callconv(.c) c_int {
-+    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return -1));
-+
-+    const y_usize: usize = @intCast(y);
-+    if (y_usize >= wrapper.terminal.rows) return -1;
-+
-+    const cols = wrapper.terminal.cols;
-+    if (buffer_size < cols) return -1;
-+
-+    // Get cells from the screen using viewport coordinates
-+    var x: usize = 0;
-+    while (x < cols) : (x += 1) {
-+        const pt = point.Point{ .viewport = .{
-+            .x = @intCast(x),
-+            .y = @intCast(y),
-+        } };
-+
-+        const list_cell = wrapper.terminal.screen.pages.getCell(pt);
-+        const cell = if (list_cell) |lc| lc.cell.* else Cell{};
-+        out_buffer[x] = convertCell(wrapper, cell, list_cell);
-+    }
-+
-+    return @intCast(cols);
-+}
-+
++/// Get a line from the scrollback buffer
++/// offset 0 = oldest line in scrollback, offset (length-1) = most recent scrollback line
++/// Returns number of cells written, or -1 on error
 +pub fn getScrollbackLine(
 +    ptr: ?*anyopaque,
-+    y: c_int,
-+    out_buffer: [*]GhosttyCell,
-+    buffer_size: usize,
++    offset: c_int,
++    out: [*]GhosttyCell,
++    buf_size: usize,
 +) callconv(.c) c_int {
 +    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return -1));
-+
-+    const y_usize: usize = @intCast(y);
-+
-+    // Get scrollback length to validate bounds
-+    const active_pin = wrapper.terminal.screen.pages.getTopLeft(.active);
-+    const screen_pin = wrapper.terminal.screen.pages.getTopLeft(.screen);
-+
-+    // Count total scrollback rows
-+    var scrollback_len: usize = 0;
-+    var pin = screen_pin;
-+    while (pin.node != active_pin.node or pin.y != active_pin.y) {
-+        scrollback_len += 1;
-+        pin = pin.down(1) orelse break;
-+        if (scrollback_len > 100000) return -1; // Safety limit
++    const rs = &wrapper.render_state;
++    const cols = rs.cols;
++    
++    if (buf_size < cols) return -1;
++    if (offset < 0) return -1;
++    
++    const scrollback_len = getScrollbackLength(ptr);
++    if (offset >= scrollback_len) return -1;
++    
++    // Get the pin for this scrollback row
++    // history point: y=0 is oldest, y=scrollback_len-1 is newest
++    const pages = &wrapper.terminal.screens.active.pages;
++    const pin = pages.pin(.{ .history = .{ .y = @intCast(offset) } }) orelse return -1;
++    
++    // Get cells for this row
++    const cells = pin.cells(.all);
++    const page = pin.node.data;
++    
++    // Fill output buffer
++    for (0..cols) |x| {
++        if (x >= cells.len) {
++            // Fill with default
++            out[x] = .{
++                .codepoint = 0,
++                .fg_r = rs.colors.foreground.r,
++                .fg_g = rs.colors.foreground.g,
++                .fg_b = rs.colors.foreground.b,
++                .bg_r = rs.colors.background.r,
++                .bg_g = rs.colors.background.g,
++                .bg_b = rs.colors.background.b,
++                .flags = 0,
++                .width = 1,
++                .hyperlink_id = 0,
++            };
++            continue;
++        }
++        
++        const cell = &cells[x];
++        
++        // Get style from page styles (cell has style_id)
++        const sty: Style = if (cell.style_id > 0)
++            page.styles.get(page.memory, cell.style_id).*
++        else
++            .{};
++        
++        // Resolve colors
++        const fg: color.RGB = switch (sty.fg_color) {
++            .none => rs.colors.foreground,
++            .palette => |i| rs.colors.palette[i],
++            .rgb => |rgb| rgb,
++        };
++        const bg: color.RGB = if (sty.bg(cell, &rs.colors.palette)) |rgb| rgb else rs.colors.background;
++        
++        // Build flags
++        var flags: u8 = 0;
++        if (sty.flags.bold) flags |= 1 << 0;
++        if (sty.flags.italic) flags |= 1 << 1;
++        if (sty.flags.underline != .none) flags |= 1 << 2;
++        if (sty.flags.strikethrough) flags |= 1 << 3;
++        if (sty.flags.inverse) flags |= 1 << 4;
++        if (sty.flags.invisible) flags |= 1 << 5;
++        if (sty.flags.blink) flags |= 1 << 6;
++        if (sty.flags.faint) flags |= 1 << 7;
++        
++        out[x] = .{
++            .codepoint = cell.codepoint(),
++            .fg_r = fg.r,
++            .fg_g = fg.g,
++            .fg_b = fg.b,
++            .bg_r = bg.r,
++            .bg_g = bg.g,
++            .bg_b = bg.b,
++            .flags = flags,
++            .width = switch (cell.wide) {
++                .narrow => 1,
++                .wide => 2,
++                .spacer_tail, .spacer_head => 0,
++            },
++            .hyperlink_id = if (cell.hyperlink) 1 else 0,
++        };
 +    }
-+
-+    // Validate y is within scrollback bounds
-+    if (y_usize >= scrollback_len) return -1;
-+
-+    const cols = wrapper.terminal.cols;
-+    if (buffer_size < cols) return -1;
-+
-+    // Get cells from scrollback using screen coordinates
-+    // Screen coordinates: y=0 is the oldest line in scrollback, increasing toward active area
-+    var x: usize = 0;
-+    while (x < cols) : (x += 1) {
-+        const pt = point.Point{ .screen = .{
-+            .x = @intCast(x),
-+            .y = @intCast(y_usize),
-+        } };
-+
-+        const list_cell = wrapper.terminal.screen.pages.getCell(pt);
-+        const cell = if (list_cell) |lc| lc.cell.* else Cell{};
-+        out_buffer[x] = convertCell(wrapper, cell, list_cell);
-+    }
-+
 +    return @intCast(cols);
 +}
 +
-+// ============================================================================
-+// Dirty Tracking
-+// ============================================================================
-+
-+pub fn isDirty(ptr: ?*anyopaque) callconv(.c) bool {
++/// Check if a row is a continuation from the previous row (soft-wrapped)
++/// This matches xterm.js semantics where isWrapped indicates the row continues
++/// from the previous row, not that it wraps to the next row.
++pub fn isRowWrapped(ptr: ?*anyopaque, y: c_int) callconv(.c) bool {
 +    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return false));
-+
-+    for (wrapper.dirty_rows) |dirty| {
-+        if (dirty) return true;
-+    }
-+    return false;
-+}
-+
-+pub fn isRowDirty(ptr: ?*anyopaque, y: c_int) callconv(.c) bool {
-+    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return false));
-+
-+    const y_usize: usize = @intCast(y);
-+    if (y_usize >= wrapper.dirty_rows.len) return false;
-+
-+    return wrapper.dirty_rows[y_usize];
-+}
-+
-+pub fn clearDirty(ptr: ?*anyopaque) callconv(.c) void {
-+    const wrapper: *TerminalWrapper = @ptrCast(@alignCast(ptr orelse return));
-+    @memset(wrapper.dirty_rows, false);
-+}
-+
-+// ============================================================================
-+// Hyperlink Support
-+// ============================================================================
-+
-+pub fn getHyperlinkUri(
-+    ptr: ?*anyopaque,
-+    hyperlink_id: u16,
-+    out_buffer: [*]u8,
-+    buffer_size: usize,
-+) callconv(.c) c_int {
-+    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return 0));
-+
-+    // Hyperlink ID 0 means no link
-+    if (hyperlink_id == 0) return 0;
-+
-+    // Get the current page
-+    const page = &wrapper.terminal.screen.cursor.page_pin.node.data;
-+
-+    // Look up hyperlink in the set
-+    const hyperlink_entry = page.hyperlink_set.get(page.memory, hyperlink_id);
-+
-+    // Get URI string from page memory
-+    const uri = hyperlink_entry.uri.offset.ptr(page.memory)[0..hyperlink_entry.uri.len];
-+
-+    // Copy to output buffer (truncate if necessary)
-+    const copy_len = @min(uri.len, buffer_size);
-+    @memcpy(out_buffer[0..copy_len], uri[0..copy_len]);
-+
-+    return @intCast(copy_len);
++    const pages = &wrapper.terminal.screens.active.pages;
++    
++    // Get pin for this row in active area
++    const pin = pages.pin(.{ .active = .{ .y = @intCast(y) } }) orelse return false;
++    const rac = pin.rowAndCell();
++    
++    // wrap_continuation means this row continues from the previous row
++    return rac.row.wrap_continuation;
 +}
 +
 +// ============================================================================
@@ -1179,89 +872,51 @@ index 000000000..e79702488
 +test "terminal lifecycle" {
 +    const term = new(80, 24);
 +    defer free(term);
-+
 +    try std.testing.expect(term != null);
-+    try std.testing.expectEqual(@as(c_int, 80), getCols(term));
-+    try std.testing.expectEqual(@as(c_int, 24), getRows(term));
++
++    _ = renderStateUpdate(term);
++    try std.testing.expectEqual(@as(c_int, 80), renderStateGetCols(term));
++    try std.testing.expectEqual(@as(c_int, 24), renderStateGetRows(term));
 +}
 +
-+test "terminal write and read" {
++test "terminal write and read via render state" {
 +    const term = new(80, 24);
 +    defer free(term);
 +
-+    // Write "Hello"
-+    const data = "Hello";
-+    write(term, data.ptr, data.len);
++    write(term, "Hello", 5);
++    _ = renderStateUpdate(term);
 +
-+    // Read first line
-+    var cells: [80]GhosttyCell = undefined;
-+    const count = getLine(term, 0, &cells, 80);
-+    try std.testing.expectEqual(@as(c_int, 80), count);
-+
-+    // Check first few characters
++    var cells: [80 * 24]GhosttyCell = undefined;
++    const count = renderStateGetViewport(term, &cells, 80 * 24);
++    try std.testing.expectEqual(@as(c_int, 80 * 24), count);
 +    try std.testing.expectEqual(@as(u32, 'H'), cells[0].codepoint);
 +    try std.testing.expectEqual(@as(u32, 'e'), cells[1].codepoint);
 +    try std.testing.expectEqual(@as(u32, 'l'), cells[2].codepoint);
 +    try std.testing.expectEqual(@as(u32, 'l'), cells[3].codepoint);
 +    try std.testing.expectEqual(@as(u32, 'o'), cells[4].codepoint);
 +}
-+
-+test "terminal cursor position" {
-+    const term = new(80, 24);
-+    defer free(term);
-+
-+    // Initially at 0, 0
-+    try std.testing.expectEqual(@as(c_int, 0), getCursorX(term));
-+    try std.testing.expectEqual(@as(c_int, 0), getCursorY(term));
-+
-+    // Write "Hello" (5 chars)
-+    const data = "Hello";
-+    write(term, data.ptr, data.len);
-+
-+    // Cursor should have moved
-+    try std.testing.expectEqual(@as(c_int, 5), getCursorX(term));
-+    try std.testing.expectEqual(@as(c_int, 0), getCursorY(term));
-+}
-+
-+test "terminal dirty tracking" {
-+    const term = new(80, 24);
-+    defer free(term);
-+
-+    // Initially dirty
-+    try std.testing.expect(isDirty(term));
-+
-+    // Clear dirty
-+    clearDirty(term);
-+    try std.testing.expect(!isDirty(term));
-+
-+    // Write makes it dirty again
-+    const data = "X";
-+    write(term, data.ptr, data.len);
-+    try std.testing.expect(isDirty(term));
-+    try std.testing.expect(isRowDirty(term, 0));
-+}
-+
-+// ============================================================================
-+// Terminal Modes
-+// ============================================================================
-+
-+pub fn getMode(ptr: ?*anyopaque, mode_number: c_int, is_ansi: bool) callconv(.c) bool {
-+    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return false));
-+    const mode = modespkg.modeFromInt(@intCast(mode_number), is_ansi) orelse return false;
-+    return wrapper.terminal.modes.get(mode);
-+}
-+
-+pub fn hasBracketedPaste(ptr: ?*anyopaque) callconv(.c) bool {
-+    return getMode(ptr, 2004, false);
-+}
-+
-+pub fn hasFocusEvents(ptr: ?*anyopaque) callconv(.c) bool {
-+    return getMode(ptr, 1004, false);
-+}
-+
-+pub fn hasMouseTracking(ptr: ?*anyopaque) callconv(.c) bool {
-+    const wrapper: *const TerminalWrapper = @ptrCast(@alignCast(ptr orelse return false));
-+    return wrapper.terminal.modes.get(.mouse_event_normal) or
-+           wrapper.terminal.modes.get(.mouse_event_button) or
-+           wrapper.terminal.modes.get(.mouse_event_any);
-+}
+diff --git a/src/terminal/render.zig b/src/terminal/render.zig
+index b6430ea34..10e0ef79d 100644
+--- a/src/terminal/render.zig
++++ b/src/terminal/render.zig
+@@ -322,13 +322,14 @@ pub const RenderState = struct {
+         // Colors.
+         self.colors.cursor = t.colors.cursor.get();
+         self.colors.palette = t.colors.palette.current;
+-        bg_fg: {
++        {
+             // Background/foreground can be unset initially which would
+-            // depend on "default" background/foreground. The expected use
+-            // case of Terminal is that the caller set their own configured
+-            // defaults on load so this doesn't happen.
+-            const bg = t.colors.background.get() orelse break :bg_fg;
+-            const fg = t.colors.foreground.get() orelse break :bg_fg;
++            // depend on "default" background/foreground. Use sensible defaults
++            // (black background, light gray foreground) when not explicitly set.
++            const default_bg: color.RGB = .{ .r = 0, .g = 0, .b = 0 };
++            const default_fg: color.RGB = .{ .r = 204, .g = 204, .b = 204 };
++            const bg = t.colors.background.get() orelse default_bg;
++            const fg = t.colors.foreground.get() orelse default_fg;
+             if (t.modes.get(.reverse_colors)) {
+                 self.colors.background = fg;
+                 self.colors.foreground = bg;

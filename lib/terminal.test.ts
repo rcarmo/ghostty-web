@@ -47,7 +47,7 @@ function setSelectionViewportRelative(
 }
 
 describe('Terminal', () => {
-  let container: HTMLElement | null = null;
+  let container: HTMLElement;
 
   beforeEach(async () => {
     // Create a container element if document is available
@@ -61,7 +61,7 @@ describe('Terminal', () => {
     // Clean up container
     if (container && container.parentNode) {
       container.parentNode.removeChild(container);
-      container = null;
+      container = null!;
     }
   });
 
@@ -184,8 +184,8 @@ describe('Terminal', () => {
       term.resize(100, 30);
 
       expect(resizeEvent).not.toBeNull();
-      expect(resizeEvent?.cols).toBe(100);
-      expect(resizeEvent?.rows).toBe(30);
+      expect(resizeEvent!.cols).toBe(100);
+      expect(resizeEvent!.rows).toBe(30);
 
       term.dispose();
     });
@@ -1142,6 +1142,216 @@ describe('Buffer Access API', () => {
     expect(term.wasmTerm?.isAlternateScreen()).toBe(false);
   });
 
+  test('alternate screen exit triggers full redraw (vim exit fix)', async () => {
+    if (!container) throw new Error('DOM environment not available - check happydom setup');
+
+    term.open(container!);
+
+    // Write content to main screen
+    term.write('Main screen content line 1\r\n');
+    term.write('Main screen content line 2\r\n');
+
+    // Clear dirty state after initial write
+    term.wasmTerm?.clearDirty();
+
+    // Verify we can read the main screen content
+    const mainLine0 = term.wasmTerm?.getLine(0);
+    expect(mainLine0).not.toBeNull();
+    const mainContent = mainLine0!
+      .map((c) => String.fromCodePoint(c.codepoint || 32))
+      .join('')
+      .trim();
+    expect(mainContent).toBe('Main screen content line 1');
+
+    // Enter alternate screen (like vim does)
+    term.write('\x1b[?1049h');
+    expect(term.wasmTerm?.isAlternateScreen()).toBe(true);
+
+    // Write different content on alternate screen
+    term.write('Alternate screen - vim content');
+
+    // Clear dirty state
+    term.wasmTerm?.clearDirty();
+
+    // Exit alternate screen (like vim :q)
+    term.write('\x1b[?1049l');
+    expect(term.wasmTerm?.isAlternateScreen()).toBe(false);
+
+    // The key fix: needsFullRedraw should return true after screen switch
+    expect(term.wasmTerm?.needsFullRedraw()).toBe(true);
+
+    // After the switch, update() should still return FULL (for subsequent calls before clearDirty)
+    const dirtyState = term.wasmTerm?.update();
+    expect(dirtyState).toBe(2); // DirtyState.FULL = 2
+
+    // The main screen content should be restored
+    const restoredLine0 = term.wasmTerm?.getLine(0);
+    expect(restoredLine0).not.toBeNull();
+    const restoredContent = restoredLine0!
+      .map((c) => String.fromCodePoint(c.codepoint || 32))
+      .join('')
+      .trim();
+    expect(restoredContent).toBe('Main screen content line 1');
+  });
+
+  test('dirty state is cleared after markClean() following screen switch', async () => {
+    if (!container) throw new Error('DOM environment not available - check happydom setup');
+
+    term.open(container!);
+
+    // Enter and exit alternate screen
+    term.write('\x1b[?1049h');
+    term.write('\x1b[?1049l');
+
+    // First call should indicate full redraw needed
+    expect(term.wasmTerm?.needsFullRedraw()).toBe(true);
+
+    // Clear the dirty state (simulating render completion)
+    term.wasmTerm?.clearDirty();
+
+    // Now needsFullRedraw should return false (no changes since last render)
+    expect(term.wasmTerm?.needsFullRedraw()).toBe(false);
+  });
+
+  test('multiple screen switches are handled correctly', async () => {
+    if (!container) throw new Error('DOM environment not available - check happydom setup');
+
+    term.open(container!);
+    term.write('Initial content\r\n');
+    term.wasmTerm?.clearDirty();
+
+    // Enter alternate screen
+    term.write('\x1b[?1049h');
+    expect(term.wasmTerm?.needsFullRedraw()).toBe(true);
+    term.wasmTerm?.clearDirty();
+    expect(term.wasmTerm?.needsFullRedraw()).toBe(false);
+
+    // Exit alternate screen
+    term.write('\x1b[?1049l');
+    expect(term.wasmTerm?.needsFullRedraw()).toBe(true);
+    term.wasmTerm?.clearDirty();
+    expect(term.wasmTerm?.needsFullRedraw()).toBe(false);
+
+    // Enter again
+    term.write('\x1b[?1049h');
+    expect(term.wasmTerm?.needsFullRedraw()).toBe(true);
+    term.wasmTerm?.clearDirty();
+
+    // Exit again
+    term.write('\x1b[?1049l');
+    expect(term.wasmTerm?.needsFullRedraw()).toBe(true);
+  });
+
+  test('viewport content is correct after alternate screen exit', async () => {
+    if (!container) throw new Error('DOM environment not available - check happydom setup');
+
+    term.open(container!);
+
+    // Write distinct content to main screen
+    term.write('MAIN_LINE_1\r\n');
+    term.write('MAIN_LINE_2\r\n');
+    term.write('MAIN_LINE_3\r\n');
+
+    // Use getLine which calls update() first
+    const mainLine0 = term.wasmTerm?.getLine(0);
+    expect(mainLine0).not.toBeNull();
+
+    const mainLine1 = mainLine0!
+      .map((c) => String.fromCodePoint(c.codepoint || 32))
+      .join('')
+      .trim();
+    expect(mainLine1).toBe('MAIN_LINE_1');
+
+    // Clear dirty state to simulate render completion
+    term.wasmTerm?.clearDirty();
+
+    // Enter alternate screen
+    term.write('\x1b[?1049h');
+    expect(term.wasmTerm?.isAlternateScreen()).toBe(true);
+
+    // Write different content to alternate screen
+    term.write('ALT_LINE_1\r\n');
+    term.write('ALT_LINE_2\r\n');
+
+    // Skip checking alternate screen content - focus on the key issue:
+    // Does main screen content get restored after exit?
+
+    // Clear dirty state
+    term.wasmTerm?.clearDirty();
+
+    // Exit alternate screen (like vim :q)
+    term.write('\x1b[?1049l');
+    expect(term.wasmTerm?.isAlternateScreen()).toBe(false);
+
+    // CRITICAL: needsFullRedraw must be true
+    expect(term.wasmTerm?.needsFullRedraw()).toBe(true);
+
+    // CRITICAL: getLine must return MAIN screen content, not alternate
+    const restoredLine0 = term.wasmTerm?.getLine(0);
+    expect(restoredLine0).not.toBeNull();
+
+    const restoredLine1Content = restoredLine0!
+      .map((c) => String.fromCodePoint(c.codepoint || 32))
+      .join('')
+      .trim();
+
+    // This is the key assertion - content must be from main screen
+    expect(restoredLine1Content).toBe('MAIN_LINE_1');
+
+    // Also check second line to be thorough
+    const restoredLine1 = term.wasmTerm?.getLine(1);
+    const restoredLine2Content = restoredLine1!
+      .map((c) => String.fromCodePoint(c.codepoint || 32))
+      .join('')
+      .trim();
+    expect(restoredLine2Content).toBe('MAIN_LINE_2');
+  });
+
+  test('background colors are correctly restored after alternate screen exit', async () => {
+    if (!container) throw new Error('DOM environment not available - check happydom setup');
+
+    term.open(container!);
+
+    // Write to main screen (default background = black)
+    term.write('MAIN\r\n');
+    term.wasmTerm?.update();
+    term.wasmTerm?.markClean();
+
+    // Enter alternate screen and fill with colored background (like vim does)
+    term.write('\x1b[?1049h'); // Enter alt screen
+    term.write('\x1b[H'); // Home
+    term.write('\x1b[44m'); // Blue background (palette color 4)
+
+    // Fill screen with spaces that have blue background
+    for (let y = 0; y < term.rows; y++) {
+      term.write(' '.repeat(term.cols));
+      if (y < term.rows - 1) term.write('\r\n');
+    }
+
+    term.wasmTerm?.update();
+    term.wasmTerm?.markClean();
+
+    // Verify alternate screen has non-default background
+    const altViewport = term.wasmTerm?.getViewport();
+    expect(altViewport![0].bg_r).not.toBe(0); // Should be blue-ish
+
+    // Exit alternate screen
+    term.write('\x1b[?1049l');
+    term.wasmTerm?.update();
+
+    // CRITICAL: Background colors must be restored to main screen values (black)
+    const restoredViewport = term.wasmTerm?.getViewport();
+    const firstCell = restoredViewport![0];
+
+    // Main screen cells should have default background (0, 0, 0 = black)
+    expect(firstCell.bg_r).toBe(0);
+    expect(firstCell.bg_g).toBe(0);
+    expect(firstCell.bg_b).toBe(0);
+
+    // Verify text is also restored
+    expect(String.fromCodePoint(firstCell.codepoint)).toBe('M');
+  });
+
   test('isRowWrapped() returns false for normal line breaks', async () => {
     if (!container) throw new Error('DOM environment not available - check happydom setup');
 
@@ -1186,6 +1396,117 @@ describe('Buffer Access API', () => {
     // Out of bounds returns false
     expect(term.wasmTerm?.isRowWrapped(-1)).toBe(false);
     expect(term.wasmTerm?.isRowWrapped(999)).toBe(false);
+  });
+});
+
+describe('Terminal Config', () => {
+  test('should pass scrollback option to WASM terminal', async () => {
+    if (typeof document === 'undefined') return;
+
+    // Create terminal with custom scrollback
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24, scrollback: 500 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    try {
+      // Write enough lines to fill scrollback
+      for (let i = 0; i < 600; i++) {
+        term.write(`Line ${i}\r\n`);
+      }
+
+      // Scrollback should be limited based on the config
+      const scrollbackLength = term.wasmTerm!.getScrollbackLength();
+      // With 500 scrollback limit, we wrote 600 lines so scrollback should be capped
+      // The actual value depends on ghostty's implementation but should be around 500
+      expect(scrollbackLength).toBeLessThan(600);
+      expect(scrollbackLength).toBeGreaterThan(450);
+    } finally {
+      term.dispose();
+    }
+  });
+
+  test('should pass theme colors to WASM terminal', async () => {
+    if (typeof document === 'undefined') return;
+
+    // Create terminal with custom theme
+    const term = await createIsolatedTerminal({
+      cols: 80,
+      rows: 24,
+      theme: {
+        foreground: '#00ff00', // Green
+        background: '#000080', // Navy blue
+      },
+    });
+    const container = document.createElement('div');
+    term.open(container);
+
+    try {
+      // Get the default colors from render state
+      const colors = term.wasmTerm!.getColors();
+
+      // Verify foreground is green (0x00FF00)
+      expect(colors.foreground.r).toBe(0);
+      expect(colors.foreground.g).toBe(255);
+      expect(colors.foreground.b).toBe(0);
+
+      // Verify background is navy (0x000080)
+      expect(colors.background.r).toBe(0);
+      expect(colors.background.g).toBe(0);
+      expect(colors.background.b).toBe(128);
+    } finally {
+      term.dispose();
+    }
+  });
+
+  test('should pass palette colors to WASM terminal', async () => {
+    if (typeof document === 'undefined') return;
+
+    // Create terminal with custom red color in palette
+    const term = await createIsolatedTerminal({
+      cols: 80,
+      rows: 24,
+      theme: {
+        red: '#ff0000', // Bright red for ANSI red
+      },
+    });
+    const container = document.createElement('div');
+    term.open(container);
+
+    try {
+      // Write red text using ANSI escape code
+      term.write('\x1b[31mRed text\x1b[0m');
+
+      // Get first cell - should have red foreground
+      const line = term.wasmTerm!.getLine(0);
+      const firstCell = line[0];
+
+      // The foreground should be red (0xFF0000)
+      expect(firstCell.fg_r).toBe(255);
+      expect(firstCell.fg_g).toBe(0);
+      expect(firstCell.fg_b).toBe(0);
+    } finally {
+      term.dispose();
+    }
+  });
+
+  test('should use default config when no options provided', async () => {
+    if (typeof document === 'undefined') return;
+
+    // Create terminal with no config
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    try {
+      // Should still work and have reasonable defaults
+      const colors = term.wasmTerm!.getColors();
+
+      // Default colors should be set (light gray foreground, black background)
+      expect(colors.foreground).toBeDefined();
+      expect(colors.background).toBeDefined();
+    } finally {
+      term.dispose();
+    }
   });
 });
 
@@ -1316,6 +1637,466 @@ describe('Terminal Modes', () => {
   });
 });
 
+describe('Alternate Screen Rendering', () => {
+  /**
+   * Helper to get line content as a string
+   */
+  function getLineContent(term: Terminal, y: number): string {
+    const line = term.wasmTerm?.getLine(y);
+    if (!line) return '';
+    return line
+      .map((c) => String.fromCodePoint(c.codepoint || 32))
+      .join('')
+      .trimEnd();
+  }
+
+  /**
+   * Helper to check if a line is empty (all spaces/null codepoints)
+   */
+  function isLineEmpty(term: Terminal, y: number): boolean {
+    const line = term.wasmTerm?.getLine(y);
+    if (!line) return true;
+    return line.every((c) => c.codepoint === 0 || c.codepoint === 32);
+  }
+
+  /**
+   * Helper to get line content directly from viewport
+   */
+  function getViewportLineContent(term: Terminal, y: number): string {
+    const viewport = term.wasmTerm?.getViewport();
+    if (!viewport) return '';
+    const cols = term.cols;
+    const start = y * cols;
+    return viewport
+      .slice(start, start + cols)
+      .map((c) => String.fromCodePoint(c.codepoint || 32))
+      .join('')
+      .trimEnd();
+  }
+
+  test('BUG REPRO: getLine and getViewport should return same data after partial updates', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    // Enter alternate screen
+    term.write('\x1b[?1049h');
+
+    // Draw content in middle (like vim welcome)
+    term.write('\x1b[12;30HWelcome to Vim!');
+    term.write('\x1b[13;30HPress i to insert');
+
+    // First render cycle
+    term.wasmTerm?.update();
+    term.wasmTerm?.clearDirty();
+
+    // Verify initial state with BOTH methods
+    const line11_initial_getLine = getLineContent(term, 11);
+    const line11_initial_viewport = getViewportLineContent(term, 11);
+    expect(line11_initial_getLine).toContain('Welcome to Vim!');
+    expect(line11_initial_viewport).toContain('Welcome to Vim!');
+    expect(line11_initial_getLine).toBe(line11_initial_viewport);
+
+    // Now simulate typing at top (vim insert mode)
+    // Just write to row 0, don't clear middle
+    term.write('\x1b[1;1H'); // cursor to top
+    term.write('typing here');
+
+    // Render cycle
+    term.wasmTerm?.update();
+    term.wasmTerm?.clearDirty();
+
+    // Check row 0 - should have new content
+    const line0_getLine = getLineContent(term, 0);
+    const line0_viewport = getViewportLineContent(term, 0);
+    expect(line0_getLine).toBe('typing here');
+    expect(line0_viewport).toBe('typing here');
+    expect(line0_getLine).toBe(line0_viewport);
+
+    // CRITICAL: Check row 11 - should STILL have welcome content
+    // Both methods MUST return the same data
+    const line11_getLine = getLineContent(term, 11);
+    const line11_viewport = getViewportLineContent(term, 11);
+
+    console.log('After typing at top:');
+    console.log('  line11 via getLine:', JSON.stringify(line11_getLine));
+    console.log('  line11 via viewport:', JSON.stringify(line11_viewport));
+
+    expect(line11_getLine).toContain('Welcome to Vim!');
+    expect(line11_viewport).toContain('Welcome to Vim!');
+    expect(line11_getLine).toBe(line11_viewport);
+
+    term.dispose();
+  });
+
+  test('BUG REPRO: cells should have correct codepoints after clearing', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+
+    // Draw content in middle
+    term.write('\x1b[12;30HWelcome!');
+
+    // Verify it's there
+    const line11 = term.wasmTerm?.getLine(11);
+    const welcomeCell = line11?.[29]; // 0-indexed, so col 30 is index 29
+    console.log('Welcome cell:', welcomeCell);
+    expect(welcomeCell?.codepoint).toBe('W'.charCodeAt(0));
+
+    // Clear dirty and "render"
+    term.wasmTerm?.clearDirty();
+
+    // Now clear the line using EL (Erase in Line)
+    term.write('\x1b[12;1H\x1b[K'); // Move to row 12, clear entire line
+
+    // Check the cell again - should be empty (codepoint 0 or 32)
+    const line11After = term.wasmTerm?.getLine(11);
+    const clearedCell = line11After?.[29];
+    console.log('Cleared cell:', clearedCell);
+    expect(clearedCell?.codepoint === 0 || clearedCell?.codepoint === 32).toBe(true);
+
+    term.dispose();
+  });
+
+  test('BUG REPRO: multiple render cycles should not lose data', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+
+    // Draw content across multiple rows
+    term.write('\x1b[1;1HROW_0');
+    term.write('\x1b[6;1HROW_5');
+    term.write('\x1b[11;1HROW_10');
+    term.write('\x1b[16;1HROW_15');
+    term.write('\x1b[21;1HROW_20');
+
+    // Simulate 10 render cycles with typing at top
+    for (let i = 0; i < 10; i++) {
+      term.wasmTerm?.update();
+      term.wasmTerm?.clearDirty();
+
+      // Type at top
+      term.write(`\x1b[1;1H\x1b[KIteration ${i}`);
+    }
+
+    // Final render
+    term.wasmTerm?.update();
+
+    // Check ALL rows - each should have expected content
+    const results: Record<number, { getLine: string; viewport: string }> = {};
+    for (const row of [0, 5, 10, 15, 20]) {
+      results[row] = {
+        getLine: getLineContent(term, row),
+        viewport: getViewportLineContent(term, row),
+      };
+      console.log(`Row ${row}:`, results[row]);
+    }
+
+    // Row 0 should have latest iteration
+    expect(results[0].getLine).toBe('Iteration 9');
+    expect(results[0].viewport).toBe('Iteration 9');
+
+    // Other rows should be unchanged
+    expect(results[5].getLine).toBe('ROW_5');
+    expect(results[5].viewport).toBe('ROW_5');
+    expect(results[10].getLine).toBe('ROW_10');
+    expect(results[10].viewport).toBe('ROW_10');
+    expect(results[15].getLine).toBe('ROW_15');
+    expect(results[15].viewport).toBe('ROW_15');
+    expect(results[20].getLine).toBe('ROW_20');
+    expect(results[20].viewport).toBe('ROW_20');
+
+    term.dispose();
+  });
+
+  test('can enter alternate screen and write content', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    expect(term.wasmTerm?.isAlternateScreen()).toBe(true);
+
+    term.write('Hello World');
+    expect(getLineContent(term, 0)).toBe('Hello World');
+
+    term.dispose();
+  });
+
+  test('writing to line 0 should not affect content on line 10', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    term.write('\x1b[11;1HMIDDLE_CONTENT');
+    expect(getLineContent(term, 10)).toBe('MIDDLE_CONTENT');
+    expect(isLineEmpty(term, 0)).toBe(true);
+
+    term.wasmTerm?.clearDirty();
+
+    term.write('\x1b[1;1HTOP_CONTENT');
+    expect(getLineContent(term, 0)).toBe('TOP_CONTENT');
+    expect(getLineContent(term, 10)).toBe('MIDDLE_CONTENT');
+
+    term.dispose();
+  });
+
+  test('erasing display should clear all content including middle', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    term.write('\x1b[11;1HMIDDLE_CONTENT');
+    expect(getLineContent(term, 10)).toBe('MIDDLE_CONTENT');
+
+    term.wasmTerm?.clearDirty();
+    term.write('\x1b[2J');
+    expect(isLineEmpty(term, 10)).toBe(true);
+
+    term.dispose();
+  });
+
+  test('simulating vim-like behavior: welcome screen then typing', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    term.write('\x1b[2J');
+    term.write('\x1b[12;30HWelcome to Vim!');
+    term.write('\x1b[13;30HPress i to insert');
+
+    expect(getLineContent(term, 11)).toContain('Welcome to Vim!');
+    expect(getLineContent(term, 12)).toContain('Press i to insert');
+
+    term.wasmTerm?.clearDirty();
+    term.write('\x1b[1;1H\x1b[J');
+
+    expect(isLineEmpty(term, 0)).toBe(true);
+    expect(isLineEmpty(term, 11)).toBe(true);
+    expect(isLineEmpty(term, 12)).toBe(true);
+
+    term.dispose();
+  });
+
+  test('REGRESSION: middle content persists incorrectly after partial updates', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    term.write('\x1b[11;1HMIDDLE_LINE');
+
+    term.wasmTerm?.update();
+    expect(getLineContent(term, 10)).toBe('MIDDLE_LINE');
+    term.wasmTerm?.clearDirty();
+
+    for (let i = 0; i < 5; i++) {
+      term.write('\x1b[1;1H\x1b[K');
+      term.write(`Typing iteration ${i}`);
+      term.wasmTerm?.update();
+      term.wasmTerm?.clearDirty();
+    }
+
+    expect(getLineContent(term, 0)).toBe('Typing iteration 4');
+    expect(getLineContent(term, 10)).toBe('MIDDLE_LINE');
+
+    term.dispose();
+  });
+
+  test('getLine returns fresh data after each update', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    term.write('INITIAL');
+    expect(getLineContent(term, 0)).toBe('INITIAL');
+
+    term.write('\x1b[1;1HCHANGED');
+    expect(getLineContent(term, 0)).toBe('CHANGED');
+
+    term.dispose();
+  });
+
+  test('full viewport retrieval reflects actual terminal state', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    term.write('\x1b[2J');
+    term.write('\x1b[1;1HLINE_0');
+    term.write('\x1b[6;1HLINE_5');
+    term.write('\x1b[11;1HLINE_10');
+    term.write('\x1b[16;1HLINE_15');
+    term.write('\x1b[21;1HLINE_20');
+
+    expect(getLineContent(term, 0)).toBe('LINE_0');
+    expect(getLineContent(term, 5)).toBe('LINE_5');
+    expect(getLineContent(term, 10)).toBe('LINE_10');
+    expect(getLineContent(term, 15)).toBe('LINE_15');
+    expect(getLineContent(term, 20)).toBe('LINE_20');
+
+    expect(isLineEmpty(term, 1)).toBe(true);
+    expect(isLineEmpty(term, 7)).toBe(true);
+    expect(isLineEmpty(term, 12)).toBe(true);
+
+    term.dispose();
+  });
+
+  test('ED (Erase Display) sequences work correctly in alternate screen', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    for (let i = 0; i < 24; i++) {
+      term.write(`\x1b[${i + 1};1HRow ${i.toString().padStart(2, '0')}`);
+    }
+
+    expect(getLineContent(term, 0)).toBe('Row 00');
+    expect(getLineContent(term, 10)).toBe('Row 10');
+    expect(getLineContent(term, 23)).toBe('Row 23');
+
+    term.wasmTerm?.clearDirty();
+    term.write('\x1b[2J');
+
+    for (let i = 0; i < 24; i++) {
+      expect(isLineEmpty(term, i)).toBe(true);
+    }
+
+    term.dispose();
+  });
+
+  test('ED 0 (erase from cursor to end) works correctly', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    for (let i = 0; i < 24; i++) {
+      term.write(`\x1b[${i + 1};1HRow ${i.toString().padStart(2, '0')}`);
+    }
+
+    term.wasmTerm?.clearDirty();
+    term.write('\x1b[11;1H\x1b[J');
+
+    expect(getLineContent(term, 0)).toBe('Row 00');
+    expect(getLineContent(term, 9)).toBe('Row 09');
+
+    for (let i = 10; i < 24; i++) {
+      expect(isLineEmpty(term, i)).toBe(true);
+    }
+
+    term.dispose();
+  });
+
+  test('multiple update/clearDirty cycles maintain correct state', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+
+    term.write('\x1b[11;1HMIDDLE');
+    term.wasmTerm?.update();
+    expect(getLineContent(term, 10)).toBe('MIDDLE');
+    term.wasmTerm?.clearDirty();
+
+    term.write('\x1b[1;1HTOP');
+    term.wasmTerm?.update();
+    expect(getLineContent(term, 0)).toBe('TOP');
+    expect(getLineContent(term, 10)).toBe('MIDDLE');
+    term.wasmTerm?.clearDirty();
+
+    term.write('\x1b[11;1H\x1b[K');
+    term.wasmTerm?.update();
+    expect(getLineContent(term, 0)).toBe('TOP');
+    expect(isLineEmpty(term, 10)).toBe(true);
+    term.wasmTerm?.clearDirty();
+
+    term.wasmTerm?.update();
+    expect(getLineContent(term, 0)).toBe('TOP');
+    expect(isLineEmpty(term, 10)).toBe(true);
+
+    term.dispose();
+  });
+
+  test('clearing a line marks it dirty', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    term.write('\x1b[11;1HMIDDLE');
+    term.wasmTerm?.update();
+    term.wasmTerm?.clearDirty();
+
+    term.wasmTerm?.update();
+    expect(term.wasmTerm?.isRowDirty(10)).toBeFalsy();
+
+    term.write('\x1b[11;1H\x1b[K');
+    term.wasmTerm?.update();
+    expect(term.wasmTerm?.isRowDirty(10)).toBeTruthy();
+
+    term.dispose();
+  });
+
+  test('ED sequence marks all affected rows dirty', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    for (let i = 0; i < 24; i++) {
+      term.write(`\x1b[${i + 1};1HRow${i}`);
+    }
+    term.wasmTerm?.update();
+    term.wasmTerm?.clearDirty();
+
+    term.write('\x1b[6;1H\x1b[J');
+    term.wasmTerm?.update();
+
+    for (let i = 0; i < 5; i++) {
+      expect(term.wasmTerm?.isRowDirty(i)).toBeFalsy();
+    }
+    for (let i = 5; i < 24; i++) {
+      expect(term.wasmTerm?.isRowDirty(i)).toBeTruthy();
+    }
+
+    term.dispose();
+  });
+
+  test('getViewport and getLine return consistent data', async () => {
+    const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+    const container = document.createElement('div');
+    term.open(container);
+
+    term.write('\x1b[?1049h');
+    term.write('\x1b[5;1HVIEWPORT_TEST');
+
+    const lineContent = getLineContent(term, 4);
+    const viewport = term.wasmTerm?.getViewport();
+    const viewportLineContent = viewport
+      ?.slice(4 * 80, 5 * 80)
+      .map((c) => String.fromCodePoint(c.codepoint || 32))
+      .join('')
+      .trimEnd();
+
+    expect(lineContent).toBe('VIEWPORT_TEST');
+    expect(viewportLineContent).toBe('VIEWPORT_TEST');
+
+    term.dispose();
+  });
+});
+
 describe('Selection with Scrollback', () => {
   let container: HTMLElement | null = null;
 
@@ -1351,7 +2132,7 @@ describe('Selection with Scrollback', () => {
 
     // Scroll up 50 lines to view older content
     term.scrollLines(-50);
-    expect(term.viewportY).toBe(50);
+    expect(term.getViewportY()).toBe(50);
 
     // The viewport now shows:
     // - Lines 0-23 of viewport = Lines 27-50 of the original output
@@ -1399,7 +2180,7 @@ describe('Selection with Scrollback', () => {
 
     // Scroll up 10 lines (less than screen height)
     term.scrollLines(-10);
-    expect(term.viewportY).toBe(10);
+    expect(term.getViewportY()).toBe(10);
 
     // Now viewport shows:
     // - Top 10 rows: scrollback content (lines 67-76)
@@ -1438,7 +2219,7 @@ describe('Selection with Scrollback', () => {
     }
 
     // Don't scroll - should be at bottom (viewportY = 0)
-    expect(term.viewportY).toBe(0);
+    expect(term.getViewportY()).toBe(0);
 
     // Select from screen buffer (last visible lines)
     // Using helper to convert viewport rows to absolute coordinates
@@ -1512,7 +2293,7 @@ describe('Selection with Scrollback', () => {
 
     // Scroll to top to view oldest content
     term.scrollToTop();
-    const viewportY = term.viewportY;
+    const viewportY = term.getViewportY();
 
     // Should be scrolled up significantly
     expect(viewportY).toBeGreaterThan(0);

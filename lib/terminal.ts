@@ -17,7 +17,7 @@
 
 import { BufferNamespace } from './buffer';
 import { EventEmitter } from './event-emitter';
-import type { Ghostty, GhosttyCell, GhosttyTerminal } from './ghostty';
+import type { Ghostty, GhosttyCell, GhosttyTerminal, GhosttyTerminalConfig } from './ghostty';
 import { getGhostty } from './index';
 import { InputHandler } from './input-handler';
 import type {
@@ -36,7 +36,6 @@ import { OSC8LinkProvider } from './providers/osc8-link-provider';
 import { UrlRegexProvider } from './providers/url-regex-provider';
 import { CanvasRenderer } from './renderer';
 import { SelectionManager } from './selection-manager';
-import type { GhosttyTerminalConfig } from './types';
 import type { ILink, ILinkProvider } from './types';
 
 // ============================================================================
@@ -113,7 +112,7 @@ export class Terminal implements ITerminalCore {
   private currentTitle: string = '';
 
   // Phase 2: Viewport and scrolling state
-  private viewportY: number = 0; // Top line of viewport in scrollback buffer (0 = at bottom, can be fractional during smooth scroll)
+  public viewportY: number = 0; // Top line of viewport in scrollback buffer (0 = at bottom, can be fractional during smooth scroll)
   private targetViewportY: number = 0; // Target viewport position for smooth scrolling
   private scrollAnimationStartTime?: number;
   private scrollAnimationStartY?: number;
@@ -176,8 +175,50 @@ export class Terminal implements ITerminalCore {
   }
 
   // ==========================================================================
-  // Theme to WASM Config Conversion
+  // Option Change Handling (for mutable options)
   // ==========================================================================
+
+  /**
+   * Handle runtime option changes (called when options are modified after terminal is open)
+   * This enables xterm.js compatibility where options can be changed at runtime
+   */
+  private handleOptionChange(key: string, newValue: any, oldValue: any): void {
+    if (newValue === oldValue) return;
+
+    switch (key) {
+      case 'disableStdin':
+        // Input handler already checks this.options.disableStdin dynamically
+        // No action needed
+        break;
+
+      case 'cursorBlink':
+      case 'cursorStyle':
+        if (this.renderer) {
+          this.renderer.setCursorStyle(this.options.cursorStyle);
+          this.renderer.setCursorBlink(this.options.cursorBlink);
+        }
+        break;
+
+      case 'theme':
+        if (this.renderer) {
+          console.warn('ghostty-web: theme changes after open() are not yet fully supported');
+        }
+        break;
+
+      case 'fontSize':
+      case 'fontFamily':
+        if (this.renderer) {
+          console.warn('ghostty-web: font changes after open() are not yet fully supported');
+        }
+        break;
+
+      case 'cols':
+      case 'rows':
+        // Redirect to resize method
+        this.resize(this.options.cols, this.options.rows);
+        break;
+    }
+  }
 
   /**
    * Parse a CSS color string to 0xRRGGBB format.
@@ -252,52 +293,6 @@ export class Terminal implements ITerminalCore {
   }
 
   // ==========================================================================
-  // Option Change Handling (for mutable options)
-  // ==========================================================================
-
-  /**
-   * Handle runtime option changes (called when options are modified after terminal is open)
-   * This enables xterm.js compatibility where options can be changed at runtime
-   */
-  private handleOptionChange(key: string, newValue: any, oldValue: any): void {
-    if (newValue === oldValue) return;
-
-    switch (key) {
-      case 'disableStdin':
-        // Input handler already checks this.options.disableStdin dynamically
-        // No action needed
-        break;
-
-      case 'cursorBlink':
-      case 'cursorStyle':
-        if (this.renderer) {
-          this.renderer.setCursorStyle(this.options.cursorStyle);
-          this.renderer.setCursorBlink(this.options.cursorBlink);
-        }
-        break;
-
-      case 'theme':
-        if (this.renderer) {
-          console.warn('ghostty-web: theme changes after open() are not yet fully supported');
-        }
-        break;
-
-      case 'fontSize':
-      case 'fontFamily':
-        if (this.renderer) {
-          console.warn('ghostty-web: font changes after open() are not yet fully supported');
-        }
-        break;
-
-      case 'cols':
-      case 'rows':
-        // Redirect to resize method
-        this.resize(this.options.cols, this.options.rows);
-        break;
-    }
-  }
-
-  // ==========================================================================
   // Lifecycle Methods
   // ==========================================================================
 
@@ -336,9 +331,9 @@ export class Terminal implements ITerminalCore {
       parent.setAttribute('aria-label', 'Terminal input');
       parent.setAttribute('aria-multiline', 'true');
 
-      // Create WASM terminal with current dimensions and theme config
-      const wasmConfig = this.buildWasmConfig();
-      this.wasmTerm = this.ghostty!.createTerminal(this.cols, this.rows, wasmConfig);
+      // Create WASM terminal with current dimensions and config
+      const config = this.buildWasmConfig();
+      this.wasmTerm = this.ghostty!.createTerminal(this.cols, this.rows, config);
 
       // Create canvas element
       this.canvas = document.createElement('canvas');
@@ -466,7 +461,7 @@ export class Terminal implements ITerminalCore {
       // Use capture phase to ensure we get the event before browser scrolling
       parent.addEventListener('wheel', this.handleWheel, { passive: false, capture: true });
 
-      // Render initial blank screen
+      // Render initial blank screen (force full redraw)
       this.renderer.render(this.wasmTerm, true, this.viewportY, this, this.scrollbarOpacity);
 
       // Start render loop
@@ -651,8 +646,8 @@ export class Terminal implements ITerminalCore {
     if (this.wasmTerm) {
       this.wasmTerm.free();
     }
-    const wasmConfig = this.buildWasmConfig();
-    this.wasmTerm = this.ghostty!.createTerminal(this.cols, this.rows, wasmConfig);
+    const config = this.buildWasmConfig();
+    this.wasmTerm = this.ghostty!.createTerminal(this.cols, this.rows, config);
 
     // Clear renderer
     this.renderer!.clear();
@@ -1058,15 +1053,20 @@ export class Terminal implements ITerminalCore {
   private startRenderLoop(): void {
     const loop = () => {
       if (!this.isDisposed && this.isOpen) {
+        // Render using WASM's native dirty tracking
+        // The render() method:
+        // 1. Calls update() once to sync state and check dirty flags
+        // 2. Only redraws dirty rows when forceAll=false
+        // 3. Always calls clearDirty() at the end
+        this.renderer!.render(this.wasmTerm!, false, this.viewportY, this, this.scrollbarOpacity);
+
         // Check for cursor movement (Phase 2: onCursorMove event)
+        // Note: getCursor() reads from already-updated render state (from render() above)
         const cursor = this.wasmTerm!.getCursor();
         if (cursor.y !== this.lastCursorY) {
           this.lastCursorY = cursor.y;
           this.cursorMoveEmitter.fire();
         }
-
-        // Render only dirty lines for 60 FPS performance (with scrollbar opacity)
-        this.renderer!.render(this.wasmTerm!, false, this.viewportY, this, this.scrollbarOpacity);
 
         // Note: onRender event is intentionally not fired in the render loop
         // to avoid performance issues. For now, consumers can use requestAnimationFrame

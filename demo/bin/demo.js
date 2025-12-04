@@ -473,23 +473,20 @@ wss.on('connection', (ws, req) => {
   });
 
   // Send welcome message
-  setTimeout(() => {
-    if (ws.readyState !== ws.OPEN) return;
-    const C = '\x1b[1;36m'; // Cyan
-    const G = '\x1b[1;32m'; // Green
-    const Y = '\x1b[1;33m'; // Yellow
-    const R = '\x1b[0m'; // Reset
-    ws.send(`${C}╔══════════════════════════════════════════════════════════════╗${R}\r\n`);
-    ws.send(
-      `${C}║${R}  ${G}Welcome to ghostty-web!${R}                                     ${C}║${R}\r\n`
-    );
-    ws.send(`${C}║${R}                                                              ${C}║${R}\r\n`);
-    ws.send(`${C}║${R}  You have a real shell session with full PTY support.        ${C}║${R}\r\n`);
-    ws.send(
-      `${C}║${R}  Try: ${Y}ls${R}, ${Y}cd${R}, ${Y}top${R}, ${Y}vim${R}, or any command!                      ${C}║${R}\r\n`
-    );
-    ws.send(`${C}╚══════════════════════════════════════════════════════════════╝${R}\r\n\r\n`);
-  }, 100);
+  const C = '\x1b[1;36m'; // Cyan
+  const G = '\x1b[1;32m'; // Green
+  const Y = '\x1b[1;33m'; // Yellow
+  const R = '\x1b[0m'; // Reset
+  ws.send(`${C}╔══════════════════════════════════════════════════════════════╗${R}\r\n`);
+  ws.send(
+    `${C}║${R}  ${G}Welcome to ghostty-web!${R}                                     ${C}║${R}\r\n`
+  );
+  ws.send(`${C}║${R}                                                              ${C}║${R}\r\n`);
+  ws.send(`${C}║${R}  You have a real shell session with full PTY support.        ${C}║${R}\r\n`);
+  ws.send(
+    `${C}║${R}  Try: ${Y}ls${R}, ${Y}cd${R}, ${Y}top${R}, ${Y}vim${R}, or any command!                      ${C}║${R}\r\n`
+  );
+  ws.send(`${C}╚══════════════════════════════════════════════════════════════╝${R}\r\n\r\n`);
 });
 
 // ============================================================================
