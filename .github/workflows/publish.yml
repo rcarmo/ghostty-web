@@ -12,7 +12,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write # Required for creating GitHub releases
   id-token: write # Required for OIDC trusted publishing
 
 jobs:
@@ -87,15 +87,15 @@ jobs:
       - name: Generate version
         id: version
         run: |
-          # Get base version from package.json
-          BASE_VERSION=$(jq -r .version package.json)
-
           if [[ "${{ steps.detect.outputs.is_tag }}" == "true" ]]; then
-            # For tags, use the base version as-is (stable release)
-            NPM_VERSION="${BASE_VERSION}"
+            # For tags, extract version from git tag (strip 'v' prefix)
+            NPM_VERSION="${GITHUB_REF#refs/tags/v}"
             NPM_TAG="latest"
             echo "📦 Publishing stable release: ${NPM_VERSION}"
           else
+            # Get base version from latest tag for pre-releases
+            LATEST_TAG=$(git describe --tags --abbrev=0)
+            BASE_VERSION="${LATEST_TAG#v}"
             # For main branch, create a pre-release version using git describe
             # Format: 0.3.0-next.5.g1a2b3c4 (base-next.commits.hash)
             GIT_COMMIT=$(git rev-parse --short HEAD)
@@ -112,29 +112,6 @@ jobs:
           node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json')); pkg.version = '${NPM_VERSION}'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');"
 
           echo "Updated package.json to version ${NPM_VERSION}"
-
-      - name: Validate tag matches package.json version
-        if: steps.detect.outputs.is_tag == 'true'
-        run: |
-          # Extract version from package.json
-          PKG_VERSION=$(jq -r .version package.json)
-
-          # Extract version from git tag (strip 'v' prefix)
-          TAG_VERSION=${GITHUB_REF#refs/tags/v}
-
-          echo "Package version: $PKG_VERSION"
-          echo "Tag version: $TAG_VERSION"
-
-          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "❌ Error: Version mismatch!"
-            echo "   package.json version: $PKG_VERSION"
-            echo "   Git tag version: $TAG_VERSION"
-            echo ""
-            echo "Please ensure the git tag matches the version in package.json"
-            exit 1
-          fi
-
-          echo "✅ Version validation passed: $PKG_VERSION"
 
       - name: Check if version exists
         id: check-exists
@@ -168,6 +145,12 @@ jobs:
         if: steps.check-exists.outputs.exists == 'true' && steps.detect.outputs.is_tag != 'true'
         run: |
           echo "⏭️ Pre-release version already exists, skipping"
+
+      - name: Create GitHub Release
+        if: steps.detect.outputs.is_tag == 'true'
+        run: gh release create "${{ steps.detect.outputs.trigger_name }}" --title "${{ steps.detect.outputs.trigger_name }}" --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   publish-demo:
     name: publish @ghostty-web/demo to npm
@@ -204,16 +187,18 @@ jobs:
         id: version
         working-directory: demo
         run: |
-          BASE_VERSION=$(jq -r .version package.json)
-
           if [[ "${{ steps.detect.outputs.is_tag }}" == "true" ]]; then
-            NPM_VERSION="${BASE_VERSION}"
+            # For tags, extract version from git tag (strip 'v' prefix)
+            NPM_VERSION="${GITHUB_REF#refs/tags/v}"
             NPM_TAG="latest"
             # Pin to exact version to avoid npx cache issues with transitive deps
-            GHOSTTY_WEB_DEP="${BASE_VERSION}"
+            GHOSTTY_WEB_DEP="${NPM_VERSION}"
           else
+            # Get base version from latest tag for pre-releases
+            LATEST_TAG=$(git describe --tags --abbrev=0)
+            BASE_VERSION="${LATEST_TAG#v}"
             GIT_COMMIT=$(git rev-parse --short HEAD)
-            COMMITS_SINCE_TAG=$(git rev-list --count HEAD ^$(git describe --tags --abbrev=0 2>/dev/null || echo HEAD) 2>/dev/null || echo "0")
+            COMMITS_SINCE_TAG=$(git rev-list --count HEAD ^${LATEST_TAG})
             NPM_VERSION="${BASE_VERSION}-next.${COMMITS_SINCE_TAG}.g${GIT_COMMIT}"
             NPM_TAG="next"
             # Pin to exact version to avoid npx cache issues with transitive deps
