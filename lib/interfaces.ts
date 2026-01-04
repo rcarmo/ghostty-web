@@ -22,6 +22,11 @@ export interface ITerminalOptions {
   // Scrolling options
   smoothScrollDuration?: number; // Duration in ms for smooth scroll animation (default: 100, 0 = instant)
 
+  // Link handling
+  // Called when a link is clicked. Return true to prevent default link handling.
+  // If not provided, links will use window.open() which may be blocked in webviews.
+  onLinkClick?: (url: string, event: MouseEvent) => boolean;
+
   // Internal: Ghostty WASM instance (optional, for test isolation)
   // If not provided, uses the module-level instance from init()
   ghostty?: Ghostty;
