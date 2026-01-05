@@ -205,15 +205,24 @@ export class SelectionManager {
 
   /**
    * Check if there's an active selection
+   * Note: Same-cell selection (start == end) during drag means no selection,
+   * but we allow it when selection was set programmatically (e.g., triple-click)
+   * by checking if we're currently dragging.
    */
   hasSelection(): boolean {
     if (!this.selectionStart || !this.selectionEnd) return false;
 
-    // Check if start and end are the same (single cell, no real selection)
-    return !(
-      this.selectionStart.col === this.selectionEnd.col &&
-      this.selectionStart.absoluteRow === this.selectionEnd.absoluteRow
-    );
+    // If currently dragging (isSelecting), same-cell means no drag yet
+    // Otherwise (programmatic selection), same-cell is valid for single-char content
+    if (this.isSelecting) {
+      return !(
+        this.selectionStart.col === this.selectionEnd.col &&
+        this.selectionStart.absoluteRow === this.selectionEnd.absoluteRow
+      );
+    }
+
+    // For non-drag selections, coordinates exist means selection exists
+    return true;
   }
 
   /**
@@ -611,9 +620,8 @@ export class SelectionManager {
         // Only select if line has content (endCol >= 0)
         if (endCol >= 0) {
           // Select line content only (not trailing whitespace)
-          // Use endCol + 1 to make the range exclusive, avoiding start == end for single-char lines
           this.selectionStart = { col: 0, absoluteRow };
-          this.selectionEnd = { col: endCol + 1, absoluteRow };
+          this.selectionEnd = { col: endCol, absoluteRow };
           this.requestRender();
 
           const text = this.getSelection();
