@@ -179,7 +179,7 @@ export class InputHandler {
   private onDataCallback: (data: string) => void;
   private onBellCallback: () => void;
   private onKeyCallback?: (keyEvent: IKeyEvent) => void;
-  private customKeyEventHandler?: (event: KeyboardEvent) => boolean;
+  private customKeyEventHandler?: (event: KeyboardEvent) => boolean | undefined;
   private getModeCallback?: (mode: number) => boolean;
   private onCopyCallback?: () => boolean;
   private mouseConfig?: MouseTrackingConfig;
@@ -227,7 +227,7 @@ export class InputHandler {
     onData: (data: string) => void,
     onBell: () => void,
     onKey?: (keyEvent: IKeyEvent) => void,
-    customKeyEventHandler?: (event: KeyboardEvent) => boolean,
+    customKeyEventHandler?: (event: KeyboardEvent) => boolean | undefined,
     getMode?: (mode: number) => boolean,
     onCopy?: () => boolean,
     inputElement?: HTMLElement,
@@ -250,8 +250,9 @@ export class InputHandler {
 
   /**
    * Set custom key event handler (for runtime updates)
+   * Returns: true = terminal handles it, false = let it bubble, undefined = default processing
    */
-  setCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean): void {
+  setCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean | undefined): void {
     this.customKeyEventHandler = handler;
   }
 
@@ -375,13 +376,22 @@ export class InputHandler {
     }
 
     // Check custom key event handler
+    // Returns: true = terminal handles it (preventDefault)
+    //          false = let it bubble to host (VS Code) - don't preventDefault, return early
+    //          undefined = continue with default processing
     if (this.customKeyEventHandler) {
-      const handled = this.customKeyEventHandler(event);
-      if (handled) {
-        // Custom handler consumed the event
+      const result = this.customKeyEventHandler(event);
+      if (result === true) {
+        // Custom handler consumed the event - terminal will handle it
         event.preventDefault();
         return;
       }
+      if (result === false) {
+        // Explicitly let this event bubble up to the host (VS Code)
+        // Don't preventDefault, don't process further
+        return;
+      }
+      // result === undefined: continue with default terminal processing
     }
 
     // Allow Ctrl+V and Cmd+V to trigger paste event (don't preventDefault)

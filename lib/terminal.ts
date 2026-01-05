@@ -111,7 +111,7 @@ export class Terminal implements ITerminalCore {
   private addons: ITerminalAddon[] = [];
 
   // Phase 1: Custom event handlers
-  private customKeyEventHandler?: (event: KeyboardEvent) => boolean;
+  private customKeyEventHandler?: (event: KeyboardEvent) => boolean | undefined;
 
   // Phase 1: Title tracking
   private currentTitle: string = '';
@@ -210,7 +210,11 @@ export class Terminal implements ITerminalCore {
 
       case 'theme':
         if (this.renderer) {
-          console.warn('ghostty-web: theme changes after open() are not yet fully supported');
+          this.renderer.setTheme(this.options.theme);
+          // Force full re-render with new theme
+          if (this.wasmTerm) {
+            this.renderer.render(this.wasmTerm, true, this.viewportY, this);
+          }
         }
         break;
 
@@ -905,10 +909,12 @@ export class Terminal implements ITerminalCore {
 
   /**
    * Attach a custom keyboard event handler
-   * Returns true to prevent default handling
+   * Returns: true = terminal handles it (preventDefault)
+   *          false = let event bubble to host (VS Code)
+   *          undefined = continue with default terminal processing
    */
   public attachCustomKeyEventHandler(
-    customKeyEventHandler: (event: KeyboardEvent) => boolean
+    customKeyEventHandler: (event: KeyboardEvent) => boolean | undefined
   ): void {
     this.customKeyEventHandler = customKeyEventHandler;
     // Update input handler if already created
