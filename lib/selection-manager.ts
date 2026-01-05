@@ -597,7 +597,8 @@ export class SelectionManager {
           const screenRow = absoluteRow - scrollbackLength;
           line = this.wasmTerm.getLine(screenRow);
         }
-        let endCol = 0;
+        // Find last non-empty cell (-1 means empty line)
+        let endCol = -1;
         if (line) {
           for (let i = line.length - 1; i >= 0; i--) {
             if (line[i] && line[i].codepoint !== 0 && line[i].codepoint !== 32) {
@@ -607,15 +608,19 @@ export class SelectionManager {
           }
         }
 
-        // Select line content only (not trailing whitespace)
-        this.selectionStart = { col: 0, absoluteRow };
-        this.selectionEnd = { col: endCol, absoluteRow };
-        this.requestRender();
+        // Only select if line has content (endCol >= 0)
+        if (endCol >= 0) {
+          // Select line content only (not trailing whitespace)
+          // Use endCol + 1 to make the range exclusive, avoiding start == end for single-char lines
+          this.selectionStart = { col: 0, absoluteRow };
+          this.selectionEnd = { col: endCol + 1, absoluteRow };
+          this.requestRender();
 
-        const text = this.getSelection();
-        if (text) {
-          this.copyToClipboard(text);
-          this.selectionChangedEmitter.fire();
+          const text = this.getSelection();
+          if (text) {
+            this.copyToClipboard(text);
+            this.selectionChangedEmitter.fire();
+          }
         }
       }
     });
