@@ -559,8 +559,42 @@ export class SelectionManager {
     };
     document.addEventListener('mouseup', this.boundMouseUpHandler);
 
+    // Track click timing for triple-click detection
+    let lastClickTime = 0;
+    let clickCount = 0;
+    const TRIPLE_CLICK_THRESHOLD_MS = 500;
+
     // Double-click - select word
     canvas.addEventListener('dblclick', (e: MouseEvent) => {
+      const now = Date.now();
+      if (now - lastClickTime < TRIPLE_CLICK_THRESHOLD_MS) {
+        clickCount++;
+      } else {
+        clickCount = 2; // Double-click resets to 2
+      }
+      lastClickTime = now;
+
+      // Check for triple-click (select line)
+      if (clickCount >= 3) {
+        clickCount = 0;
+        const cell = this.pixelToCell(e.offsetX, e.offsetY);
+        const dims = this.wasmTerm.getDimensions();
+        const absoluteRow = this.viewportRowToAbsolute(cell.row);
+
+        // Select entire line
+        this.selectionStart = { col: 0, absoluteRow };
+        this.selectionEnd = { col: dims.cols - 1, absoluteRow };
+        this.requestRender();
+
+        const text = this.getSelection();
+        if (text) {
+          this.copyToClipboard(text);
+          this.selectionChangedEmitter.fire();
+        }
+        return;
+      }
+
+      // Double-click - select word
       const cell = this.pixelToCell(e.offsetX, e.offsetY);
       const word = this.getWordAtCell(cell.col, cell.row);
 
@@ -576,6 +610,15 @@ export class SelectionManager {
           this.selectionChangedEmitter.fire();
         }
       }
+    });
+
+    // Track single clicks for triple-click detection timing
+    canvas.addEventListener('click', () => {
+      const now = Date.now();
+      if (now - lastClickTime >= TRIPLE_CLICK_THRESHOLD_MS) {
+        clickCount = 1;
+      }
+      lastClickTime = now;
     });
 
     // Right-click (context menu) - position textarea to show browser's native menu
