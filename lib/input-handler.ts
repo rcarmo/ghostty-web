@@ -402,6 +402,13 @@ export class InputHandler {
       return;
     }
 
+    // Let all other Cmd/Meta combos bubble to host (VS Code) on Mac
+    // This allows Cmd+P (Quick Open), Cmd+Shift+P (Command Palette), etc. to work
+    // Note: Ctrl+letter on Mac is handled below as terminal control sequences
+    if (event.metaKey && !event.ctrlKey) {
+      return;
+    }
+
     // For printable characters without modifiers, send the character directly
     // This handles: a-z, A-Z (with shift), 0-9, punctuation, etc.
     if (this.isPrintableCharacter(event)) {
