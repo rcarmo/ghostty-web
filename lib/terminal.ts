@@ -1593,6 +1593,35 @@ export class Terminal implements ITerminalCore {
       return;
     }
 
+    // Check if mouse tracking is enabled and SGR mode (1006) is active
+    // Only send SGR scroll events if both conditions are met
+    const hasSGRMode = this.wasmTerm?.getMode(1006, false) ?? false;
+    if (this.hasMouseTracking() && hasSGRMode && this.canvas && this.renderer) {
+      const rect = this.canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const metrics = this.renderer.getMetrics();
+      const col = Math.max(0, Math.min(Math.floor(mouseX / metrics.width), this.cols - 1));
+      const row = Math.max(0, Math.min(Math.floor(mouseY / metrics.height), this.rows - 1));
+
+      // Encode modifier keys: shift=+4, alt/meta=+8, ctrl=+16
+      let modifiers = 0;
+      if (e.shiftKey) modifiers += 4;
+      if (e.altKey || e.metaKey) modifiers += 8;
+      if (e.ctrlKey) modifiers += 16;
+
+      // Send scroll events (64 = up, 65 = down in SGR encoding)
+      const count = Math.min(Math.abs(Math.round(e.deltaY / 33)), 5);
+      const isUp = e.deltaY < 0;
+      const button = (isUp ? 64 : 65) + modifiers;
+
+      for (let i = 0; i < count; i++) {
+        // SGR format: \x1b[<button;col;rowM (1-based coordinates)
+        this.dataEmitter.fire(`\x1b[<${button};${col + 1};${row + 1}M`);
+      }
+      return;
+    }
+
     // Check if in alternate screen mode (vim, less, htop, etc.)
     const isAltScreen = this.wasmTerm?.isAlternateScreen() ?? false;
 
