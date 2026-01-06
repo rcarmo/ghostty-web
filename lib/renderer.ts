@@ -948,6 +948,7 @@ export class CanvasRenderer {
     return false;
   }
 
+
   /**
    * Set the currently hovered hyperlink ID for rendering underlines
    */
