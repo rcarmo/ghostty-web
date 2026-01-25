@@ -196,6 +196,7 @@ export class InputHandler {
   private wheelListener: ((e: WheelEvent) => void) | null = null;
   private isComposing = false;
   private compositionJustEnded = false; // Block keydown briefly after composition ends
+  private pendingKeyAfterComposition: string | null = null; // Key to output after composition
   private isDisposed = false;
   private mouseButtonsPressed = 0; // Track which buttons are pressed for motion reporting
   private lastKeyDownData: string | null = null;
@@ -371,12 +372,21 @@ export class InputHandler {
 
     // Ignore keydown events during composition
     // Note: Some browsers send keyCode 229 for all keys during composition
-    if (this.isComposing || event.isComposing || event.keyCode === 229) {
+    if (event.isComposing || event.keyCode === 229) {
       return;
     }
 
-    // Block the key that triggered composition end (e.g., space, period)
-    // This fixes the "세요" -> "세 요" bug where keydown fires before compositionend
+    // If we're still in composition (our flag) but browser says composition ended,
+    // this is the key that ended the composition (space, period, etc.).
+    // Queue it to be processed after compositionend to maintain correct order.
+    if (this.isComposing) {
+      // Store the key to be processed after composition ends
+      this.pendingKeyAfterComposition = event.key;
+      event.preventDefault();
+      return;
+    }
+
+    // Block the key that triggered composition end if we just processed a pending key
     if (this.compositionJustEnded) {
       this.compositionJustEnded = false;
       return;
@@ -698,18 +708,12 @@ export class InputHandler {
     if (this.isDisposed) return;
     this.isComposing = false;
 
-    // Set flag to block the next keydown event (the key that triggered composition end)
-    // This prevents "세요" becoming "세 요" when space/period is pressed
-    this.compositionJustEnded = true;
-    // Clear flag after a short delay to allow normal keydown processing
-    setTimeout(() => {
-      this.compositionJustEnded = false;
-    }, 10);
-
     const data = event.data;
     if (data && data.length > 0) {
       if (this.shouldIgnoreCompositionEnd(data)) {
         this.cleanupCompositionTextNodes();
+        // Still process pending key even if composition data is ignored
+        this.processPendingKeyAfterComposition();
         return;
       }
       this.onDataCallback(data);
@@ -717,6 +721,22 @@ export class InputHandler {
     }
 
     this.cleanupCompositionTextNodes();
+
+    // Process the key that ended composition (space, period, etc.)
+    // This ensures correct order: composed text first, then the terminating key
+    this.processPendingKeyAfterComposition();
+  }
+
+  /**
+   * Process the pending key that was queued during composition
+   */
+  private processPendingKeyAfterComposition(): void {
+    if (this.pendingKeyAfterComposition) {
+      const key = this.pendingKeyAfterComposition;
+      this.pendingKeyAfterComposition = null;
+      // Output the key that ended composition
+      this.onDataCallback(key);
+    }
   }
 
   /**

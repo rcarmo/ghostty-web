@@ -349,20 +349,15 @@ export class Terminal implements ITerminalCore {
     this.isOpen = true;
 
     try {
-      // Make parent focusable if it isn't already
-      if (!parent.hasAttribute('tabindex')) {
-        parent.setAttribute('tabindex', '0');
-      }
+      // Set tabindex="-1" on parent so it's not focusable via click/tab.
+      // We want all focus to go to the hidden textarea for proper IME handling.
+      // The textarea will handle keyboard input and composition events.
+      parent.setAttribute('tabindex', '-1');
 
-      // Mark as contenteditable so browser extensions (Vimium, etc.) recognize
-      // this as an input element and don't intercept keyboard events.
-      parent.setAttribute('contenteditable', 'true');
-      // Prevent actual content editing - we handle input ourselves
-      parent.addEventListener('beforeinput', (e) => {
-        if (e.target === parent) {
-          e.preventDefault();
-        }
-      });
+      // Note: We intentionally do NOT set contenteditable on the parent container.
+      // Setting contenteditable causes IME (Korean, Chinese, Japanese) input to be
+      // inserted directly into the container as text nodes, bypassing our textarea.
+      // Instead, we use the hidden textarea for all keyboard/IME input.
 
       // Add accessibility attributes for screen readers and extensions
       parent.setAttribute('role', 'textbox');
@@ -429,7 +424,7 @@ export class Terminal implements ITerminalCore {
 
       // Focus textarea on interaction - preventDefault before focus
       const textarea = this.textarea;
-      // Desktop: mousedown
+      // Desktop: mousedown on canvas
       this.canvas.addEventListener('mousedown', (ev) => {
         ev.preventDefault();
         textarea.focus();
@@ -437,6 +432,17 @@ export class Terminal implements ITerminalCore {
       // Mobile: touchend with preventDefault to suppress iOS caret
       this.canvas.addEventListener('touchend', (ev) => {
         ev.preventDefault();
+        textarea.focus();
+      });
+      // Redirect focus from parent container to textarea
+      // This ensures IME composition events always go to the textarea
+      parent.addEventListener('mousedown', (ev) => {
+        if (ev.target === parent) {
+          ev.preventDefault();
+          textarea.focus();
+        }
+      });
+      parent.addEventListener('focus', () => {
         textarea.focus();
       });
 
@@ -1242,8 +1248,7 @@ export class Terminal implements ITerminalCore {
       this.element.removeEventListener('mouseleave', this.handleMouseLeave);
       this.element.removeEventListener('click', this.handleClick);
 
-      // Remove contenteditable and accessibility attributes added in open()
-      this.element.removeAttribute('contenteditable');
+      // Remove accessibility attributes added in open()
       this.element.removeAttribute('role');
       this.element.removeAttribute('aria-label');
       this.element.removeAttribute('aria-multiline');
