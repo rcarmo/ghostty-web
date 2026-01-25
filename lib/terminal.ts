@@ -69,6 +69,7 @@ export class Terminal implements ITerminalCore {
   private inputHandler?: InputHandler;
   private selectionManager?: SelectionManager;
   private canvas?: HTMLCanvasElement;
+  private compositionPreview?: HTMLDivElement;
 
   // Link detection system
   private linkDetector?: LinkDetector;
@@ -399,6 +400,32 @@ export class Terminal implements ITerminalCore {
       this.textarea.style.whiteSpace = 'nowrap';
       this.textarea.style.resize = 'none';
       parent.appendChild(this.textarea);
+
+      // Create composition preview element for IME input (Korean, Chinese, Japanese)
+      this.compositionPreview = document.createElement('div');
+      this.compositionPreview.style.position = 'absolute';
+      this.compositionPreview.style.top = '4px';
+      this.compositionPreview.style.right = '4px';
+      this.compositionPreview.style.padding = '2px 8px';
+      this.compositionPreview.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+      this.compositionPreview.style.color = '#ffcc00';
+      this.compositionPreview.style.fontFamily = 'monospace';
+      this.compositionPreview.style.fontSize = '12px';
+      this.compositionPreview.style.borderRadius = '3px';
+      this.compositionPreview.style.display = 'none';
+      this.compositionPreview.style.zIndex = '1000';
+      parent.appendChild(this.compositionPreview);
+
+      // Listen to composition events for preview
+      this.textarea.addEventListener('compositionupdate', (e: CompositionEvent) => {
+        if (e.data) {
+          this.compositionPreview!.textContent = `조합중: ${e.data}`;
+          this.compositionPreview!.style.display = 'block';
+        }
+      });
+      this.textarea.addEventListener('compositionend', () => {
+        this.compositionPreview!.style.display = 'none';
+      });
 
       // Focus textarea on interaction - preventDefault before focus
       const textarea = this.textarea;
@@ -1199,6 +1226,12 @@ export class Terminal implements ITerminalCore {
     if (this.textarea && this.textarea.parentNode) {
       this.textarea.parentNode.removeChild(this.textarea);
       this.textarea = undefined;
+    }
+
+    // Remove composition preview from DOM
+    if (this.compositionPreview && this.compositionPreview.parentNode) {
+      this.compositionPreview.parentNode.removeChild(this.compositionPreview);
+      this.compositionPreview = undefined;
     }
 
     // Remove event listeners
