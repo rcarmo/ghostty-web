@@ -183,6 +183,36 @@ term.registerLinkProvider(myProvider);
 
 See [AGENTS.md](AGENTS.md) for development guide and code patterns.
 
+### Snapshot API (Playback Mode)
+
+The Terminal supports a snapshot API for playback mode, enabling direct terminal state injection without re-parsing VT100 sequences. This is useful for terminal recordings and time-travel debugging.
+
+```typescript
+import { Terminal, GhosttyCell } from '@coder/ghostty-web';
+
+// Create cells array (flat row-major order: rows * cols cells)
+const cells: GhosttyCell[] = recordedFrame.cells;
+const cursor = { x: 10, y: 5 };
+
+// Set snapshot - renderer will use this instead of WASM terminal
+terminal.setSnapshot(cells, cursor);
+
+// Check if in snapshot mode
+if (terminal.hasSnapshot()) {
+  console.log('Playback mode active');
+}
+
+// Clear snapshot and return to normal rendering
+terminal.clearSnapshot();
+```
+
+Each `GhosttyCell` contains:
+- `codepoint`: Unicode codepoint (number)
+- `fg_r`, `fg_g`, `fg_b`: Foreground RGB (0-255)
+- `bg_r`, `bg_g`, `bg_b`: Background RGB (0-255)
+- `flags`: Style flags (bold, italic, etc.)
+- `width`: Character width (1 or 2 for wide chars)
+
 ## Why This Approach?
 
 **DON'T** re-implement VT100 parsing from scratch (years of work, thousands of edge cases).
