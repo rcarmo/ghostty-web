@@ -926,6 +926,12 @@ export class SelectionManager {
    * 3. Fall back to execCommand (legacy, for older browsers)
    */
   private copyToClipboard(text: string): void {
+    // Defensive check: don't copy empty text or if no selection
+    // This prevents accidental clipboard overwrites from single clicks
+    if (!text || !this.hasSelection()) {
+      return;
+    }
+
     // First try: ClipboardItem API (modern, Safari-compatible)
     // Safari allows this because we create the ClipboardItem synchronously
     // within the user gesture, even though the write is async
