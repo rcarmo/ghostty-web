@@ -1312,7 +1312,7 @@ describe('Buffer Access API', () => {
 
     term.open(container!);
 
-    // Write to main screen (default background = black)
+    // Write to main screen (default background from DEFAULT_THEME = #1e1e1e = RGB(30, 30, 30))
     term.write('MAIN\r\n');
     term.wasmTerm?.update();
     term.wasmTerm?.markClean();
@@ -1331,22 +1331,22 @@ describe('Buffer Access API', () => {
     term.wasmTerm?.update();
     term.wasmTerm?.markClean();
 
-    // Verify alternate screen has non-default background
+    // Verify alternate screen has non-default background (blue)
     const altViewport = term.wasmTerm?.getViewport();
-    expect(altViewport![0].bg_r).not.toBe(0); // Should be blue-ish
+    expect(altViewport![0].bg_b).toBeGreaterThan(altViewport![0].bg_r); // Blue > Red for blue background
 
     // Exit alternate screen
     term.write('\x1b[?1049l');
     term.wasmTerm?.update();
 
-    // CRITICAL: Background colors must be restored to main screen values (black)
+    // CRITICAL: Background colors must be restored to main screen values (DEFAULT_THEME background)
     const restoredViewport = term.wasmTerm?.getViewport();
     const firstCell = restoredViewport![0];
 
-    // Main screen cells should have default background (0, 0, 0 = black)
-    expect(firstCell.bg_r).toBe(0);
-    expect(firstCell.bg_g).toBe(0);
-    expect(firstCell.bg_b).toBe(0);
+    // Main screen cells should have default background from DEFAULT_THEME (#1e1e1e = 30, 30, 30)
+    expect(firstCell.bg_r).toBe(30);
+    expect(firstCell.bg_g).toBe(30);
+    expect(firstCell.bg_b).toBe(30);
 
     // Verify text is also restored
     expect(String.fromCodePoint(firstCell.codepoint)).toBe('M');

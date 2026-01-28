@@ -34,7 +34,7 @@ import type {
 import { LinkDetector } from './link-detector';
 import { OSC8LinkProvider } from './providers/osc8-link-provider';
 import { UrlRegexProvider } from './providers/url-regex-provider';
-import { CanvasRenderer } from './renderer';
+import { CanvasRenderer, DEFAULT_THEME } from './renderer';
 import { SelectionManager } from './selection-manager';
 import type { ILink, ILinkProvider } from './types';
 
@@ -289,6 +289,8 @@ export class Terminal implements ITerminalCore {
 
   /**
    * Convert terminal options to WASM terminal config.
+   * Merges user theme with DEFAULT_THEME to ensure all colors are set,
+   * preventing WASM from falling back to its internal palette.
    */
   private buildWasmConfig(): GhosttyTerminalConfig | undefined {
     const theme = this.options.theme;
@@ -299,33 +301,37 @@ export class Terminal implements ITerminalCore {
       return undefined;
     }
 
-    // Build palette array from theme colors
+    // Merge user theme with defaults to ensure all colors are set
+    // This prevents WASM from using its internal palette for unset colors
+    const mergedTheme = { ...DEFAULT_THEME, ...theme };
+
+    // Build palette array from merged theme colors
     // Order: black, red, green, yellow, blue, magenta, cyan, white,
     //        brightBlack, brightRed, brightGreen, brightYellow, brightBlue, brightMagenta, brightCyan, brightWhite
     const palette: number[] = [
-      this.parseColorToHex(theme?.black),
-      this.parseColorToHex(theme?.red),
-      this.parseColorToHex(theme?.green),
-      this.parseColorToHex(theme?.yellow),
-      this.parseColorToHex(theme?.blue),
-      this.parseColorToHex(theme?.magenta),
-      this.parseColorToHex(theme?.cyan),
-      this.parseColorToHex(theme?.white),
-      this.parseColorToHex(theme?.brightBlack),
-      this.parseColorToHex(theme?.brightRed),
-      this.parseColorToHex(theme?.brightGreen),
-      this.parseColorToHex(theme?.brightYellow),
-      this.parseColorToHex(theme?.brightBlue),
-      this.parseColorToHex(theme?.brightMagenta),
-      this.parseColorToHex(theme?.brightCyan),
-      this.parseColorToHex(theme?.brightWhite),
+      this.parseColorToHex(mergedTheme.black),
+      this.parseColorToHex(mergedTheme.red),
+      this.parseColorToHex(mergedTheme.green),
+      this.parseColorToHex(mergedTheme.yellow),
+      this.parseColorToHex(mergedTheme.blue),
+      this.parseColorToHex(mergedTheme.magenta),
+      this.parseColorToHex(mergedTheme.cyan),
+      this.parseColorToHex(mergedTheme.white),
+      this.parseColorToHex(mergedTheme.brightBlack),
+      this.parseColorToHex(mergedTheme.brightRed),
+      this.parseColorToHex(mergedTheme.brightGreen),
+      this.parseColorToHex(mergedTheme.brightYellow),
+      this.parseColorToHex(mergedTheme.brightBlue),
+      this.parseColorToHex(mergedTheme.brightMagenta),
+      this.parseColorToHex(mergedTheme.brightCyan),
+      this.parseColorToHex(mergedTheme.brightWhite),
     ];
 
     return {
       scrollbackLimit: scrollback,
-      fgColor: this.parseColorToHex(theme?.foreground),
-      bgColor: this.parseColorToHex(theme?.background),
-      cursorColor: this.parseColorToHex(theme?.cursor),
+      fgColor: this.parseColorToHex(mergedTheme.foreground),
+      bgColor: this.parseColorToHex(mergedTheme.background),
+      cursorColor: this.parseColorToHex(mergedTheme.cursor),
       palette,
     };
   }
