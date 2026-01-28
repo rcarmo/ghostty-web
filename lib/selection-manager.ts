@@ -695,7 +695,11 @@ export class SelectionManager {
       // Handle mouse release for mouse tracking
       // Use e.button directly to handle multi-button scenarios correctly
       const sgrButton = this.mapButton(e.button);
-      if (sgrButton !== null && this.mouseButtonsPressed.has(sgrButton) && this.terminal.hasMouseTracking()) {
+      if (
+        sgrButton !== null &&
+        this.mouseButtonsPressed.has(sgrButton) &&
+        this.terminal.hasMouseTracking()
+      ) {
         const rect = canvas.getBoundingClientRect();
         // Calculate cell from event position (clamped to canvas bounds)
         const clampedX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
