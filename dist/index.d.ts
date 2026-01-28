@@ -21,9 +21,23 @@ export declare class CanvasRenderer {
     private hoveredLinkRange;
     private previousHoveredLinkRange;
     constructor(canvas: HTMLCanvasElement, options?: RendererOptions);
+    /**
+     * Build a CSS font string with proper quoting for font families with spaces.
+     * Example: "Fira Code, monospace" -> '"Fira Code", monospace'
+     */
+    private buildFontString;
     private measureFont;
     /**
-     * Remeasure font metrics (call after font loads or changes)
+     * Remeasure font metrics (call after font loads or changes).
+     * Call this after loading a custom web font to ensure correct measurements.
+     *
+     * Example usage with FontFace API:
+     * ```typescript
+     * const font = new FontFace('Fira Code', 'url(...)');
+     * await font.load();
+     * document.fonts.add(font);
+     * terminal.renderer.remeasureFont();
+     * ```
      */
     remeasureFont(): void;
     private rgbToCSS;
@@ -1865,6 +1879,31 @@ export declare class Terminal implements ITerminalCore {
      * Returns true to prevent default handling
      */
     attachCustomWheelEventHandler(customWheelEventHandler?: (event: WheelEvent) => boolean): void;
+    /**
+     * Load custom fonts and update terminal rendering.
+     *
+     * Call this after loading web fonts to ensure the terminal measures and
+     * renders with the correct font metrics. The terminal will re-measure
+     * fonts and trigger a full re-render.
+     *
+     * @example
+     * ```typescript
+     * // Option 1: Wait for specific fonts
+     * await document.fonts.load('16px "Fira Code"');
+     * terminal.loadFonts();
+     *
+     * // Option 2: Wait for all fonts
+     * await document.fonts.ready;
+     * terminal.loadFonts();
+     *
+     * // Option 3: Use FontFace API
+     * const font = new FontFace('Fira Code', 'url(/fonts/FiraCode.woff2)');
+     * await font.load();
+     * document.fonts.add(font);
+     * terminal.loadFonts();
+     * ```
+     */
+    loadFonts(): void;
     /**
      * Register a custom link provider
      * Multiple providers can be registered to detect different types of links

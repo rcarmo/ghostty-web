@@ -187,13 +187,35 @@ export class CanvasRenderer {
   // Font Metrics Measurement
   // ==========================================================================
 
+  /**
+   * Build a CSS font string with proper quoting for font families with spaces.
+   * Example: "Fira Code, monospace" -> '"Fira Code", monospace'
+   */
+  private buildFontString(style: string = ''): string {
+    // Quote font family names that contain spaces but aren't already quoted
+    const quotedFamily = this.fontFamily
+      .split(',')
+      .map((f) => {
+        const trimmed = f.trim();
+        // Already quoted or a generic family (no spaces)
+        if (trimmed.startsWith('"') || trimmed.startsWith("'") || !trimmed.includes(' ')) {
+          return trimmed;
+        }
+        // Quote it
+        return `"${trimmed}"`;
+      })
+      .join(', ');
+
+    return `${style}${this.fontSize}px ${quotedFamily}`;
+  }
+
   private measureFont(): FontMetrics {
     // Use an offscreen canvas for measurement
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
 
     // Set font (use actual pixel size for accurate measurement)
-    ctx.font = `${this.fontSize}px ${this.fontFamily}`;
+    ctx.font = this.buildFontString();
 
     // Measure width using 'M' (typically widest character)
     const widthMetrics = ctx.measureText('M');
@@ -212,7 +234,16 @@ export class CanvasRenderer {
   }
 
   /**
-   * Remeasure font metrics (call after font loads or changes)
+   * Remeasure font metrics (call after font loads or changes).
+   * Call this after loading a custom web font to ensure correct measurements.
+   *
+   * Example usage with FontFace API:
+   * ```typescript
+   * const font = new FontFace('Fira Code', 'url(...)');
+   * await font.load();
+   * document.fonts.add(font);
+   * terminal.renderer.remeasureFont();
+   * ```
    */
   public remeasureFont(): void {
     this.metrics = this.measureFont();
@@ -609,7 +640,7 @@ export class CanvasRenderer {
     let fontStyle = '';
     if (cell.flags & CellFlags.ITALIC) fontStyle += 'italic ';
     if (cell.flags & CellFlags.BOLD) fontStyle += 'bold ';
-    this.ctx.font = `${fontStyle}${this.fontSize}px ${this.fontFamily}`;
+    this.ctx.font = this.buildFontString(fontStyle);
 
     // Extract colors and handle inverse
     let fg_r = cell.fg_r,

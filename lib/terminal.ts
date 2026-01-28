@@ -1063,6 +1063,40 @@ export class Terminal implements ITerminalCore {
   }
 
   // ==========================================================================
+  // Font Management
+  // ==========================================================================
+
+  /**
+   * Load custom fonts and update terminal rendering.
+   *
+   * Call this after loading web fonts to ensure the terminal measures and
+   * renders with the correct font metrics. The terminal will re-measure
+   * fonts and trigger a full re-render.
+   *
+   * @example
+   * ```typescript
+   * // Option 1: Wait for specific fonts
+   * await document.fonts.load('16px "Fira Code"');
+   * terminal.loadFonts();
+   *
+   * // Option 2: Wait for all fonts
+   * await document.fonts.ready;
+   * terminal.loadFonts();
+   *
+   * // Option 3: Use FontFace API
+   * const font = new FontFace('Fira Code', 'url(/fonts/FiraCode.woff2)');
+   * await font.load();
+   * document.fonts.add(font);
+   * terminal.loadFonts();
+   * ```
+   */
+  public loadFonts(): void {
+    if (!this.renderer) return;
+    this.renderer.remeasureFont();
+    this.handleFontChange();
+  }
+
+  // ==========================================================================
   // Link Detection Methods
   // ==========================================================================
 
