@@ -8,11 +8,18 @@ A web-based terminal emulator that integrates [Ghostty's](https://github.com/gho
 npm install @coder/ghostty-web
 ```
 
-Or install from GitHub:
+Or install directly from GitHub (includes pre-built dist files):
 
 ```bash
+# Latest from main branch
 npm install github:coder/ghostty-web
+
+# Specific commit or branch
+npm install github:coder/ghostty-web#commit-sha
+npm install github:rcarmo/ghostty-web  # fork
 ```
+
+> **Note:** GitHub installs work without requiring Zig because the repository includes pre-built `dist/` files and `ghostty-vt.wasm`.
 
 ## Quick Start
 

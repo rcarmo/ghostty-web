@@ -1,8 +1,7 @@
 node_modules/
-dist/
 .DS_Store
 *.log
 .vite/
 
-# WASM build output (built locally and in CI)
-ghostty-vt.wasm
+# Note: dist/ and ghostty-vt.wasm are NOT ignored - they are committed
+# so that npm install from GitHub works without requiring Zig to build.
