@@ -2990,3 +2990,91 @@ describe('Synchronous open()', () => {
     term.dispose();
   });
 });
+
+describe('Terminal Snapshot API', () => {
+  // Snapshot API tests need WASM initialization
+
+  test('hasSnapshot returns false by default', async () => {
+    const term = await createIsolatedTerminal({ cols: 10, rows: 5 });
+    expect(term.hasSnapshot()).toBe(false);
+    term.dispose();
+  });
+
+  test('setSnapshot sets snapshot mode', async () => {
+    const term = await createIsolatedTerminal({ cols: 10, rows: 5 });
+    const cells = createTestCells(10, 5, 'A');
+    const cursor = { x: 5, y: 2 };
+
+    term.setSnapshot(cells, cursor);
+    expect(term.hasSnapshot()).toBe(true);
+
+    term.dispose();
+  });
+
+  test('clearSnapshot exits snapshot mode', async () => {
+    const term = await createIsolatedTerminal({ cols: 10, rows: 5 });
+    const cells = createTestCells(10, 5, 'A');
+
+    term.setSnapshot(cells, { x: 0, y: 0 });
+    expect(term.hasSnapshot()).toBe(true);
+
+    term.clearSnapshot();
+    expect(term.hasSnapshot()).toBe(false);
+
+    term.dispose();
+  });
+
+  test('getSnapshotCells returns set cells', async () => {
+    const term = await createIsolatedTerminal({ cols: 10, rows: 5 });
+    const cells = createTestCells(10, 5, 'B');
+
+    term.setSnapshot(cells, { x: 0, y: 0 });
+    const snapshotCells = term.getSnapshotCells();
+
+    expect(snapshotCells).not.toBeNull();
+    expect(snapshotCells!.length).toBe(5); // 5 rows
+    expect(snapshotCells![0].length).toBe(10); // 10 cols per row
+    expect(snapshotCells![0][0].codepoint).toBe('B'.charCodeAt(0));
+
+    term.dispose();
+  });
+
+  test('getSnapshotCursor returns set cursor', async () => {
+    const term = await createIsolatedTerminal({ cols: 10, rows: 5 });
+    const cells = createTestCells(10, 5, 'X');
+    const cursor = { x: 7, y: 3 };
+
+    term.setSnapshot(cells, cursor);
+    const snapshotCursor = term.getSnapshotCursor();
+
+    expect(snapshotCursor).not.toBeNull();
+    expect(snapshotCursor!.x).toBe(7);
+    expect(snapshotCursor!.y).toBe(3);
+
+    term.dispose();
+  });
+});
+
+/**
+ * Helper to create test GhosttyCell array
+ */
+function createTestCells(cols: number, rows: number, char: string) {
+  const codepoint = char.charCodeAt(0);
+  const cells = [];
+  for (let i = 0; i < rows * cols; i++) {
+    cells.push({
+      codepoint,
+      fg_r: 255,
+      fg_g: 255,
+      fg_b: 255,
+      bg_r: 0,
+      bg_g: 0,
+      bg_b: 0,
+      flags: 0,
+      width: 1,
+      hyperlink_id: 0,
+      grapheme_len: 0,
+    });
+  }
+  return cells;
+}

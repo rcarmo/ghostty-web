@@ -34,9 +34,87 @@ import type {
 import { LinkDetector } from './link-detector';
 import { OSC8LinkProvider } from './providers/osc8-link-provider';
 import { UrlRegexProvider } from './providers/url-regex-provider';
-import { CanvasRenderer, DEFAULT_THEME } from './renderer';
+import { CanvasRenderer, DEFAULT_THEME, type IRenderable } from './renderer';
 import { SelectionManager } from './selection-manager';
 import type { ILink, ILinkProvider } from './types';
+
+// ============================================================================
+// SnapshotBuffer - Wrapper for playback mode
+// ============================================================================
+
+/**
+ * A wrapper that implements IRenderable for snapshot-based rendering.
+ * When snapshot is set, returns snapshot data; otherwise delegates to wasmTerm.
+ * This enables direct terminal state injection for playback without re-parsing VT100 sequences.
+ */
+class SnapshotBuffer implements IRenderable {
+  private terminal: Terminal;
+
+  constructor(terminal: Terminal) {
+    this.terminal = terminal;
+  }
+
+  getLine(y: number): GhosttyCell[] | null {
+    const snapshot = this.terminal.getSnapshotCells();
+    if (snapshot && y >= 0 && y < snapshot.length) {
+      return snapshot[y];
+    }
+    return this.terminal.wasmTerm?.getLine(y) ?? null;
+  }
+
+  getCursor(): { x: number; y: number; visible: boolean } {
+    const snapshotCursor = this.terminal.getSnapshotCursor();
+    if (snapshotCursor) {
+      return { ...snapshotCursor, visible: true };
+    }
+    return this.terminal.wasmTerm?.getCursor() ?? { x: 0, y: 0, visible: true };
+  }
+
+  getDimensions(): { cols: number; rows: number } {
+    return { cols: this.terminal.cols, rows: this.terminal.rows };
+  }
+
+  isRowDirty(y: number): boolean {
+    if (this.terminal.isSnapshotDirty()) {
+      return true;
+    }
+    return this.terminal.wasmTerm?.isRowDirty(y) ?? false;
+  }
+
+  needsFullRedraw(): boolean {
+    if (this.terminal.isSnapshotDirty()) {
+      return true;
+    }
+    // Check if method exists (older versions may not have it)
+    const wasmTerm = this.terminal.wasmTerm as any;
+    if (wasmTerm?.needsFullRedraw) {
+      return wasmTerm.needsFullRedraw();
+    }
+    return false;
+  }
+
+  clearDirty(): void {
+    this.terminal.clearSnapshotDirty();
+    this.terminal.wasmTerm?.clearDirty();
+  }
+
+  getGraphemeString(row: number, col: number): string {
+    const snapshot = this.terminal.getSnapshotCells();
+    if (snapshot && row >= 0 && row < snapshot.length) {
+      const cell = snapshot[row][col];
+      if (cell) {
+        return String.fromCodePoint(cell.codepoint || 32);
+      }
+      return ' ';
+    }
+    // Check if method exists (older versions may not have it)
+    const wasmTerm = this.terminal.wasmTerm as any;
+    if (wasmTerm?.getGraphemeString) {
+      return wasmTerm.getGraphemeString(row, col);
+    }
+    return ' ';
+  }
+}
 
 // ============================================================================
 // Terminal Class
@@ -138,6 +216,12 @@ export class Terminal implements ITerminalCore {
   private readonly SCROLLBAR_HIDE_DELAY_MS = 1500; // Hide after 1.5 seconds
   private readonly SCROLLBAR_FADE_DURATION_MS = 200; // 200ms fade animation
 
+  // Snapshot state for playback mode (bypasses WASM terminal)
+  private snapshotCells: GhosttyCell[][] | null = null;
+  private snapshotCursor: { x: number; y: number } | null = null;
+  private snapshotDirty: boolean = false;
+  private snapshotBuffer: SnapshotBuffer;
+
   constructor(options: ITerminalOptions = {}) {
     // Use provided Ghostty instance (for test isolation) or get module-level instance
     this.ghostty = options.ghostty ?? getGhostty();
@@ -181,6 +265,9 @@ export class Terminal implements ITerminalCore {
 
     // Initialize buffer API
     this.buffer = new BufferNamespace(this);
+
+    // Initialize snapshot buffer for playback mode
+    this.snapshotBuffer = new SnapshotBuffer(this);
   }
 
   // ==========================================================================
@@ -533,8 +620,11 @@ export class Terminal implements ITerminalCore {
       // Use capture phase to ensure we get the event before browser scrolling
       parent.addEventListener('wheel', this.handleWheel, { passive: false, capture: true });
 
+      // Mark as open
+      this.isOpen = true;
+
       // Render initial blank screen (force full redraw)
-      this.renderer.render(this.wasmTerm, true, this.viewportY, this, this.scrollbarOpacity);
+      this.renderer.render(this.snapshotBuffer, true, this.viewportY, this, this.scrollbarOpacity);
 
       // Start render loop
       this.startRenderLoop();
@@ -733,7 +823,7 @@ export class Terminal implements ITerminalCore {
       this.resizeEmitter.fire({ cols, rows });
 
       // Force full render with new dimensions
-      this.renderer!.render(this.wasmTerm!, true, this.viewportY, this);
+      this.renderer!.render(this.snapshotBuffer, true, this.viewportY, this);
     } catch (err) {
       console.error('[ghostty-web] Resize error:', err);
       // Still clear the flag so future resizes can proceed
@@ -1219,7 +1309,14 @@ export class Terminal implements ITerminalCore {
         // 1. Calls update() once to sync state and check dirty flags
         // 2. Only redraws dirty rows when forceAll=false
         // 3. Always calls clearDirty() at the end
-        this.renderer!.render(this.wasmTerm!, false, this.viewportY, this, this.scrollbarOpacity);
+        // Use snapshotBuffer which delegates to wasmTerm when no snapshot is set
+        this.renderer!.render(
+          this.snapshotBuffer,
+          false,
+          this.viewportY,
+          this,
+          this.scrollbarOpacity
+        );
 
         // Check for cursor movement (Phase 2: onCursorMove event)
         // Note: getCursor() reads from already-updated render state (from render() above)
@@ -1989,5 +2086,79 @@ export class Terminal implements ITerminalCore {
   public hasMouseTracking(): boolean {
     this.assertOpen();
     return this.wasmTerm!.hasMouseTracking();
+  }
+
+  // ============================================================================
+  // Snapshot API (for playback mode)
+  // ============================================================================
+
+  /**
+   * Set a snapshot of terminal state for playback mode.
+   * When a snapshot is set, the renderer will use the snapshot cells instead of
+   * reading from the WASM terminal. This enables direct terminal state injection
+   * for playback without re-parsing VT100 sequences.
+   *
+   * @param cells - Flat array of cells (row-major order: rows * cols cells)
+   * @param cursor - Cursor position {x, y}
+   *
+   * @example
+   * ```typescript
+   * // Set snapshot from a recording frame
+   * const cells: GhosttyCell[] = recordedFrame.cells;
+   * const cursor = { x: 10, y: 5 };
+   * terminal.setSnapshot(cells, cursor);
+   * ```
+   */
+  public setSnapshot(cells: GhosttyCell[], cursor: { x: number; y: number }): void {
+    // Convert flat array to 2D array (row-major)
+    const rows: GhosttyCell[][] = [];
+    for (let y = 0; y < this.rows; y++) {
+      const start = y * this.cols;
+      const end = start + this.cols;
+      rows.push(cells.slice(start, end));
+    }
+
+    this.snapshotCells = rows;
+    this.snapshotCursor = { ...cursor };
+    this.snapshotDirty = true;
+  }
+
+  /**
+   * Clear the snapshot and return to normal WASM terminal rendering.
+   * Call this when exiting playback mode.
+   */
+  public clearSnapshot(): void {
+    this.snapshotCells = null;
+    this.snapshotCursor = null;
+    this.snapshotDirty = true;
+  }
+
+  /**
+   * Check if a snapshot is currently set.
+   * @returns true if in snapshot/playback mode
+   */
+  public hasSnapshot(): boolean {
+    return this.snapshotCells !== null;
+  }
+
+  // Internal accessors for SnapshotBuffer
+  /** @internal */
+  public getSnapshotCells(): GhosttyCell[][] | null {
+    return this.snapshotCells;
+  }
+
+  /** @internal */
+  public getSnapshotCursor(): { x: number; y: number } | null {
+    return this.snapshotCursor;
+  }
+
+  /** @internal */
+  public isSnapshotDirty(): boolean {
+    return this.snapshotDirty;
+  }
+
+  /** @internal */
+  public clearSnapshotDirty(): void {
+    this.snapshotDirty = false;
   }
 }
