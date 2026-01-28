@@ -190,6 +190,53 @@ term.registerLinkProvider(myProvider);
 
 See [AGENTS.md](AGENTS.md) for development guide and code patterns.
 
+### Custom Fonts
+
+Ghostty-web supports custom font families. Font families with spaces are automatically quoted for proper CSS handling.
+
+```typescript
+const term = new Terminal({
+  fontFamily: 'Fira Code, Consolas, monospace',
+  fontSize: 14,
+});
+
+await term.open(container);
+```
+
+**Loading Web Fonts**
+
+When using web fonts (e.g., Google Fonts, local `.woff2` files), you must wait for the font to load before the terminal can measure it correctly:
+
+```typescript
+// Option 1: Wait for specific font
+await document.fonts.load('14px "Fira Code"');
+term.loadFonts();
+
+// Option 2: Wait for all fonts to be ready
+await document.fonts.ready;
+term.loadFonts();
+
+// Option 3: Use FontFace API
+const font = new FontFace('Fira Code', 'url(/fonts/FiraCode.woff2)');
+await font.load();
+document.fonts.add(font);
+term.loadFonts();
+```
+
+**Changing Fonts at Runtime**
+
+```typescript
+// Change font family
+term.options.fontFamily = 'JetBrains Mono, monospace';
+
+// Change font size
+term.options.fontSize = 16;
+
+// If using a web font, wait for it to load
+await document.fonts.load('16px "JetBrains Mono"');
+term.loadFonts();
+```
+
 ### Snapshot API (Playback Mode)
 
 The Terminal supports a snapshot API for playback mode, enabling direct terminal state injection without re-parsing VT100 sequences. This is useful for terminal recordings and time-travel debugging.

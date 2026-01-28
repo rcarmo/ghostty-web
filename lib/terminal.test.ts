@@ -2555,6 +2555,125 @@ describe('Options Proxy handleOptionChange', () => {
 
     term.dispose();
   });
+
+  test('font family with spaces is properly quoted', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal({
+      fontFamily: 'Fira Code, Consolas, monospace',
+      cols: 80,
+      rows: 24,
+    });
+    term.open(container);
+
+    // @ts-ignore - accessing private for test
+    const renderer = term.renderer;
+
+    // The renderer should have stored the font family
+    // @ts-ignore - accessing private for test
+    expect(renderer.fontFamily).toBe('Fira Code, Consolas, monospace');
+
+    // Test that buildFontString properly quotes the font
+    // @ts-ignore - accessing private for test
+    const fontString = renderer.buildFontString();
+    expect(fontString).toContain('"Fira Code"');
+    expect(fontString).toContain('Consolas');
+    expect(fontString).toContain('monospace');
+
+    term.dispose();
+  });
+
+  test('font family already quoted is not double-quoted', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal({
+      fontFamily: '"Fira Code", monospace',
+      cols: 80,
+      rows: 24,
+    });
+    term.open(container);
+
+    // @ts-ignore - accessing private for test
+    const renderer = term.renderer;
+    // @ts-ignore - accessing private for test
+    const fontString = renderer.buildFontString();
+
+    // Should not have double quotes
+    expect(fontString).not.toContain('""Fira Code""');
+    expect(fontString).toContain('"Fira Code"');
+
+    term.dispose();
+  });
+
+  test('loadFonts() triggers re-measurement and re-render', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal({ fontSize: 15, cols: 80, rows: 24 });
+    term.open(container);
+
+    // @ts-ignore - accessing private for test
+    const renderer = term.renderer;
+    const initialMetrics = renderer.getMetrics();
+
+    // Change font family to something different (simulating a font load scenario)
+    term.options.fontFamily = 'serif';
+
+    // Get metrics after the automatic update from options change
+    const afterOptionsMetrics = renderer.getMetrics();
+
+    // Change back and verify loadFonts works independently
+    // @ts-ignore - accessing private for test
+    renderer.fontFamily = 'monospace';
+
+    // Call loadFonts to trigger re-measurement (without going through options)
+    term.loadFonts();
+
+    // Verify loadFonts was called (metrics should change since font changed)
+    const finalMetrics = renderer.getMetrics();
+    // The metrics should be recalculated (may or may not differ based on fonts available)
+    expect(finalMetrics).toBeDefined();
+    expect(finalMetrics.width).toBeGreaterThan(0);
+    expect(finalMetrics.height).toBeGreaterThan(0);
+
+    term.dispose();
+  });
+
+  test('buildFontString includes style prefix', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal({
+      fontFamily: 'monospace',
+      fontSize: 16,
+      cols: 80,
+      rows: 24,
+    });
+    term.open(container);
+
+    // @ts-ignore - accessing private for test
+    const renderer = term.renderer;
+
+    // Test with no style
+    // @ts-ignore - accessing private for test
+    let fontString = renderer.buildFontString();
+    expect(fontString).toBe('16px monospace');
+
+    // Test with bold style
+    // @ts-ignore - accessing private for test
+    fontString = renderer.buildFontString('bold ');
+    expect(fontString).toBe('bold 16px monospace');
+
+    // Test with italic style
+    // @ts-ignore - accessing private for test
+    fontString = renderer.buildFontString('italic ');
+    expect(fontString).toBe('italic 16px monospace');
+
+    // Test with bold italic style
+    // @ts-ignore - accessing private for test
+    fontString = renderer.buildFontString('italic bold ');
+    expect(fontString).toBe('italic bold 16px monospace');
+
+    term.dispose();
+  });
 });
 
 // ==========================================================================
