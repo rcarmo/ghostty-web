@@ -578,6 +578,67 @@
       ]), true);
     });
 
+    registerTest('colorscript-art', 'Colorscript ASCII Art', 'Colorful terminal startup art with ANSI colors', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, DEFAULT_OPTS);
+      const cols = 56;
+
+      // ANSI color palette (normal and bright variants)
+      const red = { r: 205, g: 49, b: 49 };
+      const green = { r: 13, g: 188, b: 121 };
+      const yellow = { r: 229, g: 229, b: 16 };
+      const blue = { r: 36, g: 114, b: 200 };
+      const magenta = { r: 188, g: 63, b: 188 };
+      const cyan = { r: 17, g: 168, b: 205 };
+
+      const brightRed = { r: 241, g: 76, b: 76 };
+      const brightGreen = { r: 35, g: 209, b: 139 };
+      const brightYellow = { r: 245, g: 245, b: 67 };
+      const brightBlue = { r: 59, g: 142, b: 234 };
+      const brightMagenta = { r: 214, g: 112, b: 214 };
+      const brightCyan = { r: 41, g: 184, b: 219 };
+
+      // Color pairs: [normal, bright] for each column
+      const colorPairs = [
+        [red, brightRed],
+        [green, brightGreen],
+        [yellow, brightYellow],
+        [blue, brightBlue],
+        [magenta, brightMagenta],
+        [cyan, brightCyan],
+      ];
+
+      // Helper to build a line with the colorscript pattern
+      function buildLine(pattern1, pattern2) {
+        const line = [createCell(' ')]; // Leading space
+        for (const [normal, bright] of colorPairs) {
+          // Normal color pattern
+          for (const char of pattern1) {
+            line.push(createCell(char, { fg: normal }));
+          }
+          // Bright color character
+          for (const char of pattern2) {
+            line.push(createCell(char, { fg: bright }));
+          }
+        }
+        while (line.length < cols) line.push(createCell(' '));
+        return line.slice(0, cols);
+      }
+
+      // Three lines of the crunchbang-mini ASCII art
+      // Line 1: ▄█▄█▄ █  (repeated for each color pair)
+      // Line 2: ▄█▄█▄ ▀  (repeated for each color pair)
+      // Line 3:  ▀ ▀  ▀  (repeated for each color pair)
+      const line1 = buildLine('▄█▄█▄ ', '█ ');
+      const line2 = buildLine('▄█▄█▄ ', '▀ ');
+      const line3 = buildLine(' ▀ ▀  ', '▀ ');
+
+      renderer.render(createMockBuffer([
+        line1,
+        line2,
+        line3,
+      ]), true);
+    });
+
     // ========================================================================
     // UI
     // ========================================================================
