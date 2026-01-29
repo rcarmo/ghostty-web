@@ -176,6 +176,8 @@ export declare interface Cursor {
     visible: boolean;
 }
 
+export declare const DEFAULT_THEME: Required<ITheme>;
+
 /**
  * Dirty state from RenderState
  */

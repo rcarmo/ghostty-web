@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visual Render Test Suite - Ghostty WASM</title>
+  <style>
+    @font-face {
+      font-family: "JetBrainsMono NF";
+      src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/Regular/JetBrainsMonoNerdFont-Regular.ttf") format("truetype");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "JetBrainsMono NF";
+      src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/Bold/JetBrainsMonoNerdFont-Bold.ttf") format("truetype");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "JetBrainsMono NF";
+      src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/Italic/JetBrainsMonoNerdFont-Italic.ttf") format("truetype");
+      font-weight: 400;
+      font-style: italic;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "JetBrainsMono NF";
+      src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/BoldItalic/JetBrainsMonoNerdFont-BoldItalic.ttf") format("truetype");
+      font-weight: 700;
+      font-style: italic;
+      font-display: swap;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      color: #58a6ff;
+    }
+
+    .subtitle {
+      color: #8b949e;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+    }
+
+    .test-case {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .test-header {
+      background: #21262d;
+      padding: 12px 16px;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .test-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #c9d1d9;
+      margin-bottom: 4px;
+    }
+
+    .test-header p {
+      font-size: 12px;
+      color: #8b949e;
+    }
+
+    .test-body {
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+    }
+
+    canvas {
+      border: 1px solid #30363d;
+      background: #1e1e1e;
+    }
+
+    .controls {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: #238636;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover {
+      background: #2ea043;
+    }
+
+    button.secondary {
+      background: #30363d;
+    }
+
+    button.secondary:hover {
+      background: #484f58;
+    }
+
+    .status {
+      margin-top: 20px;
+      padding: 10px;
+      background: #161b22;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .pass { color: #3fb950; }
+    .fail { color: #f85149; }
+    .info { color: #58a6ff; }
+
+    .wide-test {
+      grid-column: 1 / -1;
+    }
+  </style>
+</head>
+<body>
+  <h1>Visual Render Test Suite</h1>
+  <p class="subtitle">Regression tests for CanvasRenderer - verify rendering of text styles, colors, cursors, selection, and more</p>
+
+  <div class="controls">
+    <button onclick="runAllTests()">Run All Tests</button>
+    <button class="secondary" onclick="downloadScreenshots()">Download Screenshots</button>
+    <button class="secondary" onclick="clearStatus()">Clear Status</button>
+  </div>
+
+  <div class="test-grid" id="test-grid">
+    <!-- Test cases will be dynamically inserted here -->
+  </div>
+
+  <div class="status" id="status">
+    <div class="info">Ready to run tests. Click "Run All Tests" to begin.</div>
+  </div>
+
+  <script type="module">
+    // Import the renderer from the built dist
+    import { CanvasRenderer, DEFAULT_THEME, CellFlags } from '../dist/ghostty-web.js';
+
+    // ========================================================================
+    // Default colors
+    // ========================================================================
+    const DEFAULT_FG = { r: 212, g: 212, b: 212 }; // #d4d4d4
+    const DEFAULT_BG = { r: 0, g: 0, b: 0 }; // transparent (shows theme bg)
+
+    // ========================================================================
+    // Helper: Create a mock cell
+    // ========================================================================
+    function createCell(char, options = {}) {
+      const codepoint = char.codePointAt(0) || 32;
+      return {
+        codepoint,
+        fg_r: options.fg?.r ?? DEFAULT_FG.r,
+        fg_g: options.fg?.g ?? DEFAULT_FG.g,
+        fg_b: options.fg?.b ?? DEFAULT_FG.b,
+        bg_r: options.bg?.r ?? DEFAULT_BG.r,
+        bg_g: options.bg?.g ?? DEFAULT_BG.g,
+        bg_b: options.bg?.b ?? DEFAULT_BG.b,
+        flags: options.flags ?? 0,
+        width: options.width ?? 1,
+        hyperlink_id: options.hyperlink_id ?? 0,
+        grapheme_len: options.grapheme_len ?? 0,
+      };
+    }
+
+    // ========================================================================
+    // Helper: Create a line of cells from text
+    // ========================================================================
+    function createLine(text, cols, options = {}) {
+      const line = [];
+      for (let i = 0; i < cols; i++) {
+        const char = text[i] || ' ';
+        line.push(createCell(char, options));
+      }
+      return line;
+    }
+
+    // ========================================================================
+    // Helper: Create a mock buffer for rendering
+    // ========================================================================
+    function createMockBuffer(lines, cursor = { x: 0, y: 0, visible: false }) {
+      const rows = lines.length;
+      const cols = lines[0]?.length ?? 80;
+
+      return {
+        getLine(y) {
+          return lines[y] || null;
+        },
+        getCursor() {
+          return cursor;
+        },
+        getDimensions() {
+          return { cols, rows };
+        },
+        isRowDirty() {
+          return true; // Always render for tests
+        },
+        needsFullRedraw() {
+          return false;
+        },
+        clearDirty() {},
+      };
+    }
+
+    // ========================================================================
+    // Test Case Registry
+    // ========================================================================
+    const testCases = [];
+
+    function registerTest(id, name, description, renderFn) {
+      testCases.push({ id, name, description, renderFn });
+    }
+
+    // ========================================================================
+    // TEST: Basic Text Rendering
+    // ========================================================================
+    registerTest('basic-text', 'Basic Text Rendering', 'Simple ASCII text with default colors', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const lines = [
+        createLine('Hello, World!', 20),
+        createLine('ABCDEFGHIJKLMNOP', 20),
+        createLine('0123456789!@#$%^', 20),
+      ];
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Text Styles (Bold, Italic, Underline, Strikethrough)
+    // ========================================================================
+    registerTest('text-styles', 'Text Styles', 'Bold, Italic, Underline, Strikethrough, Faint', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const cols = 25;
+      const lines = [
+        // Normal
+        createLine('Normal text here    ', cols),
+        // Bold
+        (() => {
+          const line = createLine('Bold text here      ', cols, { flags: CellFlags.BOLD });
+          return line;
+        })(),
+        // Italic
+        createLine('Italic text here    ', cols, { flags: CellFlags.ITALIC }),
+        // Underline
+        createLine('Underline text here ', cols, { flags: CellFlags.UNDERLINE }),
+        // Strikethrough
+        createLine('Strikethrough text  ', cols, { flags: CellFlags.STRIKETHROUGH }),
+        // Faint/Dim
+        createLine('Faint/Dim text here ', cols, { flags: CellFlags.FAINT }),
+        // Combined: Bold + Italic
+        createLine('Bold+Italic combo   ', cols, { flags: CellFlags.BOLD | CellFlags.ITALIC }),
+        // Combined: Bold + Underline
+        createLine('Bold+Underline combo', cols, { flags: CellFlags.BOLD | CellFlags.UNDERLINE }),
+      ];
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Inverse Video
+    // ========================================================================
+    registerTest('inverse-video', 'Inverse Video', 'Foreground and background colors swapped', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const cols = 25;
+      const lines = [
+        createLine('Normal text         ', cols),
+        createLine('Inverse video text  ', cols, { flags: CellFlags.INVERSE }),
+        createLine('Normal again        ', cols),
+        // Mixed: some cells inverse, some not
+        (() => {
+          const line = [];
+          const text = 'Mixed: inv | normal  ';
+          for (let i = 0; i < cols; i++) {
+            const isInverse = i >= 7 && i < 10; // "inv" part
+            line.push(createCell(text[i] || ' ', {
+              flags: isInverse ? CellFlags.INVERSE : 0
+            }));
+          }
+          return line;
+        })(),
+      ];
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: ANSI Colors (16 palette colors)
+    // ========================================================================
+    registerTest('ansi-colors', 'ANSI 16 Colors', 'Standard ANSI color palette', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      // Define ANSI colors
+      const ansiColors = [
+        { r: 0, g: 0, b: 0 },       // 0: black
+        { r: 205, g: 49, b: 49 },   // 1: red
+        { r: 13, g: 188, b: 121 },  // 2: green
+        { r: 229, g: 229, b: 16 },  // 3: yellow
+        { r: 36, g: 114, b: 200 },  // 4: blue
+        { r: 188, g: 63, b: 188 },  // 5: magenta
+        { r: 17, g: 168, b: 205 },  // 6: cyan
+        { r: 229, g: 229, b: 229 }, // 7: white
+        { r: 102, g: 102, b: 102 }, // 8: bright black
+        { r: 241, g: 76, b: 76 },   // 9: bright red
+        { r: 35, g: 209, b: 139 },  // 10: bright green
+        { r: 245, g: 245, b: 67 },  // 11: bright yellow
+        { r: 59, g: 142, b: 234 },  // 12: bright blue
+        { r: 214, g: 112, b: 214 }, // 13: bright magenta
+        { r: 41, g: 184, b: 219 },  // 14: bright cyan
+        { r: 255, g: 255, b: 255 }, // 15: bright white
+      ];
+
+      const cols = 32;
+      const lines = [];
+
+      // Row 1-2: Normal colors (0-7)
+      const row1 = [];
+      for (let i = 0; i < 8; i++) {
+        const label = ` ${i} `;
+        for (const char of label) {
+          row1.push(createCell(char, { fg: ansiColors[i] }));
+        }
+        row1.push(createCell(' '));
+      }
+      while (row1.length < cols) row1.push(createCell(' '));
+      lines.push(row1.slice(0, cols));
+
+      // Row with backgrounds
+      const row2 = [];
+      for (let i = 0; i < 8; i++) {
+        const label = `   `;
+        for (const char of label) {
+          row2.push(createCell(char, { bg: ansiColors[i], fg: { r: 255, g: 255, b: 255 } }));
+        }
+        row2.push(createCell(' '));
+      }
+      while (row2.length < cols) row2.push(createCell(' '));
+      lines.push(row2.slice(0, cols));
+
+      lines.push(createLine('', cols)); // Spacer
+
+      // Row 3-4: Bright colors (8-15)
+      const row3 = [];
+      for (let i = 8; i < 16; i++) {
+        const label = `${i.toString().padStart(2)}`;
+        for (const char of label) {
+          row3.push(createCell(char, { fg: ansiColors[i] }));
+        }
+        row3.push(createCell(' '));
+        row3.push(createCell(' '));
+      }
+      while (row3.length < cols) row3.push(createCell(' '));
+      lines.push(row3.slice(0, cols));
+
+      const row4 = [];
+      for (let i = 8; i < 16; i++) {
+        const label = `   `;
+        for (const char of label) {
+          row4.push(createCell(char, { bg: ansiColors[i], fg: { r: 0, g: 0, b: 0 } }));
+        }
+        row4.push(createCell(' '));
+      }
+      while (row4.length < cols) row4.push(createCell(' '));
+      lines.push(row4.slice(0, cols));
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: RGB Colors
+    // ========================================================================
+    registerTest('rgb-colors', 'RGB Colors', 'True color (24-bit) foreground and background', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const cols = 30;
+      const lines = [];
+
+      // Gradient row
+      const gradient = [];
+      for (let i = 0; i < cols; i++) {
+        const r = Math.floor((i / cols) * 255);
+        const g = Math.floor(((cols - i) / cols) * 255);
+        const b = 128;
+        gradient.push(createCell('\u2588', { fg: { r, g, b } })); // Full block
+      }
+      lines.push(gradient);
+
+      // Background gradient
+      const bgGradient = [];
+      for (let i = 0; i < cols; i++) {
+        const r = Math.floor((i / cols) * 255);
+        const g = 0;
+        const b = Math.floor(((cols - i) / cols) * 255);
+        bgGradient.push(createCell(' ', { bg: { r, g, b } }));
+      }
+      lines.push(bgGradient);
+
+      // Custom colored text
+      lines.push(createLine('', cols));
+      lines.push(createLine('Custom RGB colors:', cols, { fg: { r: 255, g: 165, b: 0 } })); // Orange
+      lines.push(createLine('Pink background', cols, {
+        fg: { r: 0, g: 0, b: 0 },
+        bg: { r: 255, g: 182, b: 193 }
+      }));
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Cursor Styles
+    // ========================================================================
+    registerTest('cursor-block', 'Cursor: Block', 'Block cursor style', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+        cursorStyle: 'block',
+      });
+
+      const cols = 20;
+      const lines = [
+        createLine('Block cursor here:', cols),
+        createLine('Text with cursor', cols),
+      ];
+
+      const buffer = createMockBuffer(lines, { x: 5, y: 1, visible: true });
+      renderer.render(buffer, true);
+    });
+
+    registerTest('cursor-underline', 'Cursor: Underline', 'Underline cursor style', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+        cursorStyle: 'underline',
+      });
+
+      const cols = 20;
+      const lines = [
+        createLine('Underline cursor:', cols),
+        createLine('Text with cursor', cols),
+      ];
+
+      const buffer = createMockBuffer(lines, { x: 5, y: 1, visible: true });
+      renderer.render(buffer, true);
+    });
+
+    registerTest('cursor-bar', 'Cursor: Bar', 'Bar (I-beam) cursor style', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+        cursorStyle: 'bar',
+      });
+
+      const cols = 20;
+      const lines = [
+        createLine('Bar cursor here:', cols),
+        createLine('Text with cursor', cols),
+      ];
+
+      const buffer = createMockBuffer(lines, { x: 5, y: 1, visible: true });
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Wide Characters
+    // ========================================================================
+    registerTest('wide-chars', 'Wide Characters', 'CJK and emoji (width=2)', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const cols = 30;
+      const lines = [];
+
+      // CJK characters (each takes 2 cells)
+      const cjkLine = [];
+      const cjkText = '\u4E2D\u6587'; // "Chinese"
+      for (const char of cjkText) {
+        cjkLine.push(createCell(char, { width: 2 }));
+        cjkLine.push(createCell('', { width: 0 })); // Spacer cell
+      }
+      while (cjkLine.length < cols) cjkLine.push(createCell(' '));
+      lines.push(cjkLine);
+
+      // Japanese
+      const jpLine = [];
+      const jpText = '\u65E5\u672C\u8A9E'; // "Japanese"
+      for (const char of jpText) {
+        jpLine.push(createCell(char, { width: 2 }));
+        jpLine.push(createCell('', { width: 0 }));
+      }
+      while (jpLine.length < cols) jpLine.push(createCell(' '));
+      lines.push(jpLine);
+
+      // Korean
+      const krLine = [];
+      const krText = '\uD55C\uAE00'; // "Korean"
+      for (const char of krText) {
+        krLine.push(createCell(char, { width: 2 }));
+        krLine.push(createCell('', { width: 0 }));
+      }
+      while (krLine.length < cols) krLine.push(createCell(' '));
+      lines.push(krLine);
+
+      // Mixed ASCII and wide chars
+      const mixedLine = [];
+      const mixedParts = ['AB', '\u4E2D', 'CD', '\u6587', 'EF'];
+      for (const part of mixedParts) {
+        for (const char of part) {
+          const isWide = char.charCodeAt(0) > 0x2E7F;
+          mixedLine.push(createCell(char, { width: isWide ? 2 : 1 }));
+          if (isWide) mixedLine.push(createCell('', { width: 0 }));
+        }
+      }
+      while (mixedLine.length < cols) mixedLine.push(createCell(' '));
+      lines.push(mixedLine.slice(0, cols));
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Selection Highlighting
+    // ========================================================================
+    registerTest('selection', 'Selection Highlighting', 'Single and multi-line selection', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const cols = 30;
+      const lines = [
+        createLine('Line 1: No selection here', cols),
+        createLine('Line 2: Selection starts', cols),
+        createLine('Line 3: Middle of select', cols),
+        createLine('Line 4: Selection ends', cols),
+        createLine('Line 5: No selection here', cols),
+      ];
+
+      const buffer = createMockBuffer(lines);
+
+      // Create mock selection manager
+      const selectionManager = {
+        hasSelection: () => true,
+        getSelectionCoords: () => ({
+          startCol: 8,
+          startRow: 1,
+          endCol: 20,
+          endRow: 3,
+        }),
+        getDirtySelectionRows: () => new Set(),
+        clearDirtySelectionRows: () => {},
+      };
+
+      renderer.setSelectionManager(selectionManager);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Custom Theme
+    // ========================================================================
+    registerTest('custom-theme', 'Custom Theme', 'Non-default theme colors', (canvas) => {
+      const customTheme = {
+        foreground: '#f8f8f2',
+        background: '#282a36',
+        cursor: '#f8f8f2',
+        cursorAccent: '#282a36',
+        selectionBackground: '#44475a',
+        black: '#21222c',
+        red: '#ff5555',
+        green: '#50fa7b',
+        yellow: '#f1fa8c',
+        blue: '#bd93f9',
+        magenta: '#ff79c6',
+        cyan: '#8be9fd',
+        white: '#f8f8f2',
+        brightBlack: '#6272a4',
+        brightRed: '#ff6e6e',
+        brightGreen: '#69ff94',
+        brightYellow: '#ffffa5',
+        brightBlue: '#d6acff',
+        brightMagenta: '#ff92df',
+        brightCyan: '#a4ffff',
+        brightWhite: '#ffffff',
+      };
+
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+        theme: customTheme,
+      });
+
+      // Use theme colors in cells
+      const cols = 30;
+      const fg = { r: 248, g: 248, b: 242 }; // #f8f8f2 from theme
+
+      const lines = [
+        createLine('Dracula Theme Test', cols, { fg }),
+        createLine('Red text', cols, { fg: { r: 255, g: 85, b: 85 } }),
+        createLine('Green text', cols, { fg: { r: 80, g: 250, b: 123 } }),
+        createLine('Cyan text', cols, { fg: { r: 139, g: 233, b: 253 } }),
+        createLine('Pink (magenta)', cols, { fg: { r: 255, g: 121, b: 198 } }),
+      ];
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Invisible Text
+    // ========================================================================
+    registerTest('invisible-text', 'Invisible Text', 'Text with INVISIBLE flag should not render', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const cols = 30;
+      const lines = [
+        createLine('Visible text here', cols),
+        createLine('HIDDEN PASSWORD HERE', cols, { flags: CellFlags.INVISIBLE }),
+        createLine('More visible text', cols),
+      ];
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Font with Spaces in Name
+    // ========================================================================
+    registerTest('font-spaces', 'Font Family with Spaces', 'Font names with spaces should be quoted', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: 'JetBrains Mono, Fira Code, monospace', // Has spaces, should auto-quote
+      });
+
+      const cols = 30;
+      const lines = [
+        createLine('Font: JetBrains Mono', cols),
+        createLine('Should render correctly', cols),
+        createLine('With proper quoting', cols),
+      ];
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: DPI Scaling
+    // ========================================================================
+    registerTest('dpi-scaling', 'DPI Scaling (2x)', 'High DPI rendering', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+        devicePixelRatio: 2,
+      });
+
+      const cols = 25;
+      const lines = [
+        createLine('2x DPI scaling test', cols),
+        createLine('Should be crisp!', cols),
+        createLine('Check the canvas size', cols),
+      ];
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Scrollbar Rendering
+    // ========================================================================
+    registerTest('scrollbar', 'Scrollbar', 'Scrollbar at various positions', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const cols = 30;
+      const rows = 10;
+      const lines = [];
+      for (let i = 0; i < rows; i++) {
+        lines.push(createLine(`Line ${i + 1} - scrollbar test`, cols));
+      }
+
+      const buffer = createMockBuffer(lines);
+
+      // Mock scrollback provider
+      const scrollbackProvider = {
+        getScrollbackLength: () => 100,
+        getScrollbackLine: (offset) => createLine(`Scrollback line ${offset}`, cols),
+      };
+
+      // Render at scrolled position (viewportY = 50 means scrolled up 50 lines)
+      renderer.render(buffer, true, 50, scrollbackProvider, 1.0);
+    });
+
+    // ========================================================================
+    // TEST: Complex Script (Devanagari)
+    // ========================================================================
+    registerTest('devanagari', 'Complex Script (Devanagari)', 'Two-pass rendering for left-extending glyphs', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 16, // Slightly larger for better visibility
+        fontFamily: '"Noto Sans Devanagari", "JetBrainsMono NF", sans-serif',
+      });
+
+      const cols = 20;
+      const lines = [];
+
+      // Devanagari text - note: some vowel signs extend left
+      // Example: "\u0915\u093F" = "ki" where the "i" vowel extends left of "k"
+      const devanagariLine = [];
+      // Simple consonants with vowel marks
+      const text = '\u0928\u092E\u0938\u094D\u0924\u0947'; // "namaste" in Devanagari
+
+      for (const char of text) {
+        devanagariLine.push(createCell(char));
+      }
+      while (devanagariLine.length < cols) devanagariLine.push(createCell(' '));
+      lines.push(devanagariLine);
+
+      // ASCII for comparison
+      lines.push(createLine('ASCII: namaste', cols));
+      lines.push(createLine('', cols));
+
+      // More complex example with vowel i (extends left)
+      const kiLine = [];
+      kiLine.push(createCell('\u0915')); // ka
+      kiLine.push(createCell('\u093F')); // vowel i (extends left)
+      kiLine.push(createCell(' '));
+      kiLine.push(createCell('\u0915')); // ka
+      kiLine.push(createCell('\u0940')); // vowel ii
+      while (kiLine.length < cols) kiLine.push(createCell(' '));
+      lines.push(kiLine);
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Hyperlink Underline
+    // ========================================================================
+    registerTest('hyperlink', 'Hyperlink Underline', 'OSC8 hyperlink hover state', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const cols = 35;
+      const lines = [];
+
+      // Line with no hyperlink
+      lines.push(createLine('No link here', cols));
+
+      // Line with hyperlink (simulated hover)
+      const linkLine = [];
+      const prefix = 'Click: ';
+      for (const char of prefix) {
+        linkLine.push(createCell(char));
+      }
+      const linkText = 'https://example.com';
+      for (const char of linkText) {
+        linkLine.push(createCell(char, { hyperlink_id: 1 }));
+      }
+      while (linkLine.length < cols) linkLine.push(createCell(' '));
+      lines.push(linkLine);
+
+      // Another line with different link
+      const link2Line = [];
+      const prefix2 = 'Also: ';
+      for (const char of prefix2) {
+        link2Line.push(createCell(char));
+      }
+      const link2Text = 'mailto:test@test.com';
+      for (const char of link2Text) {
+        link2Line.push(createCell(char, { hyperlink_id: 2 }));
+      }
+      while (link2Line.length < cols) link2Line.push(createCell(' '));
+      lines.push(link2Line);
+
+      const buffer = createMockBuffer(lines);
+
+      // Set hovered hyperlink to show underline
+      renderer.setHoveredHyperlinkId(1);
+
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Regex Link Range
+    // ========================================================================
+    registerTest('regex-link', 'Regex URL Detection', 'Plain text URL hover underline', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const cols = 40;
+      const lines = [
+        createLine('Text before URL here', cols),
+        createLine('Visit: https://github.com/ghostty', cols),
+        createLine('Text after URL here', cols),
+      ];
+
+      const buffer = createMockBuffer(lines);
+
+      // Set hovered link range (simulating detected URL)
+      renderer.setHoveredLinkRange({
+        startX: 7, // Start of "https"
+        startY: 1,
+        endX: 32, // End of URL
+        endY: 1,
+      });
+
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Combined Styles
+    // ========================================================================
+    registerTest('combined-styles', 'Combined Styles', 'Multiple styles on same text', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const cols = 30;
+      const lines = [
+        createLine('Bold + Italic + Underline:', cols),
+        createLine('Combined styling test', cols, {
+          flags: CellFlags.BOLD | CellFlags.ITALIC | CellFlags.UNDERLINE
+        }),
+        createLine('', cols),
+        createLine('Faint + Strikethrough:', cols),
+        createLine('Deleted faint text', cols, {
+          flags: CellFlags.FAINT | CellFlags.STRIKETHROUGH
+        }),
+        createLine('', cols),
+        createLine('Bold + Colored:', cols),
+        createLine('Bold red text', cols, {
+          flags: CellFlags.BOLD,
+          fg: { r: 255, g: 85, b: 85 }
+        }),
+      ];
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // TEST: Cell Background Colors
+    // ========================================================================
+    registerTest('cell-backgrounds', 'Cell Backgrounds', 'Individual cell background colors', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, {
+        fontSize: 14,
+        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      });
+
+      const cols = 35;
+      const lines = [];
+
+      // Checkerboard pattern
+      const checkerboard = [];
+      for (let i = 0; i < cols; i++) {
+        const isEven = i % 2 === 0;
+        checkerboard.push(createCell(' ', {
+          bg: isEven ? { r: 40, g: 40, b: 40 } : { r: 60, g: 60, b: 60 }
+        }));
+      }
+      lines.push(checkerboard);
+
+      // Colored blocks with text
+      const colorBlocks = [];
+      const colors = [
+        { bg: { r: 255, g: 0, b: 0 }, fg: { r: 255, g: 255, b: 255 } },
+        { bg: { r: 0, g: 255, b: 0 }, fg: { r: 0, g: 0, b: 0 } },
+        { bg: { r: 0, g: 0, b: 255 }, fg: { r: 255, g: 255, b: 255 } },
+        { bg: { r: 255, g: 255, b: 0 }, fg: { r: 0, g: 0, b: 0 } },
+        { bg: { r: 255, g: 0, b: 255 }, fg: { r: 0, g: 0, b: 0 } },
+      ];
+      const labels = ['RED', 'GRN', 'BLU', 'YEL', 'MAG'];
+      for (let i = 0; i < colors.length; i++) {
+        for (const char of ` ${labels[i]} `) {
+          colorBlocks.push(createCell(char, colors[i]));
+        }
+        colorBlocks.push(createCell(' '));
+      }
+      while (colorBlocks.length < cols) colorBlocks.push(createCell(' '));
+      lines.push(colorBlocks.slice(0, cols));
+
+      lines.push(createLine('', cols));
+      lines.push(createLine('Syntax highlighting demo:', cols));
+
+      // Syntax-like coloring
+      const syntaxLine = [];
+      const parts = [
+        { text: 'const ', bg: null, fg: { r: 86, g: 156, b: 214 } },
+        { text: 'x', bg: null, fg: { r: 156, g: 220, b: 254 } },
+        { text: ' = ', bg: null, fg: { r: 212, g: 212, b: 212 } },
+        { text: '"hello"', bg: null, fg: { r: 206, g: 145, b: 120 } },
+        { text: ';', bg: null, fg: { r: 212, g: 212, b: 212 } },
+      ];
+      for (const part of parts) {
+        for (const char of part.text) {
+          syntaxLine.push(createCell(char, { fg: part.fg, bg: part.bg || undefined }));
+        }
+      }
+      while (syntaxLine.length < cols) syntaxLine.push(createCell(' '));
+      lines.push(syntaxLine.slice(0, cols));
+
+      const buffer = createMockBuffer(lines);
+      renderer.render(buffer, true);
+    });
+
+    // ========================================================================
+    // UI Setup
+    // ========================================================================
+
+    function createTestUI() {
+      const grid = document.getElementById('test-grid');
+      grid.innerHTML = '';
+
+      for (const test of testCases) {
+        const testCase = document.createElement('div');
+        testCase.className = 'test-case';
+        testCase.id = `test-${test.id}`;
+
+        testCase.innerHTML = `
+          <div class="test-header">
+            <h3>${test.name}</h3>
+            <p>${test.description}</p>
+          </div>
+          <div class="test-body">
+            <canvas id="canvas-${test.id}" width="400" height="200"></canvas>
+          </div>
+        `;
+
+        grid.appendChild(testCase);
+      }
+    }
+
+    function logStatus(message, type = 'info') {
+      const status = document.getElementById('status');
+      const div = document.createElement('div');
+      div.className = type;
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      status.appendChild(div);
+      status.scrollTop = status.scrollHeight;
+    }
+
+    function clearStatus() {
+      document.getElementById('status').innerHTML = '<div class="info">Status cleared.</div>';
+    }
+
+    async function runAllTests() {
+      logStatus('Starting test suite...', 'info');
+
+      // Wait for fonts to load
+      try {
+        await document.fonts.load('14px "JetBrainsMono NF"');
+        logStatus('JetBrainsMono NF font loaded', 'pass');
+      } catch (e) {
+        logStatus('Font loading failed (using fallback): ' + e.message, 'info');
+      }
+
+      let passed = 0;
+      let failed = 0;
+
+      for (const test of testCases) {
+        try {
+          const canvas = document.getElementById(`canvas-${test.id}`);
+          if (!canvas) {
+            throw new Error('Canvas not found');
+          }
+
+          // Reset canvas size (will be auto-resized by renderer)
+          canvas.width = 400;
+          canvas.height = 200;
+
+          test.renderFn(canvas);
+          logStatus(`PASS: ${test.name}`, 'pass');
+          passed++;
+        } catch (e) {
+          logStatus(`FAIL: ${test.name} - ${e.message}`, 'fail');
+          console.error(test.name, e);
+          failed++;
+        }
+      }
+
+      logStatus(`Test suite complete: ${passed} passed, ${failed} failed`, passed === testCases.length ? 'pass' : 'fail');
+    }
+
+    async function downloadScreenshots() {
+      logStatus('Preparing screenshots...', 'info');
+
+      for (const test of testCases) {
+        const canvas = document.getElementById(`canvas-${test.id}`);
+        if (!canvas) continue;
+
+        try {
+          const dataUrl = canvas.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.download = `render-test-${test.id}.png`;
+          link.href = dataUrl;
+          link.click();
+          await new Promise(r => setTimeout(r, 100)); // Small delay between downloads
+        } catch (e) {
+          logStatus(`Failed to download ${test.id}: ${e.message}`, 'fail');
+        }
+      }
+
+      logStatus('Screenshots download complete', 'pass');
+    }
+
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', () => {
+      createTestUI();
+    });
+
+    // Wait for module to be ready
+    setTimeout(() => {
+      createTestUI();
+      logStatus('Test UI initialized. Waiting for font load...', 'info');
+
+      // Auto-run after fonts ready
+      document.fonts.ready.then(() => {
+        logStatus('Fonts ready. Running tests automatically...', 'info');
+        setTimeout(runAllTests, 100);
+      });
+    }, 100);
+
+    // Export for manual control
+    window.runAllTests = runAllTests;
+    window.downloadScreenshots = downloadScreenshots;
+    window.clearStatus = clearStatus;
+  </script>
+</body>
+</html>

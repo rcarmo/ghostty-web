@@ -84,7 +84,7 @@ export type {
 } from './types';
 
 // Low-level components (for custom integrations)
-export { CanvasRenderer } from './renderer';
+export { CanvasRenderer, DEFAULT_THEME } from './renderer';
 export type { RendererOptions, FontMetrics, IRenderable } from './renderer';
 export { InputHandler } from './input-handler';
 export { EventEmitter } from './event-emitter';

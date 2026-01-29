@@ -3657,6 +3657,7 @@ For tests, pass a Ghostty instance directly:
 export {
   QA as CanvasRenderer,
   F as CellFlags,
+  H as DEFAULT_THEME,
   U as EventEmitter,
   wA as FitAddon,
   q as Ghostty,
