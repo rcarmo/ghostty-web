@@ -692,12 +692,14 @@ export class CanvasRenderer {
       char = String.fromCodePoint(cell.codepoint || 32); // Default to space if null
     }
 
-    // Handle block drawing characters specially to ensure pixel-perfect rendering.
-    // Font glyphs for block characters often have small gaps; drawing as rectangles
-    // ensures flush, gap-free rendering for terminal ASCII art.
+    // Handle special characters that need pixel-perfect rendering:
+    // - Block drawing characters (U+2580-U+259F): rectangles for gap-free ASCII art
+    // - Powerline glyphs (U+E0B0-U+E0BF): vector shapes to match exact cell height
     const codepoint = cell.codepoint || 32;
     if (this.renderBlockChar(codepoint, cellX, cellY, cellWidth)) {
       // Block character was rendered as a rectangle, skip font rendering
+    } else if (this.renderPowerlineGlyph(codepoint, cellX, cellY, cellWidth)) {
+      // Powerline glyph was rendered as a vector shape, skip font rendering
     } else {
       this.ctx.fillText(char, textX, textY);
     }
@@ -832,6 +834,97 @@ export class CanvasRenderer {
       case 0x2595: // ▕ RIGHT ONE EIGHTH BLOCK
         this.ctx.fillRect(cellX + cellWidth * 7/8, cellY, cellWidth / 8, height);
         return true;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Render Powerline glyphs as vector shapes for pixel-perfect cell height.
+   * Powerline glyphs (U+E0B0-U+E0BF) are designed to span the full cell height,
+   * but font rendering often makes them slightly taller/shorter than the cell.
+   * Drawing them as paths ensures they exactly fill the cell bounds.
+   * Returns true if the character was handled, false if it should be rendered as text.
+   */
+  private renderPowerlineGlyph(codepoint: number, cellX: number, cellY: number, cellWidth: number): boolean {
+    const height = this.metrics.height;
+    const ctx = this.ctx;
+
+    switch (codepoint) {
+      case 0xE0B0: // Right-pointing triangle (hard divider)
+        ctx.beginPath();
+        ctx.moveTo(cellX, cellY);
+        ctx.lineTo(cellX + cellWidth, cellY + height / 2);
+        ctx.lineTo(cellX, cellY + height);
+        ctx.closePath();
+        ctx.fill();
+        return true;
+
+      case 0xE0B1: // Right-pointing angle (soft divider, thin)
+        ctx.beginPath();
+        ctx.moveTo(cellX, cellY);
+        ctx.lineTo(cellX + cellWidth, cellY + height / 2);
+        ctx.lineTo(cellX, cellY + height);
+        ctx.strokeStyle = ctx.fillStyle;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        return true;
+
+      case 0xE0B2: // Left-pointing triangle (hard divider)
+        ctx.beginPath();
+        ctx.moveTo(cellX + cellWidth, cellY);
+        ctx.lineTo(cellX, cellY + height / 2);
+        ctx.lineTo(cellX + cellWidth, cellY + height);
+        ctx.closePath();
+        ctx.fill();
+        return true;
+
+      case 0xE0B3: // Left-pointing angle (soft divider, thin)
+        ctx.beginPath();
+        ctx.moveTo(cellX + cellWidth, cellY);
+        ctx.lineTo(cellX, cellY + height / 2);
+        ctx.lineTo(cellX + cellWidth, cellY + height);
+        ctx.strokeStyle = ctx.fillStyle;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        return true;
+
+      case 0xE0B4: // Right semicircle (filled)
+        ctx.beginPath();
+        ctx.moveTo(cellX, cellY);
+        // Ellipse curving right: center at left edge, radii = cellWidth (x) and height/2 (y)
+        ctx.ellipse(cellX, cellY + height / 2, cellWidth, height / 2, 0, -Math.PI / 2, Math.PI / 2, false);
+        ctx.closePath();
+        ctx.fill();
+        return true;
+
+      case 0xE0B5: // Right semicircle (outline)
+        ctx.beginPath();
+        ctx.moveTo(cellX, cellY);
+        ctx.ellipse(cellX, cellY + height / 2, cellWidth, height / 2, 0, -Math.PI / 2, Math.PI / 2, false);
+        ctx.strokeStyle = ctx.fillStyle;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        return true;
+
+      case 0xE0B6: // Left semicircle (filled) - rounded left cap
+        ctx.beginPath();
+        ctx.moveTo(cellX + cellWidth, cellY);
+        // Ellipse curving left: center at right edge, radii = cellWidth (x) and height/2 (y)
+        ctx.ellipse(cellX + cellWidth, cellY + height / 2, cellWidth, height / 2, 0, -Math.PI / 2, Math.PI / 2, true);
+        ctx.closePath();
+        ctx.fill();
+        return true;
+
+      case 0xE0B7: // Left semicircle (outline)
+        ctx.beginPath();
+        ctx.moveTo(cellX + cellWidth, cellY);
+        ctx.ellipse(cellX + cellWidth, cellY + height / 2, cellWidth, height / 2, 0, -Math.PI / 2, Math.PI / 2, true);
+        ctx.strokeStyle = ctx.fillStyle;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        return true;
+
       default:
         return false;
     }
