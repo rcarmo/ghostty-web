@@ -136,9 +136,6 @@
       background: #1e1e1e;
       border-radius: 4px;
       display: block;
-      width: 100%;
-      aspect-ratio: 2 / 1;
-      object-fit: contain;
     }
 
     .diff-info {
@@ -723,6 +720,9 @@
 
         baselineCanvas.width = baselineImg.width;
         baselineCanvas.height = baselineImg.height;
+        // Match CSS display size to current canvas (accounts for devicePixelRatio scaling)
+        baselineCanvas.style.width = canvas.style.width;
+        baselineCanvas.style.height = canvas.style.height;
         const ctx = baselineCanvas.getContext('2d');
         ctx.drawImage(baselineImg, 0, 0);
 
