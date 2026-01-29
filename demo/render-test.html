@@ -351,15 +351,19 @@
           resolve(db);
         };
         request.onupgradeneeded = (event) => {
-          const db = event.target.result;
-          if (!db.objectStoreNames.contains(STORE_NAME)) {
-            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          const database = event.target.result;
+          if (!database.objectStoreNames.contains(STORE_NAME)) {
+            database.createObjectStore(STORE_NAME, { keyPath: 'id' });
           }
+        };
+        request.onblocked = () => {
+          reject(new Error('Database blocked - close other tabs using this page'));
         };
       });
     }
 
     async function saveBaseline(id, dataUrl) {
+      if (!db) throw new Error('Database not initialized - close other tabs and refresh');
       return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
@@ -370,6 +374,7 @@
     }
 
     async function getBaseline(id) {
+      if (!db) return null; // Treat as no baseline when db unavailable
       return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readonly');
         const store = tx.objectStore(STORE_NAME);
@@ -380,6 +385,7 @@
     }
 
     async function getAllBaselines() {
+      if (!db) return [];
       return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readonly');
         const store = tx.objectStore(STORE_NAME);
@@ -390,6 +396,7 @@
     }
 
     async function clearBaselines() {
+      if (!db) throw new Error('Database not initialized - close other tabs and refresh');
       return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
@@ -533,11 +540,15 @@
     // TEST DEFINITIONS
     // ========================================================================
 
+    // Default renderer options for consistent sizing (force DPI to 1)
+    const DEFAULT_RENDER_OPTS = {
+      fontSize: 14,
+      fontFamily: '"JetBrainsMono NF", Monaco, monospace',
+      devicePixelRatio: 1, // Force consistent canvas size across displays
+    };
+
     registerTest('basic-text', 'Basic Text Rendering', 'Simple ASCII text with default colors', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
+      const renderer = new CanvasRenderer(canvas, DEFAULT_RENDER_OPTS);
       const lines = [
         createLine('Hello, World!', 20),
         createLine('ABCDEFGHIJKLMNOP', 20),
@@ -547,10 +558,7 @@
     });
 
     registerTest('text-styles', 'Text Styles', 'Bold, Italic, Underline, Strikethrough, Faint', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
+      const renderer = new CanvasRenderer(canvas, DEFAULT_RENDER_OPTS);
       const cols = 25;
       const lines = [
         createLine('Normal text here    ', cols),
@@ -566,10 +574,7 @@
     });
 
     registerTest('inverse-video', 'Inverse Video', 'Foreground and background colors swapped', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
+      const renderer = new CanvasRenderer(canvas, DEFAULT_RENDER_OPTS);
       const cols = 25;
       const lines = [
         createLine('Normal text         ', cols),
@@ -589,10 +594,7 @@
     });
 
     registerTest('ansi-colors', 'ANSI 16 Colors', 'Standard ANSI color palette', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
+      const renderer = new CanvasRenderer(canvas, DEFAULT_RENDER_OPTS);
       const ansiColors = [
         { r: 0, g: 0, b: 0 }, { r: 205, g: 49, b: 49 }, { r: 13, g: 188, b: 121 }, { r: 229, g: 229, b: 16 },
         { r: 36, g: 114, b: 200 }, { r: 188, g: 63, b: 188 }, { r: 17, g: 168, b: 205 }, { r: 229, g: 229, b: 229 },
@@ -643,10 +645,7 @@
     });
 
     registerTest('rgb-colors', 'RGB Colors', 'True color (24-bit) foreground and background', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
+      const renderer = new CanvasRenderer(canvas, DEFAULT_RENDER_OPTS);
       const cols = 30;
       const lines = [];
 
@@ -676,43 +675,28 @@
     });
 
     registerTest('cursor-block', 'Cursor: Block', 'Block cursor style', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-        cursorStyle: 'block',
-      });
+      const renderer = new CanvasRenderer(canvas, { ...DEFAULT_RENDER_OPTS, cursorStyle: 'block' });
       const cols = 20;
       const lines = [createLine('Block cursor here:', cols), createLine('Text with cursor', cols)];
       renderer.render(createMockBuffer(lines, { x: 5, y: 1, visible: true }), true);
     });
 
     registerTest('cursor-underline', 'Cursor: Underline', 'Underline cursor style', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-        cursorStyle: 'underline',
-      });
+      const renderer = new CanvasRenderer(canvas, { ...DEFAULT_RENDER_OPTS, cursorStyle: 'underline' });
       const cols = 20;
       const lines = [createLine('Underline cursor:', cols), createLine('Text with cursor', cols)];
       renderer.render(createMockBuffer(lines, { x: 5, y: 1, visible: true }), true);
     });
 
     registerTest('cursor-bar', 'Cursor: Bar', 'Bar (I-beam) cursor style', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-        cursorStyle: 'bar',
-      });
+      const renderer = new CanvasRenderer(canvas, { ...DEFAULT_RENDER_OPTS, cursorStyle: 'bar' });
       const cols = 20;
       const lines = [createLine('Bar cursor here:', cols), createLine('Text with cursor', cols)];
       renderer.render(createMockBuffer(lines, { x: 5, y: 1, visible: true }), true);
     });
 
     registerTest('wide-chars', 'Wide Characters', 'CJK characters (width=2)', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
+      const renderer = new CanvasRenderer(canvas, DEFAULT_RENDER_OPTS);
       const cols = 30;
       const lines = [];
 
@@ -743,10 +727,7 @@
     });
 
     registerTest('selection', 'Selection Highlighting', 'Multi-line selection', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
+      const renderer = new CanvasRenderer(canvas, DEFAULT_RENDER_OPTS);
       const cols = 30;
       const lines = [
         createLine('Line 1: No selection here', cols),
@@ -768,10 +749,7 @@
     });
 
     registerTest('invisible-text', 'Invisible Text', 'INVISIBLE flag hides text', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
+      const renderer = new CanvasRenderer(canvas, DEFAULT_RENDER_OPTS);
       const cols = 30;
       const lines = [
         createLine('Visible text here', cols),
@@ -782,10 +760,7 @@
     });
 
     registerTest('hyperlink', 'Hyperlink Hover', 'OSC8 hyperlink underline', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
+      const renderer = new CanvasRenderer(canvas, DEFAULT_RENDER_OPTS);
       const cols = 35;
       const lines = [];
 
@@ -808,10 +783,7 @@
     });
 
     registerTest('combined-styles', 'Combined Styles', 'Multiple styles on same text', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
+      const renderer = new CanvasRenderer(canvas, DEFAULT_RENDER_OPTS);
       const cols = 30;
       const lines = [
         createLine('Bold + Italic + Underline:', cols),
@@ -827,10 +799,7 @@
     });
 
     registerTest('cell-backgrounds', 'Cell Backgrounds', 'Individual cell background colors', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
+      const renderer = new CanvasRenderer(canvas, DEFAULT_RENDER_OPTS);
       const cols = 35;
       const lines = [];
 
@@ -887,6 +856,7 @@
 
     function createTestUI() {
       const grid = document.getElementById('test-grid');
+      if (!grid) return;
       grid.innerHTML = '';
 
       for (const test of testCases) {
@@ -1153,9 +1123,20 @@
 
     // Initialize
     async function init() {
-      await initDB();
+      // Create UI first (doesn't need DB)
       createTestUI();
       logStatus('Ready. Click "Run All Tests" to begin.', 'info');
+
+      // Initialize DB with timeout (in case of blocking by other tabs)
+      try {
+        const dbPromise = initDB();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('IndexedDB timeout')), 3000)
+        );
+        await Promise.race([dbPromise, timeoutPromise]);
+      } catch (e) {
+        logStatus('Warning: Database init failed - baselines unavailable. Close other tabs and refresh.', 'warn');
+      }
 
       // Auto-run after fonts ready
       document.fonts.ready.then(() => {
