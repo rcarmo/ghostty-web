@@ -1,2 +1,0 @@
-# Baseline images for visual regression tests
-# Run `bun test:render:update` to generate baselines
