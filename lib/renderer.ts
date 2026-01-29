@@ -18,7 +18,7 @@ import { CellFlags } from './types';
 // Interface for objects that can be rendered
 export interface IRenderable {
   getLine(y: number): GhosttyCell[] | null;
-  getCursor(): { x: number; y: number; visible: boolean };
+  getCursor(): { x: number; y: number; visible: boolean; style?: 'block' | 'underline' | 'bar' };
   getDimensions(): { cols: number; rows: number };
   isRowDirty(y: number): boolean;
   /** Returns true if a full redraw is needed (e.g., screen change) */
@@ -517,7 +517,9 @@ export class CanvasRenderer {
 
     // Render cursor (only if we're at the bottom, not scrolled)
     if (viewportY === 0 && cursor.visible && this.cursorVisible) {
-      this.renderCursor(cursor.x, cursor.y);
+      // Use cursor style from buffer if provided, otherwise use renderer default
+      const cursorStyle = cursor.style ?? this.cursorStyle;
+      this.renderCursor(cursor.x, cursor.y, cursorStyle);
     }
 
     // Render scrollbar if scrolled or scrollback exists (with opacity for fade effect)
@@ -838,13 +840,14 @@ export class CanvasRenderer {
   /**
    * Render cursor
    */
-  private renderCursor(x: number, y: number): void {
+  private renderCursor(x: number, y: number, style?: 'block' | 'underline' | 'bar'): void {
     const cursorX = x * this.metrics.width;
     const cursorY = y * this.metrics.height;
+    const cursorStyle = style ?? this.cursorStyle;
 
     this.ctx.fillStyle = this.theme.cursor;
 
-    switch (this.cursorStyle) {
+    switch (cursorStyle) {
       case 'block':
         // Full cell block
         this.ctx.fillRect(cursorX, cursorY, this.metrics.width, this.metrics.height);
