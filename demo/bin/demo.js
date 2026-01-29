@@ -88,6 +88,34 @@ const HTML_TEMPLATE = `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ghostty-web</title>
     <style>
+      @font-face {
+        font-family: "JetBrainsMono NF";
+        src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/Regular/JetBrainsMonoNerdFont-Regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "JetBrainsMono NF";
+        src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/Bold/JetBrainsMonoNerdFont-Bold.ttf") format("truetype");
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "JetBrainsMono NF";
+        src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/Italic/JetBrainsMonoNerdFont-Italic.ttf") format("truetype");
+        font-weight: 400;
+        font-style: italic;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "JetBrainsMono NF";
+        src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/BoldItalic/JetBrainsMonoNerdFont-BoldItalic.ttf") format("truetype");
+        font-weight: 700;
+        font-style: italic;
+        font-display: swap;
+      }
       * {
         margin: 0;
         padding: 0;
@@ -213,7 +241,7 @@ const HTML_TEMPLATE = `<!doctype html>
       const term = new Terminal({
         cols: 80,
         rows: 24,
-        fontFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
+        fontFamily: '"JetBrainsMono NF", Menlo, Monaco, monospace',
         fontSize: 14,
         theme: {
           background: '#1e1e1e',
@@ -226,6 +254,11 @@ const HTML_TEMPLATE = `<!doctype html>
 
       const container = document.getElementById('terminal');
       await term.open(container);
+
+      // Wait for JetBrainsMono NF to load, then re-measure fonts
+      await document.fonts.load('14px "JetBrainsMono NF"');
+      term.loadFonts();
+
       fitAddon.fit();
       fitAddon.observeResize(); // Auto-fit when container resizes
 
