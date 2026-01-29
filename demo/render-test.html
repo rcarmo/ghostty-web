@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Visual Render Test Suite - Ghostty WASM</title>
+  <title>Visual Render Acceptance Tests - Ghostty WASM</title>
   <style>
     @font-face {
       font-family: "JetBrainsMono NF";
@@ -55,13 +55,42 @@
 
     .subtitle {
       color: #8b949e;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
       font-size: 14px;
     }
 
+    .summary {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .summary-stat {
+      text-align: center;
+    }
+
+    .summary-stat .number {
+      font-size: 32px;
+      font-weight: bold;
+    }
+
+    .summary-stat .label {
+      font-size: 12px;
+      color: #8b949e;
+    }
+
+    .summary-stat.pass .number { color: #3fb950; }
+    .summary-stat.fail .number { color: #f85149; }
+    .summary-stat.new .number { color: #a371f7; }
+
     .test-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
       gap: 20px;
     }
 
@@ -72,17 +101,24 @@
       overflow: hidden;
     }
 
+    .test-case.pass { border-color: #238636; }
+    .test-case.fail { border-color: #f85149; }
+    .test-case.new { border-color: #a371f7; }
+
     .test-header {
       background: #21262d;
       padding: 12px 16px;
       border-bottom: 1px solid #30363d;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .test-header h3 {
       font-size: 14px;
       font-weight: 600;
       color: #c9d1d9;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
 
     .test-header p {
@@ -90,15 +126,62 @@
       color: #8b949e;
     }
 
+    .test-status {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .test-status.pass { background: #238636; color: white; }
+    .test-status.fail { background: #f85149; color: white; }
+    .test-status.new { background: #a371f7; color: white; }
+    .test-status.running { background: #1f6feb; color: white; }
+
     .test-body {
       padding: 16px;
+    }
+
+    .canvas-row {
       display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
       justify-content: center;
+    }
+
+    .canvas-container {
+      text-align: center;
+    }
+
+    .canvas-container label {
+      display: block;
+      font-size: 11px;
+      color: #8b949e;
+      margin-bottom: 4px;
+      text-transform: uppercase;
     }
 
     canvas {
       border: 1px solid #30363d;
       background: #1e1e1e;
+    }
+
+    .diff-info {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #8b949e;
+      text-align: center;
+    }
+
+    .diff-info.significant {
+      color: #f85149;
+    }
+
+    .test-actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
     }
 
     .controls {
@@ -122,12 +205,30 @@
       background: #2ea043;
     }
 
+    button:disabled {
+      background: #30363d;
+      cursor: not-allowed;
+    }
+
     button.secondary {
       background: #30363d;
     }
 
     button.secondary:hover {
       background: #484f58;
+    }
+
+    button.small {
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+
+    button.danger {
+      background: #da3633;
+    }
+
+    button.danger:hover {
+      background: #f85149;
     }
 
     .status {
@@ -137,25 +238,87 @@
       border-radius: 6px;
       font-family: monospace;
       font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
     }
 
     .pass { color: #3fb950; }
     .fail { color: #f85149; }
     .info { color: #58a6ff; }
+    .warn { color: #d29922; }
 
-    .wide-test {
-      grid-column: 1 / -1;
+    .threshold-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #8b949e;
+      font-size: 14px;
+    }
+
+    .threshold-control input {
+      width: 60px;
+      padding: 4px 8px;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      background: #0d1117;
+      color: #c9d1d9;
+    }
+
+    .instructions {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+
+    .instructions code {
+      background: #0d1117;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
     }
   </style>
 </head>
 <body>
-  <h1>Visual Render Test Suite</h1>
-  <p class="subtitle">Regression tests for CanvasRenderer - verify rendering of text styles, colors, cursors, selection, and more</p>
+  <h1>Visual Render Acceptance Tests</h1>
+  <p class="subtitle">Regression tests comparing rendered output against accepted baselines</p>
+
+  <div class="instructions">
+    <strong>Usage:</strong> Run with <code>bun run demo</code> or <code>bunx serve .</code> then open this page.<br>
+    <strong>New tests:</strong> Click "Accept" to save the current render as the baseline.<br>
+    <strong>Failures:</strong> Review the diff, then "Accept" if the change is intentional, or fix the bug.
+  </div>
+
+  <div class="summary" id="summary">
+    <div class="summary-stat pass">
+      <div class="number" id="pass-count">-</div>
+      <div class="label">Passed</div>
+    </div>
+    <div class="summary-stat fail">
+      <div class="number" id="fail-count">-</div>
+      <div class="label">Failed</div>
+    </div>
+    <div class="summary-stat new">
+      <div class="number" id="new-count">-</div>
+      <div class="label">New</div>
+    </div>
+    <div style="flex: 1;"></div>
+    <div class="threshold-control">
+      <label>Diff threshold:</label>
+      <input type="number" id="threshold" value="0.1" min="0" max="1" step="0.01">
+      <span>%</span>
+    </div>
+  </div>
 
   <div class="controls">
-    <button onclick="runAllTests()">Run All Tests</button>
-    <button class="secondary" onclick="downloadScreenshots()">Download Screenshots</button>
-    <button class="secondary" onclick="clearStatus()">Clear Status</button>
+    <button onclick="runAllTests()" id="run-btn">Run All Tests</button>
+    <button class="secondary" onclick="acceptAllNew()">Accept All New</button>
+    <button class="secondary" onclick="exportBaselines()">Export Baselines</button>
+    <button class="secondary" onclick="importBaselines()">Import Baselines</button>
+    <button class="secondary danger" onclick="clearAllBaselines()">Clear Baselines</button>
+    <input type="file" id="import-input" accept=".json" style="display: none;" onchange="handleImport(event)">
   </div>
 
   <div class="test-grid" id="test-grid">
@@ -163,7 +326,7 @@
   </div>
 
   <div class="status" id="status">
-    <div class="info">Ready to run tests. Click "Run All Tests" to begin.</div>
+    <div class="info">Ready. Click "Run All Tests" to begin.</div>
   </div>
 
   <script type="module">
@@ -171,10 +334,141 @@
     import { CanvasRenderer, DEFAULT_THEME, CellFlags } from '../dist/ghostty-web.js';
 
     // ========================================================================
+    // Storage for baselines (uses IndexedDB for larger images)
+    // ========================================================================
+    const DB_NAME = 'ghostty-render-tests';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'baselines';
+
+    let db = null;
+
+    async function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          db = request.result;
+          resolve(db);
+        };
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          }
+        };
+      });
+    }
+
+    async function saveBaseline(id, dataUrl) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put({ id, dataUrl, timestamp: Date.now() });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function getBaseline(id) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.get(id);
+        request.onsuccess = () => resolve(request.result?.dataUrl || null);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function getAllBaselines() {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function clearBaselines() {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    // ========================================================================
+    // Pixel comparison (simplified pixelmatch algorithm)
+    // ========================================================================
+    function compareImages(canvas1, canvas2, diffCanvas) {
+      const ctx1 = canvas1.getContext('2d');
+      const ctx2 = canvas2.getContext('2d');
+      const ctxDiff = diffCanvas.getContext('2d');
+
+      const width = Math.max(canvas1.width, canvas2.width);
+      const height = Math.max(canvas1.height, canvas2.height);
+
+      // Resize diff canvas
+      diffCanvas.width = width;
+      diffCanvas.height = height;
+
+      // Get image data
+      const img1 = ctx1.getImageData(0, 0, canvas1.width, canvas1.height);
+      const img2 = ctx2.getImageData(0, 0, canvas2.width, canvas2.height);
+      const diff = ctxDiff.createImageData(width, height);
+
+      let diffPixels = 0;
+      const totalPixels = width * height;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const idx = (y * width + x) * 4;
+
+          // Get pixel from each image (black if out of bounds)
+          const r1 = x < canvas1.width && y < canvas1.height ? img1.data[(y * canvas1.width + x) * 4] : 0;
+          const g1 = x < canvas1.width && y < canvas1.height ? img1.data[(y * canvas1.width + x) * 4 + 1] : 0;
+          const b1 = x < canvas1.width && y < canvas1.height ? img1.data[(y * canvas1.width + x) * 4 + 2] : 0;
+
+          const r2 = x < canvas2.width && y < canvas2.height ? img2.data[(y * canvas2.width + x) * 4] : 0;
+          const g2 = x < canvas2.width && y < canvas2.height ? img2.data[(y * canvas2.width + x) * 4 + 1] : 0;
+          const b2 = x < canvas2.width && y < canvas2.height ? img2.data[(y * canvas2.width + x) * 4 + 2] : 0;
+
+          // Simple color difference (Manhattan distance)
+          const colorDiff = Math.abs(r1 - r2) + Math.abs(g1 - g2) + Math.abs(b1 - b2);
+
+          if (colorDiff > 10) { // Threshold for "different"
+            // Red for difference
+            diff.data[idx] = 255;
+            diff.data[idx + 1] = 0;
+            diff.data[idx + 2] = 0;
+            diff.data[idx + 3] = 255;
+            diffPixels++;
+          } else {
+            // Dim copy of original
+            diff.data[idx] = Math.floor(r1 * 0.3);
+            diff.data[idx + 1] = Math.floor(g1 * 0.3);
+            diff.data[idx + 2] = Math.floor(b1 * 0.3);
+            diff.data[idx + 3] = 255;
+          }
+        }
+      }
+
+      ctxDiff.putImageData(diff, 0, 0);
+
+      return {
+        diffPixels,
+        totalPixels,
+        diffPercent: (diffPixels / totalPixels) * 100
+      };
+    }
+
+    // ========================================================================
     // Default colors
     // ========================================================================
-    const DEFAULT_FG = { r: 212, g: 212, b: 212 }; // #d4d4d4
-    const DEFAULT_BG = { r: 0, g: 0, b: 0 }; // transparent (shows theme bg)
+    const DEFAULT_FG = { r: 212, g: 212, b: 212 };
+    const DEFAULT_BG = { r: 0, g: 0, b: 0 };
 
     // ========================================================================
     // Helper: Create a mock cell
@@ -216,21 +510,11 @@
       const cols = lines[0]?.length ?? 80;
 
       return {
-        getLine(y) {
-          return lines[y] || null;
-        },
-        getCursor() {
-          return cursor;
-        },
-        getDimensions() {
-          return { cols, rows };
-        },
-        isRowDirty() {
-          return true; // Always render for tests
-        },
-        needsFullRedraw() {
-          return false;
-        },
+        getLine(y) { return lines[y] || null; },
+        getCursor() { return cursor; },
+        getDimensions() { return { cols, rows }; },
+        isRowDirty() { return true; },
+        needsFullRedraw() { return false; },
         clearDirty() {},
       };
     }
@@ -239,193 +523,130 @@
     // Test Case Registry
     // ========================================================================
     const testCases = [];
+    const testResults = new Map();
 
     function registerTest(id, name, description, renderFn) {
       testCases.push({ id, name, description, renderFn });
     }
 
     // ========================================================================
-    // TEST: Basic Text Rendering
+    // TEST DEFINITIONS
     // ========================================================================
+
     registerTest('basic-text', 'Basic Text Rendering', 'Simple ASCII text with default colors', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
       });
-
       const lines = [
         createLine('Hello, World!', 20),
         createLine('ABCDEFGHIJKLMNOP', 20),
         createLine('0123456789!@#$%^', 20),
       ];
-
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
+      renderer.render(createMockBuffer(lines), true);
     });
 
-    // ========================================================================
-    // TEST: Text Styles (Bold, Italic, Underline, Strikethrough)
-    // ========================================================================
     registerTest('text-styles', 'Text Styles', 'Bold, Italic, Underline, Strikethrough, Faint', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
       });
-
       const cols = 25;
       const lines = [
-        // Normal
         createLine('Normal text here    ', cols),
-        // Bold
-        (() => {
-          const line = createLine('Bold text here      ', cols, { flags: CellFlags.BOLD });
-          return line;
-        })(),
-        // Italic
+        createLine('Bold text here      ', cols, { flags: CellFlags.BOLD }),
         createLine('Italic text here    ', cols, { flags: CellFlags.ITALIC }),
-        // Underline
         createLine('Underline text here ', cols, { flags: CellFlags.UNDERLINE }),
-        // Strikethrough
         createLine('Strikethrough text  ', cols, { flags: CellFlags.STRIKETHROUGH }),
-        // Faint/Dim
         createLine('Faint/Dim text here ', cols, { flags: CellFlags.FAINT }),
-        // Combined: Bold + Italic
         createLine('Bold+Italic combo   ', cols, { flags: CellFlags.BOLD | CellFlags.ITALIC }),
-        // Combined: Bold + Underline
         createLine('Bold+Underline combo', cols, { flags: CellFlags.BOLD | CellFlags.UNDERLINE }),
       ];
-
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
+      renderer.render(createMockBuffer(lines), true);
     });
 
-    // ========================================================================
-    // TEST: Inverse Video
-    // ========================================================================
     registerTest('inverse-video', 'Inverse Video', 'Foreground and background colors swapped', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
       });
-
       const cols = 25;
       const lines = [
         createLine('Normal text         ', cols),
         createLine('Inverse video text  ', cols, { flags: CellFlags.INVERSE }),
         createLine('Normal again        ', cols),
-        // Mixed: some cells inverse, some not
         (() => {
           const line = [];
           const text = 'Mixed: inv | normal  ';
           for (let i = 0; i < cols; i++) {
-            const isInverse = i >= 7 && i < 10; // "inv" part
-            line.push(createCell(text[i] || ' ', {
-              flags: isInverse ? CellFlags.INVERSE : 0
-            }));
+            const isInverse = i >= 7 && i < 10;
+            line.push(createCell(text[i] || ' ', { flags: isInverse ? CellFlags.INVERSE : 0 }));
           }
           return line;
         })(),
       ];
-
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
+      renderer.render(createMockBuffer(lines), true);
     });
 
-    // ========================================================================
-    // TEST: ANSI Colors (16 palette colors)
-    // ========================================================================
     registerTest('ansi-colors', 'ANSI 16 Colors', 'Standard ANSI color palette', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
       });
-
-      // Define ANSI colors
       const ansiColors = [
-        { r: 0, g: 0, b: 0 },       // 0: black
-        { r: 205, g: 49, b: 49 },   // 1: red
-        { r: 13, g: 188, b: 121 },  // 2: green
-        { r: 229, g: 229, b: 16 },  // 3: yellow
-        { r: 36, g: 114, b: 200 },  // 4: blue
-        { r: 188, g: 63, b: 188 },  // 5: magenta
-        { r: 17, g: 168, b: 205 },  // 6: cyan
-        { r: 229, g: 229, b: 229 }, // 7: white
-        { r: 102, g: 102, b: 102 }, // 8: bright black
-        { r: 241, g: 76, b: 76 },   // 9: bright red
-        { r: 35, g: 209, b: 139 },  // 10: bright green
-        { r: 245, g: 245, b: 67 },  // 11: bright yellow
-        { r: 59, g: 142, b: 234 },  // 12: bright blue
-        { r: 214, g: 112, b: 214 }, // 13: bright magenta
-        { r: 41, g: 184, b: 219 },  // 14: bright cyan
-        { r: 255, g: 255, b: 255 }, // 15: bright white
+        { r: 0, g: 0, b: 0 }, { r: 205, g: 49, b: 49 }, { r: 13, g: 188, b: 121 }, { r: 229, g: 229, b: 16 },
+        { r: 36, g: 114, b: 200 }, { r: 188, g: 63, b: 188 }, { r: 17, g: 168, b: 205 }, { r: 229, g: 229, b: 229 },
+        { r: 102, g: 102, b: 102 }, { r: 241, g: 76, b: 76 }, { r: 35, g: 209, b: 139 }, { r: 245, g: 245, b: 67 },
+        { r: 59, g: 142, b: 234 }, { r: 214, g: 112, b: 214 }, { r: 41, g: 184, b: 219 }, { r: 255, g: 255, b: 255 },
       ];
-
       const cols = 32;
       const lines = [];
 
-      // Row 1-2: Normal colors (0-7)
+      // Normal colors foreground
       const row1 = [];
       for (let i = 0; i < 8; i++) {
-        const label = ` ${i} `;
-        for (const char of label) {
-          row1.push(createCell(char, { fg: ansiColors[i] }));
-        }
+        for (const char of ` ${i} `) row1.push(createCell(char, { fg: ansiColors[i] }));
         row1.push(createCell(' '));
       }
       while (row1.length < cols) row1.push(createCell(' '));
       lines.push(row1.slice(0, cols));
 
-      // Row with backgrounds
+      // Normal colors background
       const row2 = [];
       for (let i = 0; i < 8; i++) {
-        const label = `   `;
-        for (const char of label) {
-          row2.push(createCell(char, { bg: ansiColors[i], fg: { r: 255, g: 255, b: 255 } }));
-        }
+        for (const char of '   ') row2.push(createCell(char, { bg: ansiColors[i], fg: { r: 255, g: 255, b: 255 } }));
         row2.push(createCell(' '));
       }
       while (row2.length < cols) row2.push(createCell(' '));
       lines.push(row2.slice(0, cols));
 
-      lines.push(createLine('', cols)); // Spacer
+      lines.push(createLine('', cols));
 
-      // Row 3-4: Bright colors (8-15)
+      // Bright colors
       const row3 = [];
       for (let i = 8; i < 16; i++) {
-        const label = `${i.toString().padStart(2)}`;
-        for (const char of label) {
-          row3.push(createCell(char, { fg: ansiColors[i] }));
-        }
-        row3.push(createCell(' '));
-        row3.push(createCell(' '));
+        for (const char of `${i.toString().padStart(2)}`) row3.push(createCell(char, { fg: ansiColors[i] }));
+        row3.push(createCell(' ')); row3.push(createCell(' '));
       }
       while (row3.length < cols) row3.push(createCell(' '));
       lines.push(row3.slice(0, cols));
 
       const row4 = [];
       for (let i = 8; i < 16; i++) {
-        const label = `   `;
-        for (const char of label) {
-          row4.push(createCell(char, { bg: ansiColors[i], fg: { r: 0, g: 0, b: 0 } }));
-        }
+        for (const char of '   ') row4.push(createCell(char, { bg: ansiColors[i], fg: { r: 0, g: 0, b: 0 } }));
         row4.push(createCell(' '));
       }
       while (row4.length < cols) row4.push(createCell(' '));
       lines.push(row4.slice(0, cols));
 
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
+      renderer.render(createMockBuffer(lines), true);
     });
 
-    // ========================================================================
-    // TEST: RGB Colors
-    // ========================================================================
     registerTest('rgb-colors', 'RGB Colors', 'True color (24-bit) foreground and background', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
       });
-
       const cols = 30;
       const lines = [];
 
@@ -434,8 +655,7 @@
       for (let i = 0; i < cols; i++) {
         const r = Math.floor((i / cols) * 255);
         const g = Math.floor(((cols - i) / cols) * 255);
-        const b = 128;
-        gradient.push(createCell('\u2588', { fg: { r, g, b } })); // Full block
+        gradient.push(createCell('\u2588', { fg: { r, g, b: 128 } }));
       }
       lines.push(gradient);
 
@@ -443,42 +663,27 @@
       const bgGradient = [];
       for (let i = 0; i < cols; i++) {
         const r = Math.floor((i / cols) * 255);
-        const g = 0;
         const b = Math.floor(((cols - i) / cols) * 255);
-        bgGradient.push(createCell(' ', { bg: { r, g, b } }));
+        bgGradient.push(createCell(' ', { bg: { r, g: 0, b } }));
       }
       lines.push(bgGradient);
 
-      // Custom colored text
       lines.push(createLine('', cols));
-      lines.push(createLine('Custom RGB colors:', cols, { fg: { r: 255, g: 165, b: 0 } })); // Orange
-      lines.push(createLine('Pink background', cols, {
-        fg: { r: 0, g: 0, b: 0 },
-        bg: { r: 255, g: 182, b: 193 }
-      }));
+      lines.push(createLine('Custom RGB colors:', cols, { fg: { r: 255, g: 165, b: 0 } }));
+      lines.push(createLine('Pink background', cols, { fg: { r: 0, g: 0, b: 0 }, bg: { r: 255, g: 182, b: 193 } }));
 
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
+      renderer.render(createMockBuffer(lines), true);
     });
 
-    // ========================================================================
-    // TEST: Cursor Styles
-    // ========================================================================
     registerTest('cursor-block', 'Cursor: Block', 'Block cursor style', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
         cursorStyle: 'block',
       });
-
       const cols = 20;
-      const lines = [
-        createLine('Block cursor here:', cols),
-        createLine('Text with cursor', cols),
-      ];
-
-      const buffer = createMockBuffer(lines, { x: 5, y: 1, visible: true });
-      renderer.render(buffer, true);
+      const lines = [createLine('Block cursor here:', cols), createLine('Text with cursor', cols)];
+      renderer.render(createMockBuffer(lines, { x: 5, y: 1, visible: true }), true);
     });
 
     registerTest('cursor-underline', 'Cursor: Underline', 'Underline cursor style', (canvas) => {
@@ -487,15 +692,9 @@
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
         cursorStyle: 'underline',
       });
-
       const cols = 20;
-      const lines = [
-        createLine('Underline cursor:', cols),
-        createLine('Text with cursor', cols),
-      ];
-
-      const buffer = createMockBuffer(lines, { x: 5, y: 1, visible: true });
-      renderer.render(buffer, true);
+      const lines = [createLine('Underline cursor:', cols), createLine('Text with cursor', cols)];
+      renderer.render(createMockBuffer(lines, { x: 5, y: 1, visible: true }), true);
     });
 
     registerTest('cursor-bar', 'Cursor: Bar', 'Bar (I-beam) cursor style', (canvas) => {
@@ -504,63 +703,33 @@
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
         cursorStyle: 'bar',
       });
-
       const cols = 20;
-      const lines = [
-        createLine('Bar cursor here:', cols),
-        createLine('Text with cursor', cols),
-      ];
-
-      const buffer = createMockBuffer(lines, { x: 5, y: 1, visible: true });
-      renderer.render(buffer, true);
+      const lines = [createLine('Bar cursor here:', cols), createLine('Text with cursor', cols)];
+      renderer.render(createMockBuffer(lines, { x: 5, y: 1, visible: true }), true);
     });
 
-    // ========================================================================
-    // TEST: Wide Characters
-    // ========================================================================
-    registerTest('wide-chars', 'Wide Characters', 'CJK and emoji (width=2)', (canvas) => {
+    registerTest('wide-chars', 'Wide Characters', 'CJK characters (width=2)', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
       });
-
       const cols = 30;
       const lines = [];
 
-      // CJK characters (each takes 2 cells)
-      const cjkLine = [];
-      const cjkText = '\u4E2D\u6587'; // "Chinese"
-      for (const char of cjkText) {
-        cjkLine.push(createCell(char, { width: 2 }));
-        cjkLine.push(createCell('', { width: 0 })); // Spacer cell
+      // CJK characters
+      for (const [text, label] of [['\u4E2D\u6587', 'Chinese'], ['\u65E5\u672C\u8A9E', 'Japanese'], ['\uD55C\uAE00', 'Korean']]) {
+        const line = [];
+        for (const char of text) {
+          line.push(createCell(char, { width: 2 }));
+          line.push(createCell('', { width: 0 }));
+        }
+        while (line.length < cols) line.push(createCell(' '));
+        lines.push(line);
       }
-      while (cjkLine.length < cols) cjkLine.push(createCell(' '));
-      lines.push(cjkLine);
 
-      // Japanese
-      const jpLine = [];
-      const jpText = '\u65E5\u672C\u8A9E'; // "Japanese"
-      for (const char of jpText) {
-        jpLine.push(createCell(char, { width: 2 }));
-        jpLine.push(createCell('', { width: 0 }));
-      }
-      while (jpLine.length < cols) jpLine.push(createCell(' '));
-      lines.push(jpLine);
-
-      // Korean
-      const krLine = [];
-      const krText = '\uD55C\uAE00'; // "Korean"
-      for (const char of krText) {
-        krLine.push(createCell(char, { width: 2 }));
-        krLine.push(createCell('', { width: 0 }));
-      }
-      while (krLine.length < cols) krLine.push(createCell(' '));
-      lines.push(krLine);
-
-      // Mixed ASCII and wide chars
+      // Mixed
       const mixedLine = [];
-      const mixedParts = ['AB', '\u4E2D', 'CD', '\u6587', 'EF'];
-      for (const part of mixedParts) {
+      for (const part of ['AB', '\u4E2D', 'CD', '\u6587', 'EF']) {
         for (const char of part) {
           const isWide = char.charCodeAt(0) > 0x2E7F;
           mixedLine.push(createCell(char, { width: isWide ? 2 : 1 }));
@@ -570,19 +739,14 @@
       while (mixedLine.length < cols) mixedLine.push(createCell(' '));
       lines.push(mixedLine.slice(0, cols));
 
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
+      renderer.render(createMockBuffer(lines), true);
     });
 
-    // ========================================================================
-    // TEST: Selection Highlighting
-    // ========================================================================
-    registerTest('selection', 'Selection Highlighting', 'Single and multi-line selection', (canvas) => {
+    registerTest('selection', 'Selection Highlighting', 'Multi-line selection', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
       });
-
       const cols = 30;
       const lines = [
         createLine('Line 1: No selection here', cols),
@@ -592,339 +756,94 @@
         createLine('Line 5: No selection here', cols),
       ];
 
-      const buffer = createMockBuffer(lines);
-
-      // Create mock selection manager
       const selectionManager = {
         hasSelection: () => true,
-        getSelectionCoords: () => ({
-          startCol: 8,
-          startRow: 1,
-          endCol: 20,
-          endRow: 3,
-        }),
+        getSelectionCoords: () => ({ startCol: 8, startRow: 1, endCol: 20, endRow: 3 }),
         getDirtySelectionRows: () => new Set(),
         clearDirtySelectionRows: () => {},
       };
 
       renderer.setSelectionManager(selectionManager);
-      renderer.render(buffer, true);
+      renderer.render(createMockBuffer(lines), true);
     });
 
-    // ========================================================================
-    // TEST: Custom Theme
-    // ========================================================================
-    registerTest('custom-theme', 'Custom Theme', 'Non-default theme colors', (canvas) => {
-      const customTheme = {
-        foreground: '#f8f8f2',
-        background: '#282a36',
-        cursor: '#f8f8f2',
-        cursorAccent: '#282a36',
-        selectionBackground: '#44475a',
-        black: '#21222c',
-        red: '#ff5555',
-        green: '#50fa7b',
-        yellow: '#f1fa8c',
-        blue: '#bd93f9',
-        magenta: '#ff79c6',
-        cyan: '#8be9fd',
-        white: '#f8f8f2',
-        brightBlack: '#6272a4',
-        brightRed: '#ff6e6e',
-        brightGreen: '#69ff94',
-        brightYellow: '#ffffa5',
-        brightBlue: '#d6acff',
-        brightMagenta: '#ff92df',
-        brightCyan: '#a4ffff',
-        brightWhite: '#ffffff',
-      };
-
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-        theme: customTheme,
-      });
-
-      // Use theme colors in cells
-      const cols = 30;
-      const fg = { r: 248, g: 248, b: 242 }; // #f8f8f2 from theme
-
-      const lines = [
-        createLine('Dracula Theme Test', cols, { fg }),
-        createLine('Red text', cols, { fg: { r: 255, g: 85, b: 85 } }),
-        createLine('Green text', cols, { fg: { r: 80, g: 250, b: 123 } }),
-        createLine('Cyan text', cols, { fg: { r: 139, g: 233, b: 253 } }),
-        createLine('Pink (magenta)', cols, { fg: { r: 255, g: 121, b: 198 } }),
-      ];
-
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
-    });
-
-    // ========================================================================
-    // TEST: Invisible Text
-    // ========================================================================
-    registerTest('invisible-text', 'Invisible Text', 'Text with INVISIBLE flag should not render', (canvas) => {
+    registerTest('invisible-text', 'Invisible Text', 'INVISIBLE flag hides text', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
       });
-
       const cols = 30;
       const lines = [
         createLine('Visible text here', cols),
         createLine('HIDDEN PASSWORD HERE', cols, { flags: CellFlags.INVISIBLE }),
         createLine('More visible text', cols),
       ];
-
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
+      renderer.render(createMockBuffer(lines), true);
     });
 
-    // ========================================================================
-    // TEST: Font with Spaces in Name
-    // ========================================================================
-    registerTest('font-spaces', 'Font Family with Spaces', 'Font names with spaces should be quoted', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: 'JetBrains Mono, Fira Code, monospace', // Has spaces, should auto-quote
-      });
-
-      const cols = 30;
-      const lines = [
-        createLine('Font: JetBrains Mono', cols),
-        createLine('Should render correctly', cols),
-        createLine('With proper quoting', cols),
-      ];
-
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
-    });
-
-    // ========================================================================
-    // TEST: DPI Scaling
-    // ========================================================================
-    registerTest('dpi-scaling', 'DPI Scaling (2x)', 'High DPI rendering', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-        devicePixelRatio: 2,
-      });
-
-      const cols = 25;
-      const lines = [
-        createLine('2x DPI scaling test', cols),
-        createLine('Should be crisp!', cols),
-        createLine('Check the canvas size', cols),
-      ];
-
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
-    });
-
-    // ========================================================================
-    // TEST: Scrollbar Rendering
-    // ========================================================================
-    registerTest('scrollbar', 'Scrollbar', 'Scrollbar at various positions', (canvas) => {
+    registerTest('hyperlink', 'Hyperlink Hover', 'OSC8 hyperlink underline', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
       });
-
-      const cols = 30;
-      const rows = 10;
-      const lines = [];
-      for (let i = 0; i < rows; i++) {
-        lines.push(createLine(`Line ${i + 1} - scrollbar test`, cols));
-      }
-
-      const buffer = createMockBuffer(lines);
-
-      // Mock scrollback provider
-      const scrollbackProvider = {
-        getScrollbackLength: () => 100,
-        getScrollbackLine: (offset) => createLine(`Scrollback line ${offset}`, cols),
-      };
-
-      // Render at scrolled position (viewportY = 50 means scrolled up 50 lines)
-      renderer.render(buffer, true, 50, scrollbackProvider, 1.0);
-    });
-
-    // ========================================================================
-    // TEST: Complex Script (Devanagari)
-    // ========================================================================
-    registerTest('devanagari', 'Complex Script (Devanagari)', 'Two-pass rendering for left-extending glyphs', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 16, // Slightly larger for better visibility
-        fontFamily: '"Noto Sans Devanagari", "JetBrainsMono NF", sans-serif',
-      });
-
-      const cols = 20;
-      const lines = [];
-
-      // Devanagari text - note: some vowel signs extend left
-      // Example: "\u0915\u093F" = "ki" where the "i" vowel extends left of "k"
-      const devanagariLine = [];
-      // Simple consonants with vowel marks
-      const text = '\u0928\u092E\u0938\u094D\u0924\u0947'; // "namaste" in Devanagari
-
-      for (const char of text) {
-        devanagariLine.push(createCell(char));
-      }
-      while (devanagariLine.length < cols) devanagariLine.push(createCell(' '));
-      lines.push(devanagariLine);
-
-      // ASCII for comparison
-      lines.push(createLine('ASCII: namaste', cols));
-      lines.push(createLine('', cols));
-
-      // More complex example with vowel i (extends left)
-      const kiLine = [];
-      kiLine.push(createCell('\u0915')); // ka
-      kiLine.push(createCell('\u093F')); // vowel i (extends left)
-      kiLine.push(createCell(' '));
-      kiLine.push(createCell('\u0915')); // ka
-      kiLine.push(createCell('\u0940')); // vowel ii
-      while (kiLine.length < cols) kiLine.push(createCell(' '));
-      lines.push(kiLine);
-
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
-    });
-
-    // ========================================================================
-    // TEST: Hyperlink Underline
-    // ========================================================================
-    registerTest('hyperlink', 'Hyperlink Underline', 'OSC8 hyperlink hover state', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
-
       const cols = 35;
       const lines = [];
 
-      // Line with no hyperlink
       lines.push(createLine('No link here', cols));
 
-      // Line with hyperlink (simulated hover)
       const linkLine = [];
-      const prefix = 'Click: ';
-      for (const char of prefix) {
-        linkLine.push(createCell(char));
-      }
-      const linkText = 'https://example.com';
-      for (const char of linkText) {
-        linkLine.push(createCell(char, { hyperlink_id: 1 }));
-      }
+      for (const char of 'Click: ') linkLine.push(createCell(char));
+      for (const char of 'https://example.com') linkLine.push(createCell(char, { hyperlink_id: 1 }));
       while (linkLine.length < cols) linkLine.push(createCell(' '));
       lines.push(linkLine);
 
-      // Another line with different link
       const link2Line = [];
-      const prefix2 = 'Also: ';
-      for (const char of prefix2) {
-        link2Line.push(createCell(char));
-      }
-      const link2Text = 'mailto:test@test.com';
-      for (const char of link2Text) {
-        link2Line.push(createCell(char, { hyperlink_id: 2 }));
-      }
+      for (const char of 'Also: ') link2Line.push(createCell(char));
+      for (const char of 'mailto:test@test.com') link2Line.push(createCell(char, { hyperlink_id: 2 }));
       while (link2Line.length < cols) link2Line.push(createCell(' '));
       lines.push(link2Line);
 
-      const buffer = createMockBuffer(lines);
-
-      // Set hovered hyperlink to show underline
       renderer.setHoveredHyperlinkId(1);
-
-      renderer.render(buffer, true);
+      renderer.render(createMockBuffer(lines), true);
     });
 
-    // ========================================================================
-    // TEST: Regex Link Range
-    // ========================================================================
-    registerTest('regex-link', 'Regex URL Detection', 'Plain text URL hover underline', (canvas) => {
-      const renderer = new CanvasRenderer(canvas, {
-        fontSize: 14,
-        fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      });
-
-      const cols = 40;
-      const lines = [
-        createLine('Text before URL here', cols),
-        createLine('Visit: https://github.com/ghostty', cols),
-        createLine('Text after URL here', cols),
-      ];
-
-      const buffer = createMockBuffer(lines);
-
-      // Set hovered link range (simulating detected URL)
-      renderer.setHoveredLinkRange({
-        startX: 7, // Start of "https"
-        startY: 1,
-        endX: 32, // End of URL
-        endY: 1,
-      });
-
-      renderer.render(buffer, true);
-    });
-
-    // ========================================================================
-    // TEST: Combined Styles
-    // ========================================================================
     registerTest('combined-styles', 'Combined Styles', 'Multiple styles on same text', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
       });
-
       const cols = 30;
       const lines = [
         createLine('Bold + Italic + Underline:', cols),
-        createLine('Combined styling test', cols, {
-          flags: CellFlags.BOLD | CellFlags.ITALIC | CellFlags.UNDERLINE
-        }),
+        createLine('Combined styling test', cols, { flags: CellFlags.BOLD | CellFlags.ITALIC | CellFlags.UNDERLINE }),
         createLine('', cols),
         createLine('Faint + Strikethrough:', cols),
-        createLine('Deleted faint text', cols, {
-          flags: CellFlags.FAINT | CellFlags.STRIKETHROUGH
-        }),
+        createLine('Deleted faint text', cols, { flags: CellFlags.FAINT | CellFlags.STRIKETHROUGH }),
         createLine('', cols),
         createLine('Bold + Colored:', cols),
-        createLine('Bold red text', cols, {
-          flags: CellFlags.BOLD,
-          fg: { r: 255, g: 85, b: 85 }
-        }),
+        createLine('Bold red text', cols, { flags: CellFlags.BOLD, fg: { r: 255, g: 85, b: 85 } }),
       ];
-
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
+      renderer.render(createMockBuffer(lines), true);
     });
 
-    // ========================================================================
-    // TEST: Cell Background Colors
-    // ========================================================================
     registerTest('cell-backgrounds', 'Cell Backgrounds', 'Individual cell background colors', (canvas) => {
       const renderer = new CanvasRenderer(canvas, {
         fontSize: 14,
         fontFamily: '"JetBrainsMono NF", Monaco, monospace',
       });
-
       const cols = 35;
       const lines = [];
 
-      // Checkerboard pattern
+      // Checkerboard
       const checkerboard = [];
       for (let i = 0; i < cols; i++) {
-        const isEven = i % 2 === 0;
         checkerboard.push(createCell(' ', {
-          bg: isEven ? { r: 40, g: 40, b: 40 } : { r: 60, g: 60, b: 60 }
+          bg: i % 2 === 0 ? { r: 40, g: 40, b: 40 } : { r: 60, g: 60, b: 60 }
         }));
       }
       lines.push(checkerboard);
 
-      // Colored blocks with text
+      // Color blocks
       const colorBlocks = [];
       const colors = [
         { bg: { r: 255, g: 0, b: 0 }, fg: { r: 255, g: 255, b: 255 } },
@@ -935,9 +854,7 @@
       ];
       const labels = ['RED', 'GRN', 'BLU', 'YEL', 'MAG'];
       for (let i = 0; i < colors.length; i++) {
-        for (const char of ` ${labels[i]} `) {
-          colorBlocks.push(createCell(char, colors[i]));
-        }
+        for (const char of ` ${labels[i]} `) colorBlocks.push(createCell(char, colors[i]));
         colorBlocks.push(createCell(' '));
       }
       while (colorBlocks.length < cols) colorBlocks.push(createCell(' '));
@@ -946,25 +863,22 @@
       lines.push(createLine('', cols));
       lines.push(createLine('Syntax highlighting demo:', cols));
 
-      // Syntax-like coloring
+      // Syntax
       const syntaxLine = [];
       const parts = [
-        { text: 'const ', bg: null, fg: { r: 86, g: 156, b: 214 } },
-        { text: 'x', bg: null, fg: { r: 156, g: 220, b: 254 } },
-        { text: ' = ', bg: null, fg: { r: 212, g: 212, b: 212 } },
-        { text: '"hello"', bg: null, fg: { r: 206, g: 145, b: 120 } },
-        { text: ';', bg: null, fg: { r: 212, g: 212, b: 212 } },
+        { text: 'const ', fg: { r: 86, g: 156, b: 214 } },
+        { text: 'x', fg: { r: 156, g: 220, b: 254 } },
+        { text: ' = ', fg: { r: 212, g: 212, b: 212 } },
+        { text: '"hello"', fg: { r: 206, g: 145, b: 120 } },
+        { text: ';', fg: { r: 212, g: 212, b: 212 } },
       ];
       for (const part of parts) {
-        for (const char of part.text) {
-          syntaxLine.push(createCell(char, { fg: part.fg, bg: part.bg || undefined }));
-        }
+        for (const char of part.text) syntaxLine.push(createCell(char, { fg: part.fg }));
       }
       while (syntaxLine.length < cols) syntaxLine.push(createCell(' '));
       lines.push(syntaxLine.slice(0, cols));
 
-      const buffer = createMockBuffer(lines);
-      renderer.render(buffer, true);
+      renderer.render(createMockBuffer(lines), true);
     });
 
     // ========================================================================
@@ -982,16 +896,48 @@
 
         testCase.innerHTML = `
           <div class="test-header">
-            <h3>${test.name}</h3>
-            <p>${test.description}</p>
+            <div>
+              <h3>${test.name}</h3>
+              <p>${test.description}</p>
+            </div>
+            <span class="test-status" id="status-${test.id}">Pending</span>
           </div>
           <div class="test-body">
-            <canvas id="canvas-${test.id}" width="400" height="200"></canvas>
+            <div class="canvas-row">
+              <div class="canvas-container">
+                <label>Current</label>
+                <canvas id="canvas-${test.id}" width="400" height="200"></canvas>
+              </div>
+              <div class="canvas-container">
+                <label>Baseline</label>
+                <canvas id="baseline-${test.id}" width="400" height="200"></canvas>
+              </div>
+              <div class="canvas-container">
+                <label>Diff</label>
+                <canvas id="diff-${test.id}" width="400" height="200"></canvas>
+              </div>
+            </div>
+            <div class="diff-info" id="diff-info-${test.id}"></div>
+            <div class="test-actions">
+              <button class="small secondary" onclick="acceptBaseline('${test.id}')">Accept Current</button>
+            </div>
           </div>
         `;
 
         grid.appendChild(testCase);
       }
+    }
+
+    function updateSummary() {
+      let pass = 0, fail = 0, newCount = 0;
+      for (const result of testResults.values()) {
+        if (result === 'pass') pass++;
+        else if (result === 'fail') fail++;
+        else if (result === 'new') newCount++;
+      }
+      document.getElementById('pass-count').textContent = pass;
+      document.getElementById('fail-count').textContent = fail;
+      document.getElementById('new-count').textContent = newCount;
     }
 
     function logStatus(message, type = 'info') {
@@ -1003,91 +949,230 @@
       status.scrollTop = status.scrollHeight;
     }
 
-    function clearStatus() {
-      document.getElementById('status').innerHTML = '<div class="info">Status cleared.</div>';
+    async function loadBaselineImage(id) {
+      const dataUrl = await getBaseline(id);
+      if (!dataUrl) return null;
+
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = dataUrl;
+      });
+    }
+
+    async function runTest(test) {
+      const statusEl = document.getElementById(`status-${test.id}`);
+      const testCase = document.getElementById(`test-${test.id}`);
+      const canvas = document.getElementById(`canvas-${test.id}`);
+      const baselineCanvas = document.getElementById(`baseline-${test.id}`);
+      const diffCanvas = document.getElementById(`diff-${test.id}`);
+      const diffInfo = document.getElementById(`diff-info-${test.id}`);
+
+      statusEl.textContent = 'Running';
+      statusEl.className = 'test-status running';
+      testCase.className = 'test-case';
+
+      // Reset canvas
+      canvas.width = 400;
+      canvas.height = 200;
+
+      try {
+        // Render current
+        test.renderFn(canvas);
+
+        // Load baseline
+        const baselineImg = await loadBaselineImage(test.id);
+
+        if (!baselineImg) {
+          // No baseline - new test
+          statusEl.textContent = 'New';
+          statusEl.className = 'test-status new';
+          testCase.className = 'test-case new';
+          diffInfo.textContent = 'No baseline. Click "Accept Current" to create one.';
+          diffInfo.className = 'diff-info';
+          testResults.set(test.id, 'new');
+          logStatus(`NEW: ${test.name} - no baseline exists`, 'warn');
+
+          // Clear baseline and diff canvases
+          const baselineCtx = baselineCanvas.getContext('2d');
+          baselineCtx.fillStyle = '#1e1e1e';
+          baselineCtx.fillRect(0, 0, baselineCanvas.width, baselineCanvas.height);
+          baselineCtx.fillStyle = '#8b949e';
+          baselineCtx.font = '14px sans-serif';
+          baselineCtx.textAlign = 'center';
+          baselineCtx.fillText('No baseline', baselineCanvas.width / 2, baselineCanvas.height / 2);
+
+          const diffCtx = diffCanvas.getContext('2d');
+          diffCtx.fillStyle = '#1e1e1e';
+          diffCtx.fillRect(0, 0, diffCanvas.width, diffCanvas.height);
+
+          return 'new';
+        }
+
+        // Draw baseline
+        baselineCanvas.width = baselineImg.width;
+        baselineCanvas.height = baselineImg.height;
+        const baselineCtx = baselineCanvas.getContext('2d');
+        baselineCtx.drawImage(baselineImg, 0, 0);
+
+        // Compare
+        const threshold = parseFloat(document.getElementById('threshold').value) || 0.1;
+        const result = compareImages(canvas, baselineCanvas, diffCanvas);
+
+        if (result.diffPercent <= threshold) {
+          statusEl.textContent = 'Pass';
+          statusEl.className = 'test-status pass';
+          testCase.className = 'test-case pass';
+          diffInfo.textContent = `${result.diffPixels} different pixels (${result.diffPercent.toFixed(3)}%)`;
+          diffInfo.className = 'diff-info';
+          testResults.set(test.id, 'pass');
+          logStatus(`PASS: ${test.name}`, 'pass');
+          return 'pass';
+        } else {
+          statusEl.textContent = 'Fail';
+          statusEl.className = 'test-status fail';
+          testCase.className = 'test-case fail';
+          diffInfo.textContent = `${result.diffPixels} different pixels (${result.diffPercent.toFixed(3)}%) exceeds threshold ${threshold}%`;
+          diffInfo.className = 'diff-info significant';
+          testResults.set(test.id, 'fail');
+          logStatus(`FAIL: ${test.name} - ${result.diffPercent.toFixed(3)}% diff`, 'fail');
+          return 'fail';
+        }
+      } catch (e) {
+        statusEl.textContent = 'Error';
+        statusEl.className = 'test-status fail';
+        testCase.className = 'test-case fail';
+        diffInfo.textContent = `Error: ${e.message}`;
+        testResults.set(test.id, 'fail');
+        logStatus(`ERROR: ${test.name} - ${e.message}`, 'fail');
+        console.error(test.name, e);
+        return 'fail';
+      }
     }
 
     async function runAllTests() {
-      logStatus('Starting test suite...', 'info');
+      document.getElementById('run-btn').disabled = true;
+      logStatus('Starting acceptance test suite...', 'info');
+      testResults.clear();
 
-      // Wait for fonts to load
+      // Wait for fonts
       try {
         await document.fonts.load('14px "JetBrainsMono NF"');
-        logStatus('JetBrainsMono NF font loaded', 'pass');
+        await document.fonts.load('bold 14px "JetBrainsMono NF"');
+        await document.fonts.load('italic 14px "JetBrainsMono NF"');
+        logStatus('Fonts loaded', 'info');
       } catch (e) {
-        logStatus('Font loading failed (using fallback): ' + e.message, 'info');
+        logStatus('Font loading warning: ' + e.message, 'warn');
       }
 
-      let passed = 0;
-      let failed = 0;
-
+      // Run each test
       for (const test of testCases) {
-        try {
-          const canvas = document.getElementById(`canvas-${test.id}`);
-          if (!canvas) {
-            throw new Error('Canvas not found');
-          }
-
-          // Reset canvas size (will be auto-resized by renderer)
-          canvas.width = 400;
-          canvas.height = 200;
-
-          test.renderFn(canvas);
-          logStatus(`PASS: ${test.name}`, 'pass');
-          passed++;
-        } catch (e) {
-          logStatus(`FAIL: ${test.name} - ${e.message}`, 'fail');
-          console.error(test.name, e);
-          failed++;
-        }
+        await runTest(test);
+        updateSummary();
       }
 
-      logStatus(`Test suite complete: ${passed} passed, ${failed} failed`, passed === testCases.length ? 'pass' : 'fail');
+      // Final summary
+      const pass = [...testResults.values()].filter(r => r === 'pass').length;
+      const fail = [...testResults.values()].filter(r => r === 'fail').length;
+      const newCount = [...testResults.values()].filter(r => r === 'new').length;
+
+      logStatus(`Complete: ${pass} passed, ${fail} failed, ${newCount} new`, pass === testCases.length ? 'pass' : (fail > 0 ? 'fail' : 'warn'));
+      document.getElementById('run-btn').disabled = false;
     }
 
-    async function downloadScreenshots() {
-      logStatus('Preparing screenshots...', 'info');
+    async function acceptBaseline(id) {
+      const canvas = document.getElementById(`canvas-${id}`);
+      const dataUrl = canvas.toDataURL('image/png');
+      await saveBaseline(id, dataUrl);
+      logStatus(`Accepted baseline for: ${id}`, 'pass');
 
-      for (const test of testCases) {
-        const canvas = document.getElementById(`canvas-${test.id}`);
-        if (!canvas) continue;
-
-        try {
-          const dataUrl = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
-          link.download = `render-test-${test.id}.png`;
-          link.href = dataUrl;
-          link.click();
-          await new Promise(r => setTimeout(r, 100)); // Small delay between downloads
-        } catch (e) {
-          logStatus(`Failed to download ${test.id}: ${e.message}`, 'fail');
-        }
+      // Re-run this test
+      const test = testCases.find(t => t.id === id);
+      if (test) {
+        await runTest(test);
+        updateSummary();
       }
-
-      logStatus('Screenshots download complete', 'pass');
     }
 
-    // Initialize on load
-    document.addEventListener('DOMContentLoaded', () => {
-      createTestUI();
-    });
+    async function acceptAllNew() {
+      for (const [id, result] of testResults) {
+        if (result === 'new') {
+          await acceptBaseline(id);
+        }
+      }
+    }
 
-    // Wait for module to be ready
-    setTimeout(() => {
+    async function exportBaselines() {
+      const baselines = await getAllBaselines();
+      const data = {};
+      for (const b of baselines) {
+        data[b.id] = b.dataUrl;
+      }
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'render-test-baselines.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      logStatus('Exported baselines to render-test-baselines.json', 'info');
+    }
+
+    function importBaselines() {
+      document.getElementById('import-input').click();
+    }
+
+    async function handleImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        let count = 0;
+        for (const [id, dataUrl] of Object.entries(data)) {
+          await saveBaseline(id, dataUrl);
+          count++;
+        }
+        logStatus(`Imported ${count} baselines`, 'pass');
+        // Re-run tests
+        await runAllTests();
+      } catch (e) {
+        logStatus(`Import failed: ${e.message}`, 'fail');
+      }
+    }
+
+    async function clearAllBaselines() {
+      if (!confirm('Clear all baselines? This cannot be undone.')) return;
+      await clearBaselines();
+      logStatus('Cleared all baselines', 'warn');
+      await runAllTests();
+    }
+
+    // Initialize
+    async function init() {
+      await initDB();
       createTestUI();
-      logStatus('Test UI initialized. Waiting for font load...', 'info');
+      logStatus('Ready. Click "Run All Tests" to begin.', 'info');
 
       // Auto-run after fonts ready
       document.fonts.ready.then(() => {
-        logStatus('Fonts ready. Running tests automatically...', 'info');
-        setTimeout(runAllTests, 100);
+        setTimeout(runAllTests, 200);
       });
-    }, 100);
+    }
+
+    init();
 
     // Export for manual control
     window.runAllTests = runAllTests;
-    window.downloadScreenshots = downloadScreenshots;
-    window.clearStatus = clearStatus;
+    window.acceptBaseline = acceptBaseline;
+    window.acceptAllNew = acceptAllNew;
+    window.exportBaselines = exportBaselines;
+    window.importBaselines = importBaselines;
+    window.handleImport = handleImport;
+    window.clearAllBaselines = clearAllBaselines;
   </script>
 </body>
 </html>
