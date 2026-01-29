@@ -193,14 +193,26 @@
     // Helpers
     // ========================================================================
 
+    // Default foreground color (light gray like the theme)
+    const DEFAULT_FG = { r: 212, g: 212, b: 212 };
+    // Default background color (transparent/black - theme fills this)
+    const DEFAULT_BG = { r: 0, g: 0, b: 0 };
+
     function createCell(char, opts = {}) {
+      const fg = opts.fg ?? DEFAULT_FG;
+      const bg = opts.bg ?? DEFAULT_BG;
       return {
-        char: char || ' ',
+        codepoint: (char || ' ').codePointAt(0) || 32,
         width: opts.width ?? 1,
-        fg: opts.fg ?? null,
-        bg: opts.bg ?? null,
+        fg_r: fg.r,
+        fg_g: fg.g,
+        fg_b: fg.b,
+        bg_r: bg.r,
+        bg_g: bg.g,
+        bg_b: bg.b,
         flags: opts.flags ?? 0,
-        link: opts.link ?? null,
+        hyperlink_id: opts.link ? 1 : 0,
+        grapheme_len: 0,
       };
     }
 
@@ -227,7 +239,8 @@
 
     async function loadBaselineImage(id) {
       try {
-        const response = await fetch(`baselines/${id}.png`);
+        // Add cache-busting to avoid stale baselines
+        const response = await fetch(`baselines/${id}.png?t=${Date.now()}`);
         if (!response.ok) return null;
         const blob = await response.blob();
         return new Promise((resolve) => {
@@ -342,7 +355,9 @@
         for (let i = 0; i < 8; i++) {
           const colorIdx = row * 8 + i;
           const label = String(colorIdx).padStart(2, ' ') + ' ';
-          for (const char of label) line.push(createCell(char, { fg: ansiColors[colorIdx] }));
+          // Use white foreground for dark colors (black)
+          const fgColor = colorIdx === 0 ? { r: 255, g: 255, b: 255 } : ansiColors[colorIdx];
+          for (const char of label) line.push(createCell(char, { fg: fgColor }));
           line.push(createCell(' ', { bg: ansiColors[colorIdx] }));
         }
         while (line.length < cols) line.push(createCell(' '));
@@ -364,7 +379,7 @@
       renderer.render(createMockBuffer([
         gradientLine,
         createLine('Custom RGB colors:  ', cols, { fg: { r: 100, g: 200, b: 150 } }),
-        createLine('Pink background     ', cols, { bg: { r: 255, g: 200, b: 200 } }),
+        createLine('Pink background     ', cols, { bg: { r: 255, g: 200, b: 200 }, fg: { r: 0, g: 0, b: 0 } }),
       ]), true);
     });
 
@@ -467,9 +482,14 @@
         { r: 255, g: 0, b: 0 }, { r: 0, g: 200, b: 0 }, { r: 0, g: 100, b: 255 },
         { r: 255, g: 255, b: 0 }, { r: 255, g: 0, b: 255 },
       ];
+      // Use white text for dark backgrounds, black text for light backgrounds
+      const textColors = [
+        { r: 255, g: 255, b: 255 }, { r: 255, g: 255, b: 255 }, { r: 255, g: 255, b: 255 },
+        { r: 0, g: 0, b: 0 }, { r: 0, g: 0, b: 0 },
+      ];
       const labels = ['RED', 'GRN', 'BLU', 'YEL', 'MAG'];
       for (let i = 0; i < 5; i++) {
-        for (const char of labels[i]) bgLine.push(createCell(char, { bg: colors[i], fg: { r: 0, g: 0, b: 0 } }));
+        for (const char of labels[i]) bgLine.push(createCell(char, { bg: colors[i], fg: textColors[i] }));
         bgLine.push(createCell(' '));
       }
       while (bgLine.length < cols) bgLine.push(createCell(' '));
@@ -607,13 +627,36 @@
       }
     }
 
+    // Load all font variants and wait for them to be ready
+    async function ensureFontsLoaded() {
+      // Load all 4 font variants used in tests
+      const fontVariants = [
+        '14px "JetBrainsMono NF"',
+        'bold 14px "JetBrainsMono NF"',
+        'italic 14px "JetBrainsMono NF"',
+        'bold italic 14px "JetBrainsMono NF"',
+      ];
+
+      // Trigger loading of all variants
+      await Promise.all(fontVariants.map(font => document.fonts.load(font)));
+
+      // Wait for document.fonts.ready as a second check
+      await document.fonts.ready;
+
+      // Verify all fonts are actually loaded
+      const allLoaded = fontVariants.every(font => document.fonts.check(font));
+      if (!allLoaded) {
+        // If not all loaded, wait a bit more and try again
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
+
     async function runAllTests() {
       document.getElementById('run-btn').disabled = true;
       testResults.clear();
 
-      await document.fonts.load('14px "JetBrainsMono NF"');
-      await document.fonts.load('bold 14px "JetBrainsMono NF"');
-      await document.fonts.load('italic 14px "JetBrainsMono NF"');
+      // Ensure fonts are fully loaded before rendering
+      await ensureFontsLoaded();
 
       for (const test of testCases) {
         await runTest(test);
@@ -625,7 +668,9 @@
 
     // Initialize
     createTestUI();
-    document.fonts.ready.then(() => setTimeout(runAllTests, 100));
+
+    // Wait for fonts to load, then run tests
+    ensureFontsLoaded().then(() => runAllTests());
 
     window.runAllTests = runAllTests;
   </script>

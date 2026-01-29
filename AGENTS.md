@@ -142,6 +142,31 @@ bun test -t "test name pattern"       # Run matching tests
 
 **Test files:** `*.test.ts` in `lib/` (terminal, renderer, input-handler, selection-manager, fit)
 
+### Visual Render Tests
+
+Visual regression tests compare canvas rendering against baseline PNG images.
+
+```bash
+bun test:render                       # Run tests against baselines (CI)
+bun test:render:update                # Update baselines after intentional changes
+bun test:render:web                   # Start server for interactive debugging
+                                      # Open: http://localhost:3000/demo/render-test
+```
+
+**How it works:**
+
+- Headless Puppeteer runs tests and compares canvas output to `demo/baselines/*.png`
+- Tests fail if pixel difference exceeds 0.1% threshold
+- Web UI shows side-by-side current vs baseline for debugging
+
+**When to update baselines:**
+
+- After intentional rendering changes (fonts, colors, spacing)
+- Run `bun test:render:update` then verify changes visually
+- Commit updated `.png` files with your changes
+
+**Test coverage:** Basic text, text styles, colors (ANSI/RGB), cursors, wide chars, selection, hyperlinks
+
 ### Running Demos
 
 **⚠️ CRITICAL: Use Vite dev server!** Plain HTTP server won't handle TypeScript imports.
@@ -372,6 +397,21 @@ fitAddon.fit(); // ⚠️ Required! Otherwise terminal may not render
 // On window resize
 window.addEventListener('resize', () => fitAddon.fit());
 ```
+
+### 7. **Font Loading for Visual Tests**
+
+Visual render tests require all font variants to be loaded before rendering:
+
+```typescript
+// Must load ALL 4 variants for consistent rendering
+await document.fonts.load('14px "JetBrainsMono NF"');
+await document.fonts.load('bold 14px "JetBrainsMono NF"');
+await document.fonts.load('italic 14px "JetBrainsMono NF"');
+await document.fonts.load('bold italic 14px "JetBrainsMono NF"');
+await document.fonts.ready;
+```
+
+**Why:** Missing font variants cause browser to synthesize them, leading to inconsistent rendering between page loads.
 
 ## Common Tasks
 

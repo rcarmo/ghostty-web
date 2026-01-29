@@ -133,8 +133,17 @@ async function main() {
       timeout: 30000,
     });
 
-    // Wait for fonts to load
-    await page.evaluate(() => document.fonts.ready);
+    // Wait for fonts to load - match the logic in render-test.html
+    await page.evaluate(async () => {
+      const fontVariants = [
+        '14px "JetBrainsMono NF"',
+        'bold 14px "JetBrainsMono NF"',
+        'italic 14px "JetBrainsMono NF"',
+        'bold italic 14px "JetBrainsMono NF"',
+      ];
+      await Promise.all(fontVariants.map(font => document.fonts.load(font)));
+      await document.fonts.ready;
+    });
     await new Promise((r) => setTimeout(r, 500)); // Extra time for font rendering
 
     // Get test cases from the page
