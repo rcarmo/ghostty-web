@@ -291,7 +291,7 @@
     const DEFAULT_OPTS = {
       fontSize: 14,
       fontFamily: '"JetBrainsMono NF", Monaco, monospace',
-      devicePixelRatio: 1,
+      devicePixelRatio: 2,
     };
 
     // ========================================================================
@@ -659,11 +659,11 @@
             <div class="canvas-row">
               <div class="canvas-container">
                 <label>Current</label>
-                <canvas id="canvas-${test.id}" width="400" height="200"></canvas>
+                <canvas id="canvas-${test.id}" width="800" height="400" style="width: 400px; height: 200px;"></canvas>
               </div>
               <div class="canvas-container">
                 <label>Baseline</label>
-                <canvas id="baseline-${test.id}" width="400" height="200"></canvas>
+                <canvas id="baseline-${test.id}" width="800" height="400" style="width: 400px; height: 200px;"></canvas>
               </div>
             </div>
             <div class="diff-info" id="diff-${test.id}"></div>
@@ -696,8 +696,8 @@
       status.className = 'test-status pending';
       card.className = 'test-case';
 
-      canvas.width = 400;
-      canvas.height = 200;
+      canvas.width = 800;
+      canvas.height = 400;
 
       try {
         test.renderFn(canvas);
