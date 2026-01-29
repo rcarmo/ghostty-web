@@ -80,7 +80,7 @@
 
     .test-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
       gap: 16px;
     }
 
@@ -118,14 +118,10 @@
     .test-body { padding: 12px; }
 
     .canvas-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: flex;
+      flex-direction: column;
       gap: 12px;
       margin-bottom: 8px;
-    }
-
-    .canvas-container {
-      min-width: 0; /* Allow shrinking below content size */
     }
 
     .canvas-container label {
