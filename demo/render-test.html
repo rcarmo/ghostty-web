@@ -118,10 +118,14 @@
     .test-body { padding: 12px; }
 
     .canvas-row {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 12px;
       margin-bottom: 8px;
+    }
+
+    .canvas-container {
+      min-width: 0; /* Allow shrinking below content size */
     }
 
     .canvas-container label {
@@ -136,7 +140,7 @@
       background: #1e1e1e;
       border-radius: 4px;
       display: block;
-      max-width: 100%;
+      width: 100%;
       height: auto;
     }
 
@@ -659,11 +663,11 @@
             <div class="canvas-row">
               <div class="canvas-container">
                 <label>Current</label>
-                <canvas id="canvas-${test.id}" width="800" height="400" style="width: 400px; height: 200px;"></canvas>
+                <canvas id="canvas-${test.id}" width="800" height="400"></canvas>
               </div>
               <div class="canvas-container">
                 <label>Baseline</label>
-                <canvas id="baseline-${test.id}" width="800" height="400" style="width: 400px; height: 200px;"></canvas>
+                <canvas id="baseline-${test.id}" width="800" height="400"></canvas>
               </div>
             </div>
             <div class="diff-info" id="diff-${test.id}"></div>
