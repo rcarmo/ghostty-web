@@ -221,14 +221,15 @@ export class CanvasRenderer {
     const widthMetrics = ctx.measureText('M');
     const width = Math.ceil(widthMetrics.width);
 
-    // Measure height using ascent + descent with padding for glyph overflow
-    const ascent = widthMetrics.actualBoundingBoxAscent || this.fontSize * 0.8;
-    const descent = widthMetrics.actualBoundingBoxDescent || this.fontSize * 0.2;
+    // Use font-level metrics (fontBoundingBox) rather than glyph-specific metrics (actualBoundingBox).
+    // This ensures the cell height accommodates ALL glyphs in the font, including powerline
+    // characters (U+E0B0, U+E0B6, etc.) which are designed to fill the full cell height.
+    // Fall back to actual metrics if font metrics aren't available.
+    const ascent = widthMetrics.fontBoundingBoxAscent ?? widthMetrics.actualBoundingBoxAscent ?? this.fontSize * 0.8;
+    const descent = widthMetrics.fontBoundingBoxDescent ?? widthMetrics.actualBoundingBoxDescent ?? this.fontSize * 0.2;
 
-    // Add 2px padding to height to account for glyphs that overflow (like 'f', 'd', 'g', 'p')
-    // and anti-aliasing pixels
-    const height = Math.ceil(ascent + descent) + 2;
-    const baseline = Math.ceil(ascent) + 1; // Offset baseline by half the padding
+    const height = Math.ceil(ascent + descent);
+    const baseline = Math.ceil(ascent);
 
     return { width, height, baseline };
   }

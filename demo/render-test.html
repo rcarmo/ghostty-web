@@ -118,9 +118,9 @@
     .test-body { padding: 12px; }
 
     .canvas-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
       margin-bottom: 8px;
     }
 
@@ -511,6 +511,70 @@
         bgLine.slice(0, cols),
         createLine('Syntax highlighting demo:', cols),
         syntaxLine.slice(0, cols),
+      ]), true);
+    });
+
+    registerTest('powerline-prompt', 'Powerline Prompt', 'Continuous background height with powerline glyphs', (canvas) => {
+      const renderer = new CanvasRenderer(canvas, DEFAULT_OPTS);
+      const cols = 50;
+
+      // Powerline glyphs (using Unicode escapes for clarity)
+      const ARROW_RIGHT = '\uE0B0';           //
+      const ROUNDED_LEFT = '\uE0B6';          //
+      const ICON_GIT_BRANCH = '\uF418';       //
+
+      // Powerline segment colors
+      const blue = { r: 36, g: 114, b: 200 };
+      const cyan = { r: 17, g: 168, b: 205 };
+      const green = { r: 13, g: 188, b: 121 };
+      const magenta = { r: 188, g: 63, b: 188 };
+      const white = { r: 255, g: 255, b: 255 };
+      const black = { r: 0, g: 0, b: 0 };
+
+      // Build prompt:  user  …/project   main !   17:30
+      const promptLine = [];
+
+      // Rounded left cap: fg = segment bg, bg = default (creates rounded left edge)
+      promptLine.push(createCell(ROUNDED_LEFT, { fg: blue, bg: DEFAULT_BG }));
+
+      // Segment 1: user (blue background)
+      for (const char of 'user ') {
+        promptLine.push(createCell(char, { bg: blue, fg: white }));
+      }
+      // Arrow separator: fg = blue, bg = cyan
+      promptLine.push(createCell(ARROW_RIGHT, { fg: blue, bg: cyan }));
+
+      // Segment 2: path (cyan background)
+      for (const char of ' …/project ') {
+        promptLine.push(createCell(char, { bg: cyan, fg: black }));
+      }
+      // Arrow separator: fg = cyan, bg = green
+      promptLine.push(createCell(ARROW_RIGHT, { fg: cyan, bg: green }));
+
+      // Segment 3: git branch (green background) with branch icon
+      for (const char of ` ${ICON_GIT_BRANCH} main ! `) {
+        promptLine.push(createCell(char, { bg: green, fg: black }));
+      }
+      // Double arrow transition: green -> magenta -> default (thin magenta cap)
+      promptLine.push(createCell(ARROW_RIGHT, { fg: green, bg: magenta }));
+      promptLine.push(createCell(ARROW_RIGHT, { fg: magenta, bg: DEFAULT_BG }));
+
+      // Segment 4: time (no background, just colored text)
+      for (const char of ' 17:30 ') {
+        promptLine.push(createCell(char, { fg: white }));
+      }
+      // Final arrow (invisible - same as background)
+      promptLine.push(createCell(ARROW_RIGHT, { fg: DEFAULT_BG, bg: DEFAULT_BG }));
+
+      // Pad to column width
+      while (promptLine.length < cols) promptLine.push(createCell(' '));
+
+      renderer.render(createMockBuffer([
+        createLine('Powerline prompt test:', cols),
+        promptLine.slice(0, cols),
+        createLine('', cols),
+        createLine('Glyphs should have uniform', cols),
+        createLine('background height.', cols),
       ]), true);
     });
 
