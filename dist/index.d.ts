@@ -47,8 +47,18 @@ export declare class CanvasRenderer {
     resize(cols: number, rows: number): void;
     /**
      * Render the terminal buffer to canvas
+     * @param selection Optional selection coordinates for testing (bypasses SelectionManager)
      */
-    render(buffer: IRenderable, forceAll?: boolean, viewportY?: number, scrollbackProvider?: IScrollbackProvider, scrollbarOpacity?: number): void;
+    render(buffer: IRenderable, forceAll?: boolean, viewportY?: number | {
+        start: {
+            x: number;
+            y: number;
+        };
+        end: {
+            x: number;
+            y: number;
+        };
+    }, scrollbackProvider?: IScrollbackProvider, scrollbarOpacity?: number): void;
     /**
      * Render a single line using two-pass approach:
      * 1. First pass: Draw all cell backgrounds
@@ -72,6 +82,19 @@ export declare class CanvasRenderer {
      * Selection foreground color is applied here to match the selection background.
      */
     private renderCellText;
+    /**
+     * Render block drawing characters as filled rectangles for pixel-perfect rendering.
+     * Returns true if the character was handled, false if it should be rendered as text.
+     */
+    private renderBlockChar;
+    /**
+     * Render Powerline glyphs as vector shapes for pixel-perfect cell height.
+     * Powerline glyphs (U+E0B0-U+E0BF) are designed to span the full cell height,
+     * but font rendering often makes them slightly taller/shorter than the cell.
+     * Drawing them as paths ensures they exactly fill the cell bounds.
+     * Returns true if the character was handled, false if it should be rendered as text.
+     */
+    private renderPowerlineGlyph;
     /**
      * Render cursor
      */
@@ -175,6 +198,8 @@ export declare interface Cursor {
     y: number;
     visible: boolean;
 }
+
+export declare const DEFAULT_THEME: Required<ITheme>;
 
 /**
  * Dirty state from RenderState
@@ -926,6 +951,7 @@ export declare interface IRenderable {
         x: number;
         y: number;
         visible: boolean;
+        style?: 'block' | 'underline' | 'bar';
     };
     getDimensions(): {
         cols: number;
