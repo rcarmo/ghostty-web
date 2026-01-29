@@ -689,7 +689,16 @@ export class CanvasRenderer {
       // Simple cell - single codepoint
       char = String.fromCodePoint(cell.codepoint || 32); // Default to space if null
     }
-    this.ctx.fillText(char, textX, textY);
+
+    // Handle block drawing characters specially to ensure pixel-perfect rendering.
+    // Font glyphs for block characters often have small gaps; drawing as rectangles
+    // ensures flush, gap-free rendering for terminal ASCII art.
+    const codepoint = cell.codepoint || 32;
+    if (this.renderBlockChar(codepoint, cellX, cellY, cellWidth)) {
+      // Block character was rendered as a rectangle, skip font rendering
+    } else {
+      this.ctx.fillText(char, textX, textY);
+    }
 
     // Reset alpha
     if (cell.flags & CellFlags.FAINT) {
@@ -752,6 +761,77 @@ export class CanvasRenderer {
         this.ctx.lineTo(cellX + cellWidth, underlineY);
         this.ctx.stroke();
       }
+    }
+  }
+
+  /**
+   * Render block drawing characters as filled rectangles for pixel-perfect rendering.
+   * Returns true if the character was handled, false if it should be rendered as text.
+   */
+  private renderBlockChar(codepoint: number, cellX: number, cellY: number, cellWidth: number): boolean {
+    const height = this.metrics.height;
+
+    // Block Elements (U+2580-U+259F)
+    switch (codepoint) {
+      case 0x2580: // ▀ UPPER HALF BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth, height / 2);
+        return true;
+      case 0x2581: // ▁ LOWER ONE EIGHTH BLOCK
+        this.ctx.fillRect(cellX, cellY + height * 7/8, cellWidth, height / 8);
+        return true;
+      case 0x2582: // ▂ LOWER ONE QUARTER BLOCK
+        this.ctx.fillRect(cellX, cellY + height * 3/4, cellWidth, height / 4);
+        return true;
+      case 0x2583: // ▃ LOWER THREE EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY + height * 5/8, cellWidth, height * 3/8);
+        return true;
+      case 0x2584: // ▄ LOWER HALF BLOCK
+        this.ctx.fillRect(cellX, cellY + height / 2, cellWidth, height / 2);
+        return true;
+      case 0x2585: // ▅ LOWER FIVE EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY + height * 3/8, cellWidth, height * 5/8);
+        return true;
+      case 0x2586: // ▆ LOWER THREE QUARTERS BLOCK
+        this.ctx.fillRect(cellX, cellY + height / 4, cellWidth, height * 3/4);
+        return true;
+      case 0x2587: // ▇ LOWER SEVEN EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY + height / 8, cellWidth, height * 7/8);
+        return true;
+      case 0x2588: // █ FULL BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth, height);
+        return true;
+      case 0x2589: // ▉ LEFT SEVEN EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth * 7/8, height);
+        return true;
+      case 0x258A: // ▊ LEFT THREE QUARTERS BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth * 3/4, height);
+        return true;
+      case 0x258B: // ▋ LEFT FIVE EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth * 5/8, height);
+        return true;
+      case 0x258C: // ▌ LEFT HALF BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth / 2, height);
+        return true;
+      case 0x258D: // ▍ LEFT THREE EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth * 3/8, height);
+        return true;
+      case 0x258E: // ▎ LEFT ONE QUARTER BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth / 4, height);
+        return true;
+      case 0x258F: // ▏ LEFT ONE EIGHTH BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth / 8, height);
+        return true;
+      case 0x2590: // ▐ RIGHT HALF BLOCK
+        this.ctx.fillRect(cellX + cellWidth / 2, cellY, cellWidth / 2, height);
+        return true;
+      case 0x2594: // ▔ UPPER ONE EIGHTH BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth, height / 8);
+        return true;
+      case 0x2595: // ▕ RIGHT ONE EIGHTH BLOCK
+        this.ctx.fillRect(cellX + cellWidth * 7/8, cellY, cellWidth / 8, height);
+        return true;
+      default:
+        return false;
     }
   }
 
