@@ -295,14 +295,23 @@ export class CanvasRenderer {
 
   /**
    * Render the terminal buffer to canvas
+   * @param selection Optional selection coordinates for testing (bypasses SelectionManager)
    */
   public render(
     buffer: IRenderable,
     forceAll: boolean = false,
-    viewportY: number = 0,
+    viewportY: number | { start: { x: number; y: number }; end: { x: number; y: number } } = 0,
     scrollbackProvider?: IScrollbackProvider,
     scrollbarOpacity: number = 1
   ): void {
+    // Handle overloaded viewportY parameter - can be number or selection object for testing
+    let actualViewportY = 0;
+    let testSelection: { start: { x: number; y: number }; end: { x: number; y: number } } | null = null;
+    if (typeof viewportY === 'object') {
+      testSelection = viewportY;
+    } else {
+      actualViewportY = viewportY;
+    }
     // Store buffer reference for grapheme lookups in renderCell
     this.currentBuffer = buffer;
 
@@ -328,9 +337,9 @@ export class CanvasRenderer {
     }
 
     // Force re-render when viewport changes (scrolling)
-    if (viewportY !== this.lastViewportY) {
+    if (actualViewportY !== this.lastViewportY) {
       forceAll = true;
-      this.lastViewportY = viewportY;
+      this.lastViewportY = actualViewportY;
     }
 
     // Check if cursor position changed or if blinking (need to redraw cursor line)
@@ -357,12 +366,22 @@ export class CanvasRenderer {
     }
 
     // Check if we need to redraw selection-related lines
-    const hasSelection = this.selectionManager && this.selectionManager.hasSelection();
+    const hasSelection = testSelection || (this.selectionManager && this.selectionManager.hasSelection());
     const selectionRows = new Set<number>();
 
     // Cache selection coordinates for use during cell rendering
     // This is used by isInSelection() to determine if a cell needs selection colors
-    this.currentSelectionCoords = hasSelection ? this.selectionManager!.getSelectionCoords() : null;
+    if (testSelection) {
+      // Use test selection directly (for visual render tests)
+      this.currentSelectionCoords = {
+        startCol: testSelection.start.x,
+        startRow: testSelection.start.y,
+        endCol: testSelection.end.x,
+        endRow: testSelection.end.y,
+      };
+    } else {
+      this.currentSelectionCoords = hasSelection ? this.selectionManager!.getSelectionCoords() : null;
+    }
 
     // Mark current selection rows for redraw (includes programmatic selections)
     if (this.currentSelectionCoords) {
@@ -397,15 +416,15 @@ export class CanvasRenderer {
         let line: GhosttyCell[] | null = null;
 
         // Same logic as rendering: fetch from scrollback or screen
-        if (viewportY > 0) {
-          if (y < viewportY && scrollbackProvider) {
+        if (actualViewportY > 0) {
+          if (y < actualViewportY && scrollbackProvider) {
             // This row is from scrollback
             // Floor viewportY for array access (handles fractional values during smooth scroll)
-            const scrollbackOffset = scrollbackLength - Math.floor(viewportY) + y;
+            const scrollbackOffset = scrollbackLength - Math.floor(actualViewportY) + y;
             line = scrollbackProvider.getScrollbackLine(scrollbackOffset);
           } else {
             // This row is from visible screen
-            const screenRow = y - Math.floor(viewportY);
+            const screenRow = y - Math.floor(actualViewportY);
             line = buffer.getLine(screenRow);
           }
         } else {
@@ -461,7 +480,7 @@ export class CanvasRenderer {
     for (let y = 0; y < dims.rows; y++) {
       // When scrolled, always force render all lines since we're showing scrollback
       const needsRender =
-        viewportY > 0
+        actualViewportY > 0
           ? true
           : forceAll || buffer.isRowDirty(y) || selectionRows.has(y) || hyperlinkRows.has(y);
 
@@ -483,21 +502,21 @@ export class CanvasRenderer {
 
       // Fetch line from scrollback or visible screen
       let line: GhosttyCell[] | null = null;
-      if (viewportY > 0) {
+      if (actualViewportY > 0) {
         // Scrolled up - need to fetch from scrollback + visible screen
         // When scrolled up N lines, we want to show:
         // - Scrollback lines (from the end) + visible screen lines
 
         // Check if this row should come from scrollback or visible screen
-        if (y < viewportY && scrollbackProvider) {
+        if (y < actualViewportY && scrollbackProvider) {
           // This row is from scrollback (upper part of viewport)
           // Get from end of scrollback buffer
           // Floor viewportY for array access (handles fractional values during smooth scroll)
-          const scrollbackOffset = scrollbackLength - Math.floor(viewportY) + y;
+          const scrollbackOffset = scrollbackLength - Math.floor(actualViewportY) + y;
           line = scrollbackProvider.getScrollbackLine(scrollbackOffset);
         } else {
           // This row is from visible screen (lower part of viewport)
-          const screenRow = viewportY > 0 ? y - Math.floor(viewportY) : y;
+          const screenRow = actualViewportY > 0 ? y - Math.floor(actualViewportY) : y;
           line = buffer.getLine(screenRow);
         }
       } else {
@@ -516,7 +535,7 @@ export class CanvasRenderer {
     // Link underlines are drawn during cell rendering (see renderCell)
 
     // Render cursor (only if we're at the bottom, not scrolled)
-    if (viewportY === 0 && cursor.visible && this.cursorVisible) {
+    if (actualViewportY === 0 && cursor.visible && this.cursorVisible) {
       // Use cursor style from buffer if provided, otherwise use renderer default
       const cursorStyle = cursor.style ?? this.cursorStyle;
       this.renderCursor(cursor.x, cursor.y, cursorStyle);
@@ -524,7 +543,7 @@ export class CanvasRenderer {
 
     // Render scrollbar if scrolled or scrollback exists (with opacity for fade effect)
     if (scrollbackProvider && scrollbarOpacity > 0) {
-      this.renderScrollbar(viewportY, scrollbackLength, dims.rows, scrollbarOpacity);
+      this.renderScrollbar(actualViewportY, scrollbackLength, dims.rows, scrollbarOpacity);
     }
 
     // Update last cursor position

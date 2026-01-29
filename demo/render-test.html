@@ -456,6 +456,8 @@
         const inLink = i >= 6 && i < 26;
         mailLine.push(createCell(mailText[i] || ' ', inLink ? { link: { url: 'mailto:test@test.com' } } : {}));
       }
+      // Set hovered hyperlink ID to show underlines (simulates hover state)
+      renderer.setHoveredHyperlinkId(1);
       renderer.render(createMockBuffer([normalLine, linkLine, mailLine]), true);
     });
 
@@ -720,11 +722,12 @@
 
         baselineCanvas.width = baselineImg.width;
         baselineCanvas.height = baselineImg.height;
-        // Match CSS display size to current canvas (accounts for devicePixelRatio scaling)
-        baselineCanvas.style.width = canvas.style.width;
-        baselineCanvas.style.height = canvas.style.height;
         const ctx = baselineCanvas.getContext('2d');
         ctx.drawImage(baselineImg, 0, 0);
+
+        // Remove CSS size constraints so both canvases display at full internal resolution
+        canvas.style.width = '';
+        canvas.style.height = '';
 
         const result = compareImages(canvas, baselineCanvas);
         const threshold = 0.1;
