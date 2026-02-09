@@ -5,6 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ANSI Colors Demo - Ghostty WASM</title>
     <style>
+      @font-face {
+        font-family: "JetBrainsMono NF";
+        src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/Regular/JetBrainsMonoNerdFont-Regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "JetBrainsMono NF";
+        src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/Bold/JetBrainsMonoNerdFont-Bold.ttf") format("truetype");
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "JetBrainsMono NF";
+        src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/Italic/JetBrainsMonoNerdFont-Italic.ttf") format("truetype");
+        font-weight: 400;
+        font-style: italic;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "JetBrainsMono NF";
+        src: url("https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@latest/patched-fonts/JetBrainsMono/Ligatures/BoldItalic/JetBrainsMonoNerdFont-BoldItalic.ttf") format("truetype");
+        font-weight: 700;
+        font-style: italic;
+        font-display: swap;
+      }
+    </style>
+    <style>
       * {
         margin: 0;
         padding: 0;
@@ -193,7 +223,7 @@
               brightCyan: '#29b8db',
               brightWhite: '#ffffff',
             },
-            fontFamily: "'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace",
+            fontFamily: "'JetBrainsMono NF', 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace",
             fontSize: 14,
             scrollback: 10000,
           });
@@ -205,6 +235,11 @@
           // Open terminal
           const container = document.getElementById('terminal-container');
           term.open(container);
+
+          // Wait for JetBrains Mono to load, then re-measure fonts
+          await document.fonts.load('14px "JetBrainsMono NF"');
+          term.loadFonts();
+
           fitAddon.fit();
 
           // Handle resize
