@@ -738,10 +738,12 @@ export class SelectionManager {
           return;
         }
 
-        const text = this.getSelection();
-        if (text) {
-          this.copyToClipboard(text);
-          this.selectionChangedEmitter.fire();
+        if (this.hasSelection()) {
+          const text = this.getSelection();
+          if (text) {
+            this.copyToClipboard(text);
+            this.selectionChangedEmitter.fire();
+          }
         }
       }
     };
