@@ -3370,15 +3370,20 @@ class iA {
   startRenderLoop() {
     const A = () => {
       if (!this.isDisposed && this.isOpen) {
-        this.renderer.render(
-          this.snapshotBuffer,
-          !1,
-          this.viewportY,
-          this,
-          this.scrollbarOpacity
-        );
-        const Q = this.wasmTerm.getCursor();
-        Q.y !== this.lastCursorY && (this.lastCursorY = Q.y, this.cursorMoveEmitter.fire()), this.animationFrameId = requestAnimationFrame(A);
+        try {
+          this.renderer.render(
+            this.snapshotBuffer,
+            !1,
+            this.viewportY,
+            this,
+            this.scrollbarOpacity
+          );
+          const Q = this.wasmTerm.getCursor();
+          Q.y !== this.lastCursorY && (this.lastCursorY = Q.y, this.cursorMoveEmitter.fire());
+        } catch (Q) {
+          console.error("[ghostty-web] render loop error (recovering):", Q);
+        }
+        this.animationFrameId = requestAnimationFrame(A);
       }
     };
     A();

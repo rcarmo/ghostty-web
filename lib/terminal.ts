@@ -1377,31 +1377,35 @@ export class Terminal implements ITerminalCore {
   private startRenderLoop(): void {
     const loop = () => {
       if (!this.isDisposed && this.isOpen) {
-        // Render using WASM's native dirty tracking
-        // The render() method:
-        // 1. Calls update() once to sync state and check dirty flags
-        // 2. Only redraws dirty rows when forceAll=false
-        // 3. Always calls clearDirty() at the end
-        // Use snapshotBuffer which delegates to wasmTerm when no snapshot is set
-        this.renderer!.render(
-          this.snapshotBuffer,
-          false,
-          this.viewportY,
-          this,
-          this.scrollbarOpacity
-        );
+        try {
+          // Render using WASM's native dirty tracking
+          // The render() method:
+          // 1. Calls update() once to sync state and check dirty flags
+          // 2. Only redraws dirty rows when forceAll=false
+          // 3. Always calls clearDirty() at the end
+          // Use snapshotBuffer which delegates to wasmTerm when no snapshot is set
+          this.renderer!.render(
+            this.snapshotBuffer,
+            false,
+            this.viewportY,
+            this,
+            this.scrollbarOpacity
+          );
 
-        // Check for cursor movement (Phase 2: onCursorMove event)
-        // Note: getCursor() reads from already-updated render state (from render() above)
-        const cursor = this.wasmTerm!.getCursor();
-        if (cursor.y !== this.lastCursorY) {
-          this.lastCursorY = cursor.y;
-          this.cursorMoveEmitter.fire();
+          // Check for cursor movement (Phase 2: onCursorMove event)
+          // Note: getCursor() reads from already-updated render state (from render() above)
+          const cursor = this.wasmTerm!.getCursor();
+          if (cursor.y !== this.lastCursorY) {
+            this.lastCursorY = cursor.y;
+            this.cursorMoveEmitter.fire();
+          }
+
+          // Note: onRender event is intentionally not fired in the render loop
+          // to avoid performance issues. For now, consumers can use requestAnimationFrame
+          // if they need frame-by-frame updates.
+        } catch (e) {
+          console.error('[ghostty-web] render loop error (recovering):', e);
         }
-
-        // Note: onRender event is intentionally not fired in the render loop
-        // to avoid performance issues. For now, consumers can use requestAnimationFrame
-        // if they need frame-by-frame updates.
 
         this.animationFrameId = requestAnimationFrame(loop);
       }

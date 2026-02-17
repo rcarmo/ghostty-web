@@ -9,7 +9,7 @@
  * Uses createIsolatedTerminal() to ensure each test gets its own WASM instance.
  */
 
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import type { Terminal } from './terminal';
 import { createIsolatedTerminal } from './test-helpers';
 
@@ -431,6 +431,54 @@ describe('Terminal', () => {
 
       const finalChildCount = container.children.length;
       expect(finalChildCount).toBe(0);
+    });
+  });
+
+  describe('Render Loop Recovery', () => {
+    test('render loop continues after renderer.render() throws', async () => {
+      const term = await createIsolatedTerminal();
+      term.open(container!);
+
+      const renderer = term.renderer!;
+      const originalRender = renderer.render.bind(renderer);
+      let throwCount = 0;
+      let callCount = 0;
+
+      // Make render() throw once, then succeed
+      renderer.render = (...args: any[]) => {
+        callCount++;
+        if (throwCount === 0) {
+          throwCount++;
+          throw new Error('simulated render error');
+        }
+        return originalRender(...args);
+      };
+
+      // Suppress expected console.error
+      const originalConsoleError = console.error;
+      const errors: any[] = [];
+      console.error = (...args: any[]) => errors.push(args);
+
+      // Wait for at least two animation frames
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(resolve);
+          });
+        });
+      });
+
+      console.error = originalConsoleError;
+
+      // The error should have been thrown and caught
+      expect(throwCount).toBe(1);
+      // The loop should have continued — render called again after the error
+      expect(callCount).toBeGreaterThan(1);
+      // The error should have been logged
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0][0]).toContain('render loop error');
+
+      term.dispose();
     });
   });
 });
