@@ -1827,15 +1827,15 @@ class QA {
    * cover any left-extending portions of graphemes from cell N-1.
    */
   renderLine(A, Q, B) {
-    const E = Q * this.metrics.height;
-    this.ctx.fillStyle = this.theme.background, this.ctx.fillRect(0, E, B * this.metrics.width, this.metrics.height);
-    for (let C = 0; C < A.length; C++) {
-      const I = A[C];
-      I.width !== 0 && this.renderCellBackground(I, C, Q);
+    const E = Q * this.metrics.height, C = B * this.metrics.width;
+    this.ctx.clearRect(0, E, C, this.metrics.height), this.ctx.fillStyle = this.theme.background, this.ctx.fillRect(0, E, C, this.metrics.height);
+    for (let I = 0; I < A.length; I++) {
+      const D = A[I];
+      D.width !== 0 && this.renderCellBackground(D, I, Q);
     }
-    for (let C = 0; C < A.length; C++) {
-      const I = A[C];
-      I.width !== 0 && this.renderCellText(I, C, Q);
+    for (let I = 0; I < A.length; I++) {
+      const D = A[I];
+      D.width !== 0 && this.renderCellText(D, I, Q);
     }
   }
   /**
@@ -2070,7 +2070,7 @@ class QA {
    */
   renderScrollbar(A, Q, B, E = 1) {
     const C = this.ctx, I = this.canvas.height / this.devicePixelRatio, D = this.canvas.width / this.devicePixelRatio, o = 8, w = D - o - 4, s = 4, t = I - s * 2;
-    if (C.fillStyle = this.theme.background, C.fillRect(w - 2, 0, o + 6, I), E <= 0 || Q === 0)
+    if (C.clearRect(w - 2, 0, o + 6, I), C.fillStyle = this.theme.background, C.fillRect(w - 2, 0, o + 6, I), E <= 0 || Q === 0)
       return;
     const M = Q + B, k = Math.max(20, B / M * t), e = A / Q, a = s + (t - k) * (1 - e);
     C.fillStyle = `rgba(128, 128, 128, ${0.1 * E})`, C.fillRect(w, s, o, t);
@@ -2132,7 +2132,7 @@ class QA {
    * Clear entire canvas
    */
   clear() {
-    this.ctx.fillStyle = this.theme.background, this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height), this.ctx.fillStyle = this.theme.background, this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
   /**
    * Cleanup resources
@@ -2465,8 +2465,10 @@ const S = class l {
           this.selectionStart = null, this.selectionEnd = null;
           return;
         }
-        const E = this.getSelection();
-        E && (this.copyToClipboard(E), this.selectionChangedEmitter.fire());
+        if (this.hasSelection()) {
+          const E = this.getSelection();
+          E && (this.copyToClipboard(E), this.selectionChangedEmitter.fire());
+        }
       }
     }, document.addEventListener("mouseup", this.boundMouseUpHandler), A.addEventListener("click", (Q) => {
       if (Q.detail === 2) {
