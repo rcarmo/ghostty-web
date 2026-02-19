@@ -734,7 +734,8 @@ export class SelectionManager {
         this.stopAutoScroll();
 
         // Check if this was a click without drag (start == end)
-        // If so, clear the selection - a click shouldn't create a selection
+        // If so, clear the selection - a click shouldn't create a selection.
+        // This also avoids overwriting the clipboard on a simple click.
         if (
           this.selectionStart &&
           this.selectionEnd &&
