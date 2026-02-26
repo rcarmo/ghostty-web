@@ -420,8 +420,9 @@ describe('SelectionManager', () => {
 
       expect(selMgr.hasSelection()).toBe(false);
       const dirtyRows = selMgr.getDirtySelectionRows();
-      expect(dirtyRows.size).toBeGreaterThan(0);
+      expect(dirtyRows.size).toBe(term.rows);
       expect(dirtyRows.has(0)).toBe(true);
+      expect(dirtyRows.has(term.rows - 1)).toBe(true);
 
       term.dispose();
     });

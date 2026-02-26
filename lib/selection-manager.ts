@@ -732,8 +732,10 @@ export class SelectionManager {
           this.selectionStart.col === this.selectionEnd.col &&
           this.selectionStart.absoluteRow === this.selectionEnd.absoluteRow
         ) {
-          // Clear same-cell selection from click-without-drag
-          this.markCurrentSelectionDirty();
+          // Clear same-cell selection from click-without-drag.
+          // Mark the full viewport dirty so stale selection overlays are always cleared,
+          // even if the previously painted row can't be reliably re-mapped.
+          this.markViewportDirty();
           this.selectionStart = null;
           this.selectionEnd = null;
           this.requestRender();
@@ -923,6 +925,17 @@ export class SelectionManager {
       for (let row = coords.startRow; row <= coords.endRow; row++) {
         this.dirtySelectionRows.add(row);
       }
+    }
+  }
+
+  /**
+   * Mark all visible viewport rows as dirty for redraw.
+   * Used for robust selection-overlay cleanup when exact row mapping is ambiguous.
+   */
+  private markViewportDirty(): void {
+    const dims = this.wasmTerm.getDimensions();
+    for (let row = 0; row < dims.rows; row++) {
+      this.dirtySelectionRows.add(row);
     }
   }
 
