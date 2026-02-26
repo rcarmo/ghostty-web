@@ -218,10 +218,16 @@ export class SelectionManager {
   hasSelection(): boolean {
     if (!this.selectionStart || !this.selectionEnd) return false;
 
-    // Same start and end means no real selection
-    // Note: click-without-drag clears same-cell in mouseup handler,
-    // so any same-cell selection here is programmatic (e.g., triple-click single-char)
-    // which IS a valid selection
+    // During live mouse selection, same-cell means "click without drag" and should not render.
+    // Programmatic same-cell selections (isSelecting=false) are still considered valid.
+    if (
+      this.isSelecting &&
+      this.selectionStart.col === this.selectionEnd.col &&
+      this.selectionStart.absoluteRow === this.selectionEnd.absoluteRow
+    ) {
+      return false;
+    }
+
     return true;
   }
 
@@ -578,6 +584,9 @@ export class SelectionManager {
 
       // Normal selection behavior (left click only)
       if (e.button === 0) {
+        // Always mark viewport dirty on new click to clear any stale overlay artifacts.
+        this.markViewportDirty();
+
         // Always clear previous selection on new click
         const hadSelection = this.hasSelection();
         if (hadSelection) {

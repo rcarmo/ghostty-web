@@ -133,6 +133,21 @@ describe('SelectionManager', () => {
       term.dispose();
     });
 
+    test('hasSelection returns false for same-cell while mouse selection is active', async () => {
+      if (!container) return;
+
+      const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+      term.open(container);
+
+      const selMgr = (term as any).selectionManager;
+      setSelectionAbsolute(term, 5, 0, 5, 0);
+      (selMgr as any).isSelecting = true;
+
+      expect(selMgr.hasSelection()).toBe(false);
+
+      term.dispose();
+    });
+
     test('clearSelection clears selection and marks rows dirty', async () => {
       if (!container) return;
 
