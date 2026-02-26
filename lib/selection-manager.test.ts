@@ -398,6 +398,34 @@ describe('SelectionManager', () => {
       term.dispose();
     });
 
+    test('mouseup clears click-without-drag selection and marks row dirty', async () => {
+      if (!container) return;
+
+      const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+      term.open(container);
+
+      const selMgr = (term as any).selectionManager;
+      const absoluteRow = viewportToAbsolute(term, 0);
+      setSelectionAbsolute(term, 1, absoluteRow, 1, absoluteRow);
+      (selMgr as any).isSelecting = true;
+
+      document.dispatchEvent(
+        new MouseEvent('mouseup', {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+          view: window,
+        })
+      );
+
+      expect(selMgr.hasSelection()).toBe(false);
+      const dirtyRows = selMgr.getDirtySelectionRows();
+      expect(dirtyRows.size).toBeGreaterThan(0);
+      expect(dirtyRows.has(0)).toBe(true);
+
+      term.dispose();
+    });
+
     test('clearDirtySelectionRows clears the set', async () => {
       if (!container) return;
 
