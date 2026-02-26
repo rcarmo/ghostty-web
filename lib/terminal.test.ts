@@ -145,6 +145,16 @@ describe('Terminal', () => {
 
       term.dispose();
     });
+
+    test('hides native textarea caret to avoid ghost cursor', async () => {
+      const term = await createIsolatedTerminal();
+      term.open(container);
+
+      expect(term.textarea).toBeDefined();
+      expect(term.textarea!.style.caretColor).toBe('transparent');
+
+      term.dispose();
+    });
   });
 
   describe('Events', () => {

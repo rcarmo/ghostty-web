@@ -496,6 +496,7 @@ export class Terminal implements ITerminalCore {
       this.textarea.style.border = 'none';
       this.textarea.style.margin = '0';
       this.textarea.style.opacity = '0';
+      this.textarea.style.caretColor = 'transparent';
       this.textarea.style.clipPath = 'inset(50%)'; // Clip everything including caret
       this.textarea.style.overflow = 'hidden';
       this.textarea.style.whiteSpace = 'nowrap';
