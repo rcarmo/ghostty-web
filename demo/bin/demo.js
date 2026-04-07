@@ -374,6 +374,10 @@ const httpServer = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname;
 
+  // Cross-origin isolation headers (required for SharedArrayBuffer / WASM)
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+
   // Serve index page
   if (pathname === '/' || pathname === '/index.html') {
     res.writeHead(200, { 'Content-Type': 'text/html' });
