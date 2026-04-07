@@ -385,6 +385,14 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
+  // Graceful shutdown endpoint (for testing / programmatic control)
+  if (pathname === '/shutdown' && req.method === 'POST') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('shutting down\n');
+    setImmediate(gracefulShutdown);
+    return;
+  }
+
   // Serve dist files
   if (pathname.startsWith('/dist/')) {
     const filePath = path.join(distPath, pathname.slice(6));
@@ -419,10 +427,56 @@ function serveFile(filePath, res) {
 }
 
 // ============================================================================
+// Ring Buffer
+// ============================================================================
+
+class RingBuffer {
+  constructor(maxLines = 1000) {
+    this._maxLines = maxLines;
+    this._buf = [];
+    this._partial = '';
+  }
+
+  push(line) {
+    this._buf.push(line);
+    if (this._buf.length > this._maxLines) {
+      this._buf.shift();
+    }
+  }
+
+  tail(n = 20) {
+    return this._buf.slice(-n);
+  }
+
+  capture() {
+    return this._buf.slice();
+  }
+
+  write(data) {
+    // Append to partial line, then split on newlines
+    const combined = this._partial + data;
+    const lines = combined.split('\n');
+    // Last element is either '' or an incomplete line
+    this._partial = lines.pop();
+    for (const line of lines) {
+      this.push(line);
+    }
+  }
+}
+
+// ============================================================================
 // WebSocket Server (using ws package)
 // ============================================================================
 
+// sessionId → { pty, ws, buffer, id, createdAt }
 const sessions = new Map();
+// ws → sessionId  (reverse lookup)
+const wsSessions = new Map();
+let nextSessionId = 0;
+
+function makeSessionId() {
+  return `s_${String(nextSessionId++).padStart(3, '0')}`;
+}
 
 function getShell() {
   if (process.platform === 'win32') {
@@ -453,6 +507,9 @@ function createPtySession(cols, rows) {
 // WebSocket server attached to HTTP server (same port)
 const wss = new WebSocketServer({ noServer: true });
 
+// WebSocket server for Control Plane endpoint
+const cpWss = new WebSocketServer({ noServer: true });
+
 // Handle HTTP upgrade for WebSocket connections
 httpServer.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -462,6 +519,10 @@ httpServer.on('upgrade', (req, socket, head) => {
     // For development/demo purposes, we allow all origins
     wss.handleUpgrade(req, socket, head, (ws) => {
       wss.emit('connection', ws, req);
+    });
+  } else if (url.pathname === '/cp') {
+    cpWss.handleUpgrade(req, socket, head, (ws) => {
+      cpWss.emit('connection', ws, req);
     });
   } else {
     socket.destroy();
@@ -475,10 +536,15 @@ wss.on('connection', (ws, req) => {
 
   // Create PTY
   const ptyProcess = createPtySession(cols, rows);
-  sessions.set(ws, { pty: ptyProcess });
+  const sessionId = makeSessionId();
+  const buffer = new RingBuffer();
+  const session = { pty: ptyProcess, ws, buffer, id: sessionId, createdAt: new Date() };
+  sessions.set(sessionId, session);
+  wsSessions.set(ws, sessionId);
 
   // PTY -> WebSocket
   ptyProcess.onData((data) => {
+    buffer.write(data);
     if (ws.readyState === ws.OPEN) {
       ws.send(data);
     }
@@ -513,10 +579,14 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    const session = sessions.get(ws);
-    if (session) {
-      session.pty.kill();
-      sessions.delete(ws);
+    const sid = wsSessions.get(ws);
+    wsSessions.delete(ws);
+    if (sid !== undefined) {
+      const session = sessions.get(sid);
+      if (session) {
+        session.pty.kill();
+        sessions.delete(sid);
+      }
     }
   });
 
@@ -542,8 +612,212 @@ wss.on('connection', (ws, req) => {
 });
 
 // ============================================================================
+// Control Plane WebSocket (/cp) — ghostty-win compatible pipe protocol
+// ============================================================================
+
+// Resolve a session by optional sessionId argument.
+// Returns the session object or null.
+function resolveSession(sessionIdArg) {
+  if (sessionIdArg) {
+    return sessions.get(sessionIdArg) || null;
+  }
+  // No sessionId specified — return first session
+  const first = sessions.values().next();
+  return first.done ? null : first.value;
+}
+
+let cpCmdCounter = 0;
+function nextCmdId() {
+  return `cmd_${String(cpCmdCounter++).padStart(6, '0')}`;
+}
+
+cpWss.on('connection', (ws) => {
+  let persistent = false;
+
+  ws.on('message', (raw) => {
+    const line = raw.toString('utf8').replace(/\n$/, '');
+    const parts = line.split('|');
+    const cmd = parts[0];
+
+    function reply(msg) {
+      if (ws.readyState === ws.OPEN) {
+        ws.send(msg + '\n');
+      }
+    }
+
+    function errReply(code) {
+      reply(`ERR|ghostty-web|${code}`);
+    }
+
+    switch (cmd) {
+      case 'PING': {
+        reply(`PONG|ghostty-web|${process.pid}`);
+        break;
+      }
+
+      case 'PERSIST': {
+        persistent = true;
+        reply(`OK|ghostty-web|PERSIST`);
+        break;
+      }
+
+      case 'STATE': {
+        // STATE[|sessionId]
+        const sessionIdArg = parts[1] || '';
+        const session = resolveSession(sessionIdArg);
+        if (!session) {
+          errReply('NO_TABS');
+          break;
+        }
+        const shell = getShell();
+        const tabCount = sessions.size;
+        reply(`STATE|ghostty-web|${process.pid}|0x0|${shell}|tab_count=${tabCount}|active_tab=0`);
+        break;
+      }
+
+      case 'TAIL': {
+        // TAIL[|n][|sessionId]  — args are positional but both optional
+        // Distinguish: if parts[1] looks numeric treat as n, else sessionId
+        let n = 20;
+        let sessionIdArg = '';
+        if (parts[1] !== undefined) {
+          const parsed = Number(parts[1]);
+          if (!isNaN(parsed) && parts[1] !== '') {
+            n = parsed;
+            sessionIdArg = parts[2] || '';
+          } else {
+            sessionIdArg = parts[1];
+          }
+        }
+        const session = resolveSession(sessionIdArg);
+        if (!session) {
+          errReply('NO_TABS');
+          break;
+        }
+        const lines = session.buffer.tail(n);
+        reply(`TAIL|ghostty-web|${lines.length}\n${lines.join('\n')}`);
+        break;
+      }
+
+      case 'CAPTURE_PANE': {
+        // CAPTURE_PANE[|sessionId]
+        const sessionIdArg = parts[1] || '';
+        const session = resolveSession(sessionIdArg);
+        if (!session) {
+          errReply('NO_TABS');
+          break;
+        }
+        const lines = session.buffer.capture();
+        const ms = Date.now();
+        reply(`OK|ghostty-web|CAPTURE_PANE|epoch_ms=${ms}|lines=${lines.length}\n${lines.join('\n')}`);
+        break;
+      }
+
+      case 'LIST_TABS': {
+        const count = sessions.size;
+        const shell = getShell();
+        const tabLines = [];
+        let idx = 0;
+        for (const [sid, sess] of sessions) {
+          tabLines.push(`TAB|${idx}|${shell}|${sid}|${sess.createdAt.toISOString()}`);
+          idx++;
+        }
+        reply(`LIST_TABS|${count}|0\n${tabLines.join('\n')}`);
+        break;
+      }
+
+      case 'INPUT': {
+        // INPUT|{from}|{base64text}[|sessionId]
+        const from = parts[1] || '';
+        const b64 = parts[2] || '';
+        const sessionIdArg = parts[3] || '';
+        const session = resolveSession(sessionIdArg);
+        if (!session) {
+          errReply('NO_TABS');
+          break;
+        }
+        const text = Buffer.from(b64, 'base64').toString('utf8');
+        session.pty.write(text);
+        const cmdId = nextCmdId();
+        reply(`QUEUED|ghostty-web|INPUT|${cmdId}`);
+        break;
+      }
+
+      case 'PASTE': {
+        // PASTE|{from}|{base64text}[|sessionId]
+        const from = parts[1] || '';
+        const b64 = parts[2] || '';
+        const sessionIdArg = parts[3] || '';
+        const session = resolveSession(sessionIdArg);
+        if (!session) {
+          errReply('NO_TABS');
+          break;
+        }
+        const text = Buffer.from(b64, 'base64').toString('utf8');
+        // Bracketed paste: ESC[?2004h must already be enabled by the shell;
+        // we just wrap in the bracketed paste sequences
+        session.pty.write('\x1b[200~' + text + '\x1b[201~');
+        const cmdId = nextCmdId();
+        reply(`QUEUED|ghostty-web|PASTE|${cmdId}`);
+        break;
+      }
+
+      case 'ACK_POLL': {
+        // ACK_POLL|{cmdId}
+        const cmdId = parts[1] || '';
+        // node-pty writes are synchronous — always ACK immediately
+        reply(`ACK|ghostty-web|${cmdId}`);
+        break;
+      }
+
+      default: {
+        errReply('UNKNOWN_CMD');
+        break;
+      }
+    }
+  });
+
+  ws.on('error', () => {
+    // Ignore socket errors
+  });
+});
+
+// ============================================================================
 // Startup
 // ============================================================================
+
+// Control Plane session file management
+function getSessionFilePath() {
+  const pid = process.pid;
+  const dir =
+    process.platform === 'win32'
+      ? path.join(process.env.LOCALAPPDATA || path.join(homedir(), 'AppData', 'Local'), 'ghostty', 'control-plane', 'web', 'sessions')
+      : path.join(homedir(), '.local', 'share', 'ghostty', 'control-plane', 'web', 'sessions');
+  return path.join(dir, `ghostty-web-${pid}.session`);
+}
+
+function writeSessionFile(port) {
+  const pid = process.pid;
+  const filePath = getSessionFilePath();
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  const content = [
+    `session_name=ghostty-web-${pid}`,
+    `safe_session_name=ghostty-web`,
+    `pid=${pid}`,
+    `ws_url=ws://localhost:${port}/cp`,
+    `port=${port}`,
+  ].join('\n') + '\n';
+  fs.writeFileSync(filePath, content, 'utf8');
+}
+
+function removeSessionFile() {
+  try {
+    fs.unlinkSync(getSessionFilePath());
+  } catch (e) {
+    // Ignore if file does not exist
+  }
+}
 
 function printBanner(url) {
   console.log('\n' + '═'.repeat(60));
@@ -565,14 +839,28 @@ function printBanner(url) {
 }
 
 // Graceful shutdown
-process.on('SIGINT', () => {
-  console.log('\n\nShutting down...');
-  for (const [ws, session] of sessions.entries()) {
+function gracefulShutdown() {
+  removeSessionFile();
+  for (const [, session] of sessions.entries()) {
     session.pty.kill();
-    ws.close();
+    session.ws.close();
   }
   wss.close();
+  cpWss.close();
   process.exit(0);
+}
+
+process.on('SIGINT', () => {
+  console.log('\n\nShutting down...');
+  gracefulShutdown();
+});
+
+process.on('SIGTERM', () => {
+  gracefulShutdown();
+});
+
+process.on('exit', () => {
+  removeSessionFile();
 });
 
 // Start HTTP/Vite server
@@ -588,6 +876,7 @@ if (DEV_MODE) {
   });
 
   await vite.listen();
+  writeSessionFile(HTTP_PORT);
 
   // Attach WebSocket handler AFTER Vite has fully initialized
   // Use prependListener (not prependOnceListener) so it runs for every request
@@ -596,7 +885,7 @@ if (DEV_MODE) {
     vite.httpServer.prependListener('upgrade', (req, socket, head) => {
       const pathname = req.url?.split('?')[0] || req.url || '';
 
-      // ONLY handle /ws - everything else passes through unchanged to Vite
+      // Handle /ws and /cp — everything else passes through unchanged to Vite
       if (pathname === '/ws') {
         if (!socket.destroyed && !socket.readableEnded) {
           wss.handleUpgrade(req, socket, head, (ws) => {
@@ -608,7 +897,16 @@ if (DEV_MODE) {
         return;
       }
 
-      // For non-/ws paths, explicitly do nothing and let the event propagate
+      if (pathname === '/cp') {
+        if (!socket.destroyed && !socket.readableEnded) {
+          cpWss.handleUpgrade(req, socket, head, (ws) => {
+            cpWss.emit('connection', ws, req);
+          });
+        }
+        return;
+      }
+
+      // For non-/ws and non-/cp paths, explicitly do nothing and let the event propagate
       // The key is: don't return, don't touch the socket, just let it pass through
       // Vite's handlers (which were added before ours via prependListener) will process it
     });
@@ -618,6 +916,7 @@ if (DEV_MODE) {
 } else {
   // Production mode: static file server
   httpServer.listen(HTTP_PORT, () => {
+    writeSessionFile(HTTP_PORT);
     printBanner(`http://localhost:${HTTP_PORT}`);
   });
 }
