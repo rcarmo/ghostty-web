@@ -194,6 +194,7 @@ export class InputHandler {
   private mouseupListener: ((e: MouseEvent) => void) | null = null;
   private mousemoveListener: ((e: MouseEvent) => void) | null = null;
   private wheelListener: ((e: WheelEvent) => void) | null = null;
+  private blurListener: (() => void) | null = null;
   private isComposing = false;
   private compositionJustEnded = false; // Block keydown briefly after composition ends
   private pendingKeyAfterComposition: string | null = null; // Key to output after composition
@@ -309,14 +310,25 @@ export class InputHandler {
     this.mousedownListener = this.handleMouseDown.bind(this);
     this.container.addEventListener('mousedown', this.mousedownListener);
 
+    // mouseup is on `document` (not container) so that releases outside the
+    // terminal canvas still clear button state. Without this, a TUI app sees a
+    // press without a matching release if the cursor leaves before the user
+    // lets go, causing stuck-mouse behavior. Matches how SelectionManager and
+    // the Terminal scrollbar already listen.
     this.mouseupListener = this.handleMouseUp.bind(this);
-    this.container.addEventListener('mouseup', this.mouseupListener);
+    document.addEventListener('mouseup', this.mouseupListener);
 
     this.mousemoveListener = this.handleMouseMove.bind(this);
     this.container.addEventListener('mousemove', this.mousemoveListener);
 
     this.wheelListener = this.handleWheel.bind(this);
     this.container.addEventListener('wheel', this.wheelListener, { passive: false });
+
+    // If the window loses focus (e.g. Alt-Tab) while a button is held, the
+    // mouseup event never fires. Reset pressed-button state on blur so TUI
+    // apps don't see a permanently held button after focus returns.
+    this.blurListener = this.handleWindowBlur.bind(this);
+    window.addEventListener('blur', this.blurListener);
   }
 
   /**
@@ -898,20 +910,36 @@ export class InputHandler {
 
   /**
    * Handle mouseup event
+   *
+   * Listens on `document`, so this fires even when the release happens
+   * outside the terminal canvas. We clear the pressed-button bit before the
+   * pixelToCell null-check so button state is always cleaned up — otherwise
+   * a release outside the canvas would leave the button flagged as held and
+   * subsequent motion events would report a drag.
    */
   private handleMouseUp(event: MouseEvent): void {
     if (this.isDisposed) return;
     if (!this.mouseConfig?.hasMouseTracking()) return;
 
+    const button = event.button;
+
+    // Clear pressed button first, before any early return, so we never leave
+    // a bit set when the release happens outside canvas bounds.
+    this.mouseButtonsPressed &= ~(1 << button);
+
     const cell = this.pixelToCell(event);
     if (!cell) return;
 
-    const button = event.button;
-
-    // Clear pressed button
-    this.mouseButtonsPressed &= ~(1 << button);
-
     this.sendMouseEvent(button, cell.col, cell.row, true, event);
+  }
+
+  /**
+   * Handle window blur — clear all pressed-button state so a held button
+   * doesn't stay flagged as pressed after Alt-Tab or focus loss.
+   */
+  private handleWindowBlur(): void {
+    if (this.isDisposed) return;
+    this.mouseButtonsPressed = 0;
   }
 
   /**
@@ -1147,7 +1175,7 @@ export class InputHandler {
     }
 
     if (this.mouseupListener) {
-      this.container.removeEventListener('mouseup', this.mouseupListener);
+      document.removeEventListener('mouseup', this.mouseupListener);
       this.mouseupListener = null;
     }
 
@@ -1159,6 +1187,11 @@ export class InputHandler {
     if (this.wheelListener) {
       this.container.removeEventListener('wheel', this.wheelListener);
       this.wheelListener = null;
+    }
+
+    if (this.blurListener) {
+      window.removeEventListener('blur', this.blurListener);
+      this.blurListener = null;
     }
 
     this.isDisposed = true;

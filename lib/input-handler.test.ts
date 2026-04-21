@@ -1292,6 +1292,132 @@ describe('InputHandler', () => {
     });
   });
 
+  describe('Mouse event cleanup', () => {
+    // Mouse tracking config that always reports tracking enabled, with 10x20
+    // cells and a 0,0 canvas offset so pixel→cell math is easy to reason about.
+    const trackingMouseConfig = {
+      hasMouseTracking: () => true,
+      hasSgrMouseMode: () => true,
+      getCellDimensions: () => ({ width: 10, height: 20 }),
+      getCanvasOffset: () => ({ left: 0, top: 0 }),
+    };
+
+    test('mouseup on document (not container) clears pressed-button state', () => {
+      const handler = new InputHandler(
+        ghostty,
+        container as any,
+        (data) => dataReceived.push(data),
+        () => {
+          bellCalled = true;
+        },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        trackingMouseConfig
+      );
+
+      // Press inside the container.
+      container.dispatchEvent(new MouseEvent('mousedown', { button: 0, clientX: 5, clientY: 10 }));
+      expect(dataReceived.length).toBe(1);
+
+      // Release on document, outside the container. The listener is attached
+      // to document for exactly this case; the old code attached to container
+      // and would miss this release, leaving the button flagged as held.
+      document.dispatchEvent(new MouseEvent('mouseup', { button: 0, clientX: 5, clientY: 10 }));
+      expect(dataReceived.length).toBe(2);
+      expect(dataReceived[1]).toMatch(/^\x1b\[<0;\d+;\d+m$/); // SGR release
+
+      // A subsequent motion in any-motion mode must not report a drag —
+      // the button bit should have been cleared.
+      // Install a getMode callback that enables any-motion tracking (1003).
+      (handler as any).getModeCallback = (mode: number) => mode === 1003;
+      container.dispatchEvent(new MouseEvent('mousemove', { button: 0, clientX: 15, clientY: 10 }));
+      // Motion-with-no-button reports button 35 (motion flag 32 + base 3 for
+      // "no button held"); see xterm SGR encoding in handleMouseMove.
+      const last = dataReceived[dataReceived.length - 1];
+      expect(last).toMatch(/^\x1b\[<35;/);
+    });
+
+    test('mouseup outside canvas bounds still clears button state', () => {
+      const handler = new InputHandler(
+        ghostty,
+        container as any,
+        (data) => dataReceived.push(data),
+        () => {
+          bellCalled = true;
+        },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        {
+          ...trackingMouseConfig,
+          // Zero cell dims → pixelToCell returns null, so the old code would
+          // early-return before clearing the button bit.
+          getCellDimensions: () => ({ width: 0, height: 0 }),
+        }
+      );
+
+      // Force the pressed-button bit by invoking the private handler directly
+      // (mousedown would also early-return on zero dims).
+      (handler as any).mouseButtonsPressed = 0b001;
+
+      document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }));
+      expect((handler as any).mouseButtonsPressed).toBe(0);
+    });
+
+    test('window blur clears all pressed-button state', () => {
+      const handler = new InputHandler(
+        ghostty,
+        container as any,
+        (data) => dataReceived.push(data),
+        () => {
+          bellCalled = true;
+        },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        trackingMouseConfig
+      );
+
+      (handler as any).mouseButtonsPressed = 0b101; // left + right held
+
+      window.dispatchEvent(new Event('blur'));
+      expect((handler as any).mouseButtonsPressed).toBe(0);
+    });
+
+    test('dispose removes the document mouseup and window blur listeners', () => {
+      const handler = new InputHandler(
+        ghostty,
+        container as any,
+        (data) => dataReceived.push(data),
+        () => {
+          bellCalled = true;
+        },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        trackingMouseConfig
+      );
+
+      handler.dispose();
+
+      // After dispose, both listeners should be detached. Dispatching must
+      // not touch the disposed handler's state.
+      (handler as any).mouseButtonsPressed = 0b010;
+      document.dispatchEvent(new MouseEvent('mouseup', { button: 1 }));
+      window.dispatchEvent(new Event('blur'));
+      expect((handler as any).mouseButtonsPressed).toBe(0b010);
+    });
+  });
+
   describe('Motion encoding (SGR)', () => {
     // Mouse tracking config enabling any-motion tracking (mode 1003).
     const trackingMouseConfig = {
