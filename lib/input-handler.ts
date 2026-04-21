@@ -934,15 +934,22 @@ export class InputHandler {
     const cell = this.pixelToCell(event);
     if (!cell) return;
 
-    // Determine which button to report (or 32 for motion with no button)
-    let button = 32; // Motion flag
+    // Encode motion per xterm SGR convention: the low 2 bits hold the
+    // button (0/1/2 for left/middle/right, 3 for "no button"), and bit 5
+    // (value 32) flags the event as motion. So "motion while holding left"
+    // is 0 + 32 = 32, and "motion with no button held" is 3 + 32 = 35.
+    // Emitting 32 without the `+3` makes TUI apps (zellij, notably) read
+    // every hover as a drag-with-left-button and stay in selection mode.
+    let baseButton: number;
     if (this.mouseButtonsPressed & 1)
-      button += 0; // Left
+      baseButton = 0; // Left
     else if (this.mouseButtonsPressed & 2)
-      button += 1; // Middle
-    else if (this.mouseButtonsPressed & 4) button += 2; // Right
+      baseButton = 1; // Middle
+    else if (this.mouseButtonsPressed & 4)
+      baseButton = 2; // Right
+    else baseButton = 3; // No button held (any-motion mode)
 
-    this.sendMouseEvent(button, cell.col, cell.row, false, event);
+    this.sendMouseEvent(baseButton + 32, cell.col, cell.row, false, event);
   }
 
   /**
