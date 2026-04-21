@@ -554,6 +554,9 @@ export class Terminal implements ITerminalCore {
       // Use capture phase to ensure we get the event before browser scrolling
       parent.addEventListener('wheel', this.handleWheel, { passive: false, capture: true });
 
+      // Attach overlay canvas for IME preedit rendering
+      this.renderer.attachOverlayTo(parent);
+
       // Render initial blank screen (force full redraw)
       this.renderer.render(this.wasmTerm, true, this.viewportY, this, this.scrollbarOpacity);
 
@@ -1979,5 +1982,33 @@ export class Terminal implements ITerminalCore {
   public hasMouseTracking(): boolean {
     this.assertOpen();
     return this.wasmTerm!.hasMouseTracking();
+  }
+
+  // ============================================================================
+  // IME Preedit API
+  // ============================================================================
+
+  /**
+   * Draw active IME composition text (preedit) on the overlay canvas at the
+   * current cursor position.  Call from compositionupdate.
+   *
+   * The overlay canvas is rendered on top of the main cell grid (pointer-events:
+   * none, z-index 1) so incoming VT redraws cannot clobber the preedit text.
+   *
+   * @param text Active composition string from CompositionEvent.data
+   */
+  public setPreedit(text: string): void {
+    if (!this.renderer) return;
+    const buf = this.buffer?.active;
+    if (!buf) return;
+    this.renderer.drawPreedit(text, buf.cursorX, buf.cursorY);
+  }
+
+  /**
+   * Clear the IME preedit overlay.  Call from compositionend (or on commit).
+   */
+  public clearPreedit(): void {
+    if (!this.renderer) return;
+    this.renderer.clearPreedit();
   }
 }

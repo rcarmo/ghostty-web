@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { DEFAULT_THEME } from './renderer';
+import { CanvasRenderer, DEFAULT_THEME } from './renderer';
 
 describe('CanvasRenderer', () => {
   describe('Default Theme', () => {
@@ -60,5 +60,165 @@ describe('CanvasRenderer', () => {
       expect(DEFAULT_THEME.background).toMatch(hexPattern);
       expect(DEFAULT_THEME.cursor).toMatch(hexPattern);
     });
+  });
+});
+
+describe('CanvasRenderer – preedit overlay', () => {
+  function makeCanvas(): HTMLCanvasElement {
+    const c = document.createElement('canvas');
+    c.width = 800;
+    c.height = 400;
+    c.style.width = '800px';
+    c.style.height = '400px';
+    return c;
+  }
+
+  test('attachOverlayTo appends overlay canvas as child of parent', () => {
+    const canvas = makeCanvas();
+    const renderer = new CanvasRenderer(canvas);
+    const parent = document.createElement('div');
+    parent.appendChild(canvas);
+    document.body.appendChild(parent);
+
+    renderer.attachOverlayTo(parent);
+
+    // Parent should now contain 2 children: main canvas + overlay canvas
+    expect(parent.children.length).toBe(2);
+    const overlay = parent.children[1] as HTMLCanvasElement;
+    expect(overlay.tagName).toBe('CANVAS');
+    expect(overlay.getAttribute('aria-hidden')).toBe('true');
+    expect(overlay.style.pointerEvents).toBe('none');
+    expect(overlay.style.zIndex).toBe('1');
+    expect(overlay.style.position).toBe('absolute');
+
+    renderer.dispose();
+    document.body.removeChild(parent);
+  });
+
+  test('attachOverlayTo is idempotent (calling twice does not add a second overlay)', () => {
+    const canvas = makeCanvas();
+    const renderer = new CanvasRenderer(canvas);
+    const parent = document.createElement('div');
+    parent.appendChild(canvas);
+    document.body.appendChild(parent);
+
+    renderer.attachOverlayTo(parent);
+    renderer.attachOverlayTo(parent);
+
+    // Still only 2 children
+    expect(parent.children.length).toBe(2);
+
+    renderer.dispose();
+    document.body.removeChild(parent);
+  });
+
+  test('parent position is set to relative when previously static', () => {
+    const canvas = makeCanvas();
+    const renderer = new CanvasRenderer(canvas);
+    const parent = document.createElement('div');
+    parent.appendChild(canvas);
+    document.body.appendChild(parent);
+
+    // Happy-dom default position should be static
+    renderer.attachOverlayTo(parent);
+
+    expect(parent.style.position).toBe('relative');
+
+    renderer.dispose();
+    document.body.removeChild(parent);
+  });
+
+  test('resizeOverlay mirrors main canvas dimensions', () => {
+    const canvas = makeCanvas();
+    const renderer = new CanvasRenderer(canvas);
+    const parent = document.createElement('div');
+    parent.appendChild(canvas);
+    document.body.appendChild(parent);
+
+    renderer.attachOverlayTo(parent);
+    const overlay = parent.children[1] as HTMLCanvasElement;
+
+    // Initial sync
+    expect(overlay.width).toBe(canvas.width);
+    expect(overlay.height).toBe(canvas.height);
+    expect(overlay.style.width).toBe(canvas.style.width);
+    expect(overlay.style.height).toBe(canvas.style.height);
+
+    // Simulate main canvas resize
+    canvas.width = 1600;
+    canvas.height = 800;
+    canvas.style.width = '1600px';
+    canvas.style.height = '800px';
+    renderer.resizeOverlay();
+
+    expect(overlay.width).toBe(1600);
+    expect(overlay.height).toBe(800);
+
+    renderer.dispose();
+    document.body.removeChild(parent);
+  });
+
+  test('drawPreedit and clearPreedit do not throw when overlay is attached', () => {
+    const canvas = makeCanvas();
+    const renderer = new CanvasRenderer(canvas);
+    const parent = document.createElement('div');
+    parent.appendChild(canvas);
+    document.body.appendChild(parent);
+
+    renderer.attachOverlayTo(parent);
+
+    expect(() => renderer.drawPreedit('hello', 0, 0)).not.toThrow();
+    expect(() => renderer.clearPreedit()).not.toThrow();
+    expect(() => renderer.drawPreedit('', 0, 0)).not.toThrow();
+
+    renderer.dispose();
+    document.body.removeChild(parent);
+  });
+
+  test('drawPreedit and clearPreedit are no-ops when overlay is not attached', () => {
+    const canvas = makeCanvas();
+    const renderer = new CanvasRenderer(canvas);
+
+    // No attachOverlayTo call – should not throw
+    expect(() => renderer.drawPreedit('hello', 0, 0)).not.toThrow();
+    expect(() => renderer.clearPreedit()).not.toThrow();
+
+    renderer.dispose();
+  });
+
+  test('dispose removes overlay canvas from DOM', () => {
+    const canvas = makeCanvas();
+    const renderer = new CanvasRenderer(canvas);
+    const parent = document.createElement('div');
+    parent.appendChild(canvas);
+    document.body.appendChild(parent);
+
+    renderer.attachOverlayTo(parent);
+    expect(parent.children.length).toBe(2);
+
+    renderer.dispose();
+    // Overlay should have been removed; only main canvas remains
+    expect(parent.querySelectorAll('[aria-hidden="true"]').length).toBe(0);
+
+    document.body.removeChild(parent);
+  });
+
+  test('resize() call synchronises overlay dimensions', () => {
+    const canvas = makeCanvas();
+    const renderer = new CanvasRenderer(canvas);
+    const parent = document.createElement('div');
+    parent.appendChild(canvas);
+    document.body.appendChild(parent);
+
+    renderer.attachOverlayTo(parent);
+    const overlay = parent.children[1] as HTMLCanvasElement;
+
+    renderer.resize(100, 30);
+
+    expect(overlay.width).toBe(canvas.width);
+    expect(overlay.height).toBe(canvas.height);
+
+    renderer.dispose();
+    document.body.removeChild(parent);
   });
 });

@@ -144,6 +144,10 @@ export class CanvasRenderer {
     endY: number;
   } | null = null;
 
+  // Preedit overlay canvas (separate layer above main canvas for IME composition)
+  private overlayCanvas: HTMLCanvasElement | null = null;
+  private overlayCtx: CanvasRenderingContext2D | null = null;
+
   constructor(canvas: HTMLCanvasElement, options: RendererOptions = {}) {
     this.canvas = canvas;
     const ctx = canvas.getContext('2d', { alpha: true });
@@ -278,6 +282,9 @@ export class CanvasRenderer {
     // Fill background after resize
     this.ctx.fillStyle = this.theme.background;
     this.ctx.fillRect(0, 0, cssWidth, cssHeight);
+
+    // Keep overlay canvas in sync with main canvas dimensions
+    this.resizeOverlay();
   }
 
   // ==========================================================================
@@ -1160,10 +1167,113 @@ export class CanvasRenderer {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
+  // ==========================================================================
+  // Preedit Overlay Canvas (IME composition rendering)
+  // ==========================================================================
+
+  /**
+   * Attach (or re-attach) the overlay canvas to a parent element.
+   * Idempotent: if already attached to the same parent, does nothing.
+   * Call this from Terminal.open() after the main canvas is added.
+   */
+  public attachOverlayTo(parent: HTMLElement): void {
+    // Idempotent: skip if already attached to this parent
+    if (this.overlayCanvas && this.overlayCanvas.parentElement === parent) return;
+
+    // Create canvas if not yet created
+    if (!this.overlayCanvas) {
+      this.overlayCanvas = document.createElement('canvas');
+      this.overlayCanvas.setAttribute('aria-hidden', 'true');
+    }
+
+    this.overlayCanvas.style.position = 'absolute';
+    this.overlayCanvas.style.left = '0';
+    this.overlayCanvas.style.top = '0';
+    this.overlayCanvas.style.pointerEvents = 'none';
+    this.overlayCanvas.style.zIndex = '1';
+
+    // Ensure parent has a positioning context so absolute child lands correctly.
+    // getComputedStyle returns 'static' in real browsers and '' in some test
+    // environments when no explicit position is set — treat both as needing a fix.
+    const cs = getComputedStyle(parent);
+    if (cs.position === 'static' || cs.position === '') {
+      parent.style.position = 'relative';
+    }
+
+    parent.appendChild(this.overlayCanvas);
+
+    const ctx = this.overlayCanvas.getContext('2d', { alpha: true });
+    if (!ctx) throw new Error('Failed to get overlay 2D context');
+    this.overlayCtx = ctx;
+
+    this.resizeOverlay();
+  }
+
+  /**
+   * Resize the overlay canvas to match the main canvas dimensions (CSS + physical pixels).
+   * Call whenever the main canvas is resized.
+   */
+  public resizeOverlay(): void {
+    if (!this.overlayCanvas) return;
+    this.overlayCanvas.width = this.canvas.width;
+    this.overlayCanvas.height = this.canvas.height;
+    this.overlayCanvas.style.width = this.canvas.style.width;
+    this.overlayCanvas.style.height = this.canvas.style.height;
+  }
+
+  /**
+   * Draw preedit (IME active composition) text at the given cell coordinates.
+   * Clears any previous preedit drawing first.
+   * @param text  Active composition string (empty string = clear only)
+   * @param cellX Column index (0-based)
+   * @param cellY Row index (0-based)
+   */
+  public drawPreedit(text: string, cellX: number, cellY: number): void {
+    if (!this.overlayCtx || !this.overlayCanvas) return;
+    const dpr = this.devicePixelRatio;
+    this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+    if (!text) return;
+
+    const m = this.metrics;
+    const px = cellX * m.width * dpr;
+    const py = cellY * m.height * dpr;
+
+    this.overlayCtx.save();
+    // Mirror the font string from the main context
+    this.overlayCtx.font = `${this.fontSize}px ${this.fontFamily}`;
+    this.overlayCtx.textBaseline = 'top';
+    this.overlayCtx.fillStyle = this.theme.foreground;
+    this.overlayCtx.scale(dpr, dpr);
+    const scaledPx = cellX * m.width;
+    const scaledPy = cellY * m.height;
+    this.overlayCtx.fillText(text, scaledPx, scaledPy);
+
+    // Underline for preedit visibility
+    const underlineY = scaledPy + m.height - 2;
+    const textWidth = this.overlayCtx.measureText(text).width;
+    this.overlayCtx.fillRect(scaledPx, underlineY, textWidth, 1);
+    this.overlayCtx.restore();
+  }
+
+  /**
+   * Clear the preedit overlay without drawing new text.
+   */
+  public clearPreedit(): void {
+    if (!this.overlayCtx || !this.overlayCanvas) return;
+    this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+  }
+
   /**
    * Cleanup resources
    */
   public dispose(): void {
     this.stopCursorBlink();
+
+    // Remove overlay canvas from DOM
+    if (this.overlayCanvas && this.overlayCanvas.parentElement) {
+      this.overlayCanvas.parentElement.removeChild(this.overlayCanvas);
+    }
+    this.overlayCanvas = null;
+    this.overlayCtx = null;
   }
 }

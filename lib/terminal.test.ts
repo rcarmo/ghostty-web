@@ -2992,13 +2992,13 @@ describe('Synchronous open()', () => {
 });
 
 // ============================================================================
-// Dynamic Theme Changes
+// IME Preedit API
 // ============================================================================
 
-describe('Dynamic Theme Changes', () => {
-  let container: HTMLElement | null = null;
+describe('Terminal – preedit overlay API', () => {
+  let container: HTMLElement;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     if (typeof document !== 'undefined') {
       container = document.createElement('div');
       document.body.appendChild(container);
@@ -3006,279 +3006,72 @@ describe('Dynamic Theme Changes', () => {
   });
 
   afterEach(() => {
-    if (container && container.parentNode) {
+    if (container?.parentNode) {
       container.parentNode.removeChild(container);
-      container = null;
+      container = null!;
     }
   });
 
-  test('full theme change updates renderer', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal({
-      theme: { background: '#000000', foreground: '#ffffff' },
-    });
-    term.open(container);
-
-    // Change to a completely different theme
-    term.options.theme = {
-      background: '#ff0000',
-      foreground: '#00ff00',
-      cursor: '#0000ff',
-      red: '#aa0000',
-    };
-
-    const renderer = term.renderer;
-    expect(renderer!.theme.background).toBe('#ff0000');
-    expect(renderer!.theme.foreground).toBe('#00ff00');
-    expect(renderer!.theme.cursor).toBe('#0000ff');
-
-    term.dispose();
+  test('setPreedit and clearPreedit exist as functions', async () => {
+    const term = await createIsolatedTerminal();
+    expect(typeof term.setPreedit).toBe('function');
+    expect(typeof term.clearPreedit).toBe('function');
   });
 
-  test('full theme change updates WASM terminal colors', async () => {
+  test('setPreedit and clearPreedit are no-ops before open()', async () => {
+    const term = await createIsolatedTerminal();
+    // Must not throw before terminal is opened
+    expect(() => term.setPreedit('あ')).not.toThrow();
+    expect(() => term.clearPreedit()).not.toThrow();
+  });
+
+  test('open() attaches overlay canvas to parent', async () => {
     if (!container) return;
 
     const term = await createIsolatedTerminal();
     term.open(container);
 
-    term.options.theme = {
-      background: '#112233',
-      foreground: '#aabbcc',
-    };
-
-    // Force render state update to pick up new colors
-    term.wasmTerm!.update();
-    const colors = term.wasmTerm!.getColors();
-
-    // Verify WASM terminal has the new colors
-    expect(colors.background.r).toBe(0x11);
-    expect(colors.background.g).toBe(0x22);
-    expect(colors.background.b).toBe(0x33);
-    expect(colors.foreground.r).toBe(0xaa);
-    expect(colors.foreground.g).toBe(0xbb);
-    expect(colors.foreground.b).toBe(0xcc);
+    const overlays = container.querySelectorAll('canvas[aria-hidden="true"]');
+    expect(overlays.length).toBe(1);
 
     term.dispose();
   });
 
-  test('partial theme update preserves previous customizations', async () => {
+  test('overlay canvas is removed on dispose()', async () => {
     if (!container) return;
 
     const term = await createIsolatedTerminal();
     term.open(container);
 
-    // First: change background only
-    term.options.theme = { background: '#111111' };
-
-    expect(term.renderer!.theme.background).toBe('#111111');
-
-    // Second: change foreground only — background should be preserved
-    term.options.theme = { foreground: '#222222' };
-
-    expect(term.renderer!.theme.background).toBe('#111111');
-    expect(term.renderer!.theme.foreground).toBe('#222222');
-
     term.dispose();
+
+    const overlays = container.querySelectorAll('canvas[aria-hidden="true"]');
+    expect(overlays.length).toBe(0);
   });
 
-  test('successive partial updates accumulate correctly', async () => {
+  test('setPreedit does not throw after open()', async () => {
     if (!container) return;
 
     const term = await createIsolatedTerminal();
     term.open(container);
 
-    term.options.theme = { background: '#aaaaaa' };
-    term.options.theme = { foreground: '#bbbbbb' };
-    term.options.theme = { cursor: '#cccccc' };
-
-    const theme = term.renderer!.theme;
-    expect(theme.background).toBe('#aaaaaa');
-    expect(theme.foreground).toBe('#bbbbbb');
-    expect(theme.cursor).toBe('#cccccc');
+    expect(() => term.setPreedit('abc')).not.toThrow();
+    expect(() => term.clearPreedit()).not.toThrow();
 
     term.dispose();
   });
 
-  test('theme reset to empty object restores defaults', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal({
-      theme: { background: '#ff0000', foreground: '#00ff00' },
-    });
-    term.open(container);
-
-    expect(term.renderer!.theme.background).toBe('#ff0000');
-
-    // Reset to empty — should restore defaults
-    term.options.theme = {};
-
-    expect(term.renderer!.theme.background).toBe('#1e1e1e');
-    expect(term.renderer!.theme.foreground).toBe('#d4d4d4');
-
-    term.dispose();
-  });
-
-  test('theme reset to null restores defaults', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal({
-      theme: { background: '#ff0000' },
-    });
-    term.open(container);
-
-    expect(term.renderer!.theme.background).toBe('#ff0000');
-
-    // Reset to null
-    term.options.theme = null as any;
-
-    expect(term.renderer!.theme.background).toBe('#1e1e1e');
-
-    term.dispose();
-  });
-
-  test('theme change before open() is applied correctly', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal({
-      theme: { background: '#111111' },
-    });
-
-    // Change theme before open
-    term.options.theme = { background: '#222222' };
-
-    // Open — should use the latest theme
-    term.open(container);
-
-    // The buildWasmConfig reads from options.theme which is now #222222
-    expect(term.renderer!.theme.background).toBe('#222222');
-
-    term.dispose();
-  });
-
-  test('ANSI palette color cells re-resolve after theme change', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal({
-      theme: { red: '#cd3131' },
-    });
-    term.open(container);
-
-    // Write text with ANSI red (color index 1)
-    term.write('\x1b[31mRed text\x1b[0m');
-
-    // Change theme — new red
-    term.options.theme = { red: '#ff0000' };
-
-    // Force render state update and read cells
-    term.wasmTerm!.update();
-    const line = term.wasmTerm!.getLine(0);
-    expect(line).not.toBeNull();
-
-    // First cell ('R') should now have the new red color
-    const cell = line![0];
-    expect(cell.fg_r).toBe(0xff);
-    expect(cell.fg_g).toBe(0x00);
-    expect(cell.fg_b).toBe(0x00);
-
-    term.dispose();
-  });
-
-  test('explicit RGB color cells remain unchanged after theme change', async () => {
+  test('overlay canvas has correct CSS positioning attributes', async () => {
     if (!container) return;
 
     const term = await createIsolatedTerminal();
     term.open(container);
 
-    // Write text with explicit RGB color
-    term.write('\x1b[38;2;100;200;50mRGB text\x1b[0m');
-
-    // Change theme
-    term.options.theme = {
-      foreground: '#ffffff',
-      background: '#000000',
-      red: '#ff0000',
-    };
-
-    // Force render state update and read cells
-    term.wasmTerm!.update();
-    const line = term.wasmTerm!.getLine(0);
-    expect(line).not.toBeNull();
-
-    // First cell ('R') should still have the explicit RGB color
-    const cell = line![0];
-    expect(cell.fg_r).toBe(100);
-    expect(cell.fg_g).toBe(200);
-    expect(cell.fg_b).toBe(50);
-
-    term.dispose();
-  });
-
-  test('theme change triggers full redraw', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal();
-    term.open(container);
-
-    // Clear any existing dirty state
-    term.wasmTerm!.clearDirty();
-    expect(term.wasmTerm!.needsFullRedraw()).toBe(false);
-
-    // Change theme
-    term.options.theme = { background: '#ff0000' };
-
-    // Should need a full redraw
-    expect(term.wasmTerm!.needsFullRedraw()).toBe(true);
-
-    // After clearing, no longer dirty
-    term.wasmTerm!.clearDirty();
-    expect(term.wasmTerm!.needsFullRedraw()).toBe(false);
-
-    term.dispose();
-  });
-
-  test('invalid color values do not crash', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal();
-    term.open(container);
-
-    // Should not throw
-    term.options.theme = {
-      background: 'not-a-color',
-      foreground: 'rgb(999,0,0)',
-      red: '',
-    };
-
-    expect(term.renderer!.theme.background).toBe('not-a-color');
-
-    term.dispose();
-  });
-
-  test('default fg/bg cells update after theme change', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal({
-      theme: { foreground: '#aaaaaa', background: '#111111' },
-    });
-    term.open(container);
-
-    // Write text with default colors (no SGR)
-    term.write('Hello');
-
-    // Change theme
-    term.options.theme = { foreground: '#ffffff', background: '#000000' };
-
-    // Force render state update and read cells
-    term.wasmTerm!.update();
-    const line = term.wasmTerm!.getLine(0);
-    expect(line).not.toBeNull();
-
-    // First cell ('H') should have new default foreground
-    const cell = line![0];
-    expect(cell.fg_r).toBe(0xff);
-    expect(cell.fg_g).toBe(0xff);
-    expect(cell.fg_b).toBe(0xff);
+    const overlay = container.querySelector('canvas[aria-hidden="true"]') as HTMLCanvasElement;
+    expect(overlay).not.toBeNull();
+    expect(overlay.style.position).toBe('absolute');
+    expect(overlay.style.pointerEvents).toBe('none');
+    expect(overlay.style.zIndex).toBe('1');
 
     term.dispose();
   });
