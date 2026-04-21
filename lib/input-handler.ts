@@ -912,20 +912,33 @@ export class InputHandler {
    * Handle mouseup event
    *
    * Listens on `document`, so this fires even when the release happens
-   * outside the terminal canvas. We clear the pressed-button bit before the
-   * pixelToCell null-check so button state is always cleaned up — otherwise
-   * a release outside the canvas would leave the button flagged as held and
-   * subsequent motion events would report a drag.
+   * outside the terminal canvas. Two behaviors flow from that:
+   *
+   *   - Always clear the pressed-button bit before any early return, so
+   *     a release outside the canvas still cleans up local state and
+   *     subsequent motion doesn't look like a drag.
+   *   - Only forward the release to the PTY if this instance previously
+   *     saw the matching press. Otherwise, in a page with multiple
+   *     terminals, every instance would send a spurious release for every
+   *     mouseup anywhere on the document.
    */
   private handleMouseUp(event: MouseEvent): void {
     if (this.isDisposed) return;
-    if (!this.mouseConfig?.hasMouseTracking()) return;
 
     const button = event.button;
+    const wasPressed = (this.mouseButtonsPressed & (1 << button)) !== 0;
 
     // Clear pressed button first, before any early return, so we never leave
-    // a bit set when the release happens outside canvas bounds.
+    // a bit set when the release happens outside canvas bounds or if the
+    // tracking mode changed between press and release.
     this.mouseButtonsPressed &= ~(1 << button);
+
+    if (!this.mouseConfig?.hasMouseTracking()) return;
+
+    // Only report the release if this instance saw the press. Without this,
+    // releases originating in another terminal or outside any terminal
+    // would all fire here once the document-level listener is attached.
+    if (!wasPressed) return;
 
     const cell = this.pixelToCell(event);
     if (!cell) return;

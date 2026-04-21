@@ -1369,6 +1369,31 @@ describe('InputHandler', () => {
       expect((handler as any).mouseButtonsPressed).toBe(0);
     });
 
+    test('mouseup without a prior press on this instance sends no release', () => {
+      // Simulates a second terminal on the same page: the mousedown happened
+      // in another InputHandler (or outside any terminal), so this instance
+      // never set a bit in mouseButtonsPressed. The document-level mouseup
+      // must not forward a spurious release to this PTY.
+      const handler = new InputHandler(
+        ghostty,
+        container as any,
+        (data) => dataReceived.push(data),
+        () => {
+          bellCalled = true;
+        },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        trackingMouseConfig
+      );
+
+      expect((handler as any).mouseButtonsPressed).toBe(0);
+      document.dispatchEvent(new MouseEvent('mouseup', { button: 0, clientX: 5, clientY: 10 }));
+      expect(dataReceived.length).toBe(0);
+    });
+
     test('window blur clears all pressed-button state', () => {
       const handler = new InputHandler(
         ghostty,
