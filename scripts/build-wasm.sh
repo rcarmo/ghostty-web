@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
+PATCH="patches/ghostty-wasm-api.patch"
+
 echo "🔨 Building ghostty-vt.wasm..."
 
 ZIG_BIN_DIR="$($SCRIPT_DIR/ensure-zig.sh 0.15.2)"
@@ -13,39 +15,55 @@ export PATH="$ZIG_BIN_DIR:$PATH"
 ZIG_VERSION=$(zig version)
 echo "✓ Using Zig $ZIG_VERSION"
 
-# Initialize/update submodule
-if [ ! -d "ghostty/.git" ]; then
+# Initialize submodule on first checkout (gitlink is a file, not a directory)
+if [ ! -e "ghostty/.git" ]; then
     echo "📦 Initializing Ghostty submodule..."
     git submodule update --init --recursive
 else
     echo "📦 Ghostty submodule already initialized"
 fi
 
-# Apply patch
-echo "🔧 Applying WASM API patch..."
+# Ensure submodule worktree is clean before patching (in case a previous build was interrupted)
 cd ghostty
-git apply --3way --check ../patches/ghostty-wasm-api.patch || {
-    echo "❌ Patch doesn't apply cleanly, even with 3-way merge"
-    echo "Ghostty may have changed. Check patches/ghostty-wasm-api.patch"
-    exit 1
-}
-git apply --3way ../patches/ghostty-wasm-api.patch
+if [ -n "$(git status --porcelain)" ]; then
+    echo "🧹 Submodule has leftover changes, resetting..."
+    git restore .
+    git clean -fd
+fi
+cd ..
+
+# Apply patch (optional — skip if empty/missing)
+if [ -s "$PATCH" ]; then
+    echo "🔧 Applying WASM API patch..."
+    cd ghostty
+    git apply --3way --check "../$PATCH" || {
+        echo "❌ Patch doesn't apply cleanly"
+        echo "Ghostty may have changed. Check $PATCH"
+        exit 1
+    }
+    git apply --3way "../$PATCH"
+    cd ..
+else
+    echo "🔧 No patch to apply (skipping)"
+fi
 
 # Build WASM
 echo "⚙️  Building WASM (takes ~20 seconds)..."
-zig build lib-vt -Dtarget=wasm32-freestanding -Doptimize=ReleaseSmall
+cd ghostty
+zig build -Demit-lib-vt -Dtarget=wasm32-freestanding -Doptimize=ReleaseSmall
+cd ..
 
 # Copy to project root
-cd ..
 cp ghostty/zig-out/bin/ghostty-vt.wasm ./
 
-# Revert patch to keep submodule clean
+# Revert patch & clean any new files it created so the submodule stays clean
 echo "🧹 Cleaning up..."
 cd ghostty
-git apply -R ../patches/ghostty-wasm-api.patch
-# Remove new files created by the patch
-rm -f include/ghostty/vt/terminal.h
-rm -f src/terminal/c/terminal.zig
+if [ -s "../$PATCH" ]; then
+    git apply -R "../$PATCH"
+fi
+git restore .
+git clean -fd
 cd ..
 
 SIZE=$(du -h ghostty-vt.wasm | cut -f1)
