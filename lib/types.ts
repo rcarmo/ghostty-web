@@ -408,12 +408,25 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
   ghostty_key_event_set_utf8(event: number, ptr: number, len: number): void;
 
   // Terminal lifecycle
-  ghostty_terminal_new(cols: number, rows: number): TerminalHandle;
-  ghostty_terminal_new_with_config(cols: number, rows: number, configPtr: number): TerminalHandle;
+  ghostty_terminal_new(
+    allocatorPtr: number,
+    terminalPtrPtr: number,
+    optionsPtr: number
+  ): number; // GhosttyResult (0 = success)
   ghostty_terminal_free(terminal: TerminalHandle): void;
-  ghostty_terminal_resize(terminal: TerminalHandle, cols: number, rows: number): void;
-  ghostty_terminal_write(terminal: TerminalHandle, dataPtr: number, dataLen: number): void;
-  ghostty_terminal_set_colors(terminal: TerminalHandle, configPtr: number): void;
+  ghostty_terminal_resize(
+    terminal: TerminalHandle,
+    cols: number,
+    rows: number,
+    cellWidthPx: number,
+    cellHeightPx: number
+  ): number;
+  ghostty_terminal_vt_write(
+    terminal: TerminalHandle,
+    dataPtr: number,
+    dataLen: number
+  ): void;
+  ghostty_terminal_set_colors?: (terminal: TerminalHandle, configPtr: number) => void;
 
   // RenderState API - high-performance rendering (ONE call gets ALL data)
   ghostty_render_state_update(terminal: TerminalHandle): number; // 0=none, 1=partial, 2=full
@@ -529,7 +542,7 @@ export const CURSOR_STRUCT_SIZE = 8;
 export const COLORS_STRUCT_SIZE = 12;
 
 /**
- * Terminal configuration (passed to ghostty_terminal_new_with_config)
+ * Terminal theme/config payload used by the legacy color-configuration helper.
  * All color values use 0xRRGGBB format. A value of 0 means "use default".
  */
 export interface GhosttyTerminalConfig {
@@ -602,7 +615,7 @@ export interface Cursor {
 }
 
 /**
- * Terminal configuration (passed to ghostty_terminal_new_with_config)
+ * Legacy packed terminal configuration shape.
  */
 export interface TerminalConfig {
   scrollback_limit: number; // Number of scrollback lines (default: 10,000)

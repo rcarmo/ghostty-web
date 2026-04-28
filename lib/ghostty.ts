@@ -353,24 +353,38 @@ export class GhosttyTerminal {
     this._cols = cols;
     this._rows = rows;
 
-    if (config) {
-      // Allocate config struct in WASM memory
-      const configPtr = this.exports.ghostty_wasm_alloc_u8_array(GHOSTTY_CONFIG_SIZE);
-      if (configPtr === 0) {
-        throw new Error('Failed to allocate config (out of memory)');
-      }
+    // GhosttyTerminalOptions layout (8 bytes on wasm32):
+    //   u16 cols @ 0
+    //   u16 rows @ 2
+    //   u32 max_scrollback @ 4   (size_t is u32 on wasm32)
+    const TERM_OPTS_SIZE = 8;
+    const optsPtr = this.exports.ghostty_wasm_alloc_u8_array(TERM_OPTS_SIZE);
+    if (optsPtr === 0) throw new Error('Failed to allocate terminal options');
+    const termPtrPtr = this.exports.ghostty_wasm_alloc_opaque();
+    if (termPtrPtr === 0) {
+      this.exports.ghostty_wasm_free_u8_array(optsPtr, TERM_OPTS_SIZE);
+      throw new Error('Failed to allocate terminal handle');
+    }
+    try {
+      const optsView = new DataView(this.memory.buffer, optsPtr, TERM_OPTS_SIZE);
+      optsView.setUint16(0, cols, true);
+      optsView.setUint16(2, rows, true);
+      optsView.setUint32(4, config?.scrollbackLimit ?? 10000, true);
 
-      try {
-        this.writeConfigToPtr(configPtr, config);
-        this.handle = this.exports.ghostty_terminal_new_with_config(cols, rows, configPtr);
-      } finally {
-        this.exports.ghostty_wasm_free_u8_array(configPtr, GHOSTTY_CONFIG_SIZE);
-      }
-    } else {
-      this.handle = this.exports.ghostty_terminal_new(cols, rows);
+      const result = this.exports.ghostty_terminal_new(0, termPtrPtr, optsPtr);
+      if (result !== 0) throw new Error(`ghostty_terminal_new failed: ${result}`);
+
+      this.handle = new DataView(this.memory.buffer).getUint32(termPtrPtr, true);
+    } finally {
+      this.exports.ghostty_wasm_free_u8_array(optsPtr, TERM_OPTS_SIZE);
+      this.exports.ghostty_wasm_free_opaque(termPtrPtr);
     }
 
     if (!this.handle) throw new Error('Failed to create terminal');
+
+    // TODO: apply config.fgColor / bgColor / cursorColor / palette via
+    // ghostty_terminal_set(GHOSTTY_TERMINAL_OPT_COLOR_*) once the option
+    // bindings are wired up.
 
     this.initCellPool();
   }
@@ -390,7 +404,7 @@ export class GhosttyTerminal {
     const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
     const ptr = this.exports.ghostty_wasm_alloc_u8_array(bytes.length);
     new Uint8Array(this.memory.buffer).set(bytes, ptr);
-    this.exports.ghostty_terminal_write(this.handle, ptr, bytes.length);
+    this.exports.ghostty_terminal_vt_write(this.handle, ptr, bytes.length);
     this.exports.ghostty_wasm_free_u8_array(ptr, bytes.length);
   }
 
@@ -398,7 +412,9 @@ export class GhosttyTerminal {
     if (cols === this._cols && rows === this._rows) return;
     this._cols = cols;
     this._rows = rows;
-    this.exports.ghostty_terminal_resize(this.handle, cols, rows);
+    // TODO: thread real cell pixel dims (currently 0 = unknown/disabled,
+    // affects size reports and image protocols only).
+    this.exports.ghostty_terminal_resize(this.handle, cols, rows, 0, 0);
     this.invalidateBuffers();
     this.initCellPool();
   }
@@ -416,12 +432,15 @@ export class GhosttyTerminal {
    * (no sentinel — 0x000000 is valid black). Forces a full redraw on next render.
    */
   setColors(config: GhosttyTerminalConfig): void {
+    const setColors = this.exports.ghostty_terminal_set_colors;
+    if (!setColors) return;
+
     const configPtr = this.exports.ghostty_wasm_alloc_u8_array(GHOSTTY_CONFIG_SIZE);
     if (configPtr === 0) return;
 
     try {
       this.writeConfigToPtr(configPtr, config);
-      this.exports.ghostty_terminal_set_colors(this.handle, configPtr);
+      setColors(this.handle, configPtr);
     } finally {
       this.exports.ghostty_wasm_free_u8_array(configPtr, GHOSTTY_CONFIG_SIZE);
     }
