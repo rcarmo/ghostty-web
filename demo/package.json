@@ -11,8 +11,8 @@
     "dev": "node bin/demo.js --dev"
   },
   "dependencies": {
-    "@lydell/node-pty": "^1.0.1",
-    "@canopy-hq/ghostty-web": "latest",
+    "node-pty": "1.2.0-beta.12",
+    "ghostty-web": "latest",
     "ws": "^8.18.0"
   },
   "files": [
@@ -29,15 +29,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/coder/ghostty-web.git",
+    "url": "https://github.com/rcarmo/ghostty-web.git",
     "directory": "demo"
   },
-  "bugs": "https://github.com/coder/ghostty-web/issues",
-  "homepage": "https://github.com/coder/ghostty-web/tree/main/demo#readme",
+  "bugs": "https://github.com/rcarmo/ghostty-web/issues",
+  "homepage": "https://github.com/rcarmo/ghostty-web/tree/main/demo#readme",
   "license": "MIT",
   "author": "Coder",
   "publishConfig": {
-    "access": "public",
-    "registry": "https://npm.pkg.github.com"
+    "access": "public"
   }
 }
