@@ -3054,6 +3054,46 @@ describe('Terminal – preedit overlay API', () => {
     }
   });
 
+  test('XTWINOPS size queries (CSI 14/16/18 t) round-trip after setCellPixelSize', async () => {
+    const { Ghostty } = await import('./ghostty');
+    const g = await Ghostty.load();
+    const t = g.createTerminal(80, 24);
+
+    // Without pixel dims set, the SIZE callback returns false and the
+    // terminal silently drops the query.
+    t.write('\x1b[14t');
+    expect(t.readResponse()).toBe(null);
+
+    t.setCellPixelSize(8, 16);
+    t.write('\x1b[14t'); // text area in pixels — \e[4;<height>;<width>t
+    expect(t.readResponse()).toBe('\x1b[4;384;640t');
+    t.write('\x1b[16t'); // cell in pixels — \e[6;<height>;<width>t
+    expect(t.readResponse()).toBe('\x1b[6;16;8t');
+    t.write('\x1b[18t'); // rows / cols — \e[8;<rows>;<cols>t
+    expect(t.readResponse()).toBe('\x1b[8;24;80t');
+
+    t.free();
+  });
+
+  test('two parallel Ghostty.load() instances each route to themselves', async () => {
+    const { Ghostty } = await import('./ghostty');
+    // Each load() owns its own __indirect_function_table; the registry
+    // is keyed off that table so the trampoline slots and routing maps
+    // don't collide.
+    const a = await Ghostty.load();
+    const b = await Ghostty.load();
+    const ta = a.createTerminal(80, 24);
+    const tb = b.createTerminal(80, 24);
+
+    ta.write('\x1b[6n');
+    tb.write('\x1b[6n');
+    expect(ta.readResponse()).toBe('\x1b[1;1R');
+    expect(tb.readResponse()).toBe('\x1b[1;1R');
+
+    ta.free();
+    tb.free();
+  });
+
   test('setPreedit and clearPreedit exist as functions', async () => {
     const term = await createIsolatedTerminal();
     expect(typeof term.setPreedit).toBe('function');

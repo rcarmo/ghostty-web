@@ -7,6 +7,11 @@
  */
 
 import {
+  makeCallbackTrampolines,
+  type SizeCallback,
+  type WritePtyCallback,
+} from './write_pty_trampoline';
+import {
   CellFlags,
   CursorVisualStyle,
   type Cursor,
@@ -353,6 +358,15 @@ export class GhosttyTerminal {
   private cellPool: GhosttyCell[] = [];
 
   /**
+   * Cell pixel dimensions last pushed to the WASM terminal via
+   * ghostty_terminal_resize. Zero means "unknown / disabled" — kitty
+   * graphics image sizing and CSI 14/16/18 t in-band size reports will
+   * return zero/no-op until setCellPixelSize() is called with real values.
+   */
+  private cellWidthPx = 0;
+  private cellHeightPx = 0;
+
+  /**
    * Per-row dirty state for the current render-state snapshot. Cleared on
    * update() and populated lazily by isRowDirty() (or as a side effect of
    * getViewport, which iterates rows anyway).
@@ -364,6 +378,41 @@ export class GhosttyTerminal {
    * lifecycle as rowDirtyCache; the two caches are filled in lockstep.
    */
   private rowWrapCache: boolean[] | null = null;
+
+  /**
+   * Bytes the terminal would have written back to a real PTY in response
+   * to query sequences (DSR, XTVERSION, in-band size reports, ...).
+   * Captured by the WRITE_PTY callback installed in the constructor and
+   * drained by readResponse(). Each slot is one callback invocation, so
+   * a single response sequence may span multiple slots.
+   */
+  private pendingResponses: Uint8Array[] = [];
+
+  /**
+   * Per-table registry for callback trampolines. Keyed on the WASM
+   * module's __indirect_function_table so that multiple Ghostty.load()
+   * instances each get their own trampoline slots and routing map —
+   * terminal handles are only unique within a single WASM instance, and
+   * indices into one module's table are meaningless in another.
+   */
+  private static callbackRegistries = new WeakMap<
+    WebAssembly.Table,
+    {
+      writePtyIndex: number;
+      sizeIndex: number;
+      instancesByHandle: Map<number, GhosttyTerminal>;
+    }
+  >();
+
+  /**
+   * Cached pointer to this terminal's registry. We only need it to
+   * deregister cleanly in free() / cleanupOnConstructorFailure().
+   */
+  private callbackRegistry?: {
+    writePtyIndex: number;
+    sizeIndex: number;
+    instancesByHandle: Map<number, GhosttyTerminal>;
+  };
 
   constructor(
     exports: GhosttyWasmExports,
@@ -406,40 +455,54 @@ export class GhosttyTerminal {
 
     if (!this.handle) throw new Error('Failed to create terminal');
 
-    // Apply theme colors + palette overrides. The constructor's options
-    // struct only carries cols/rows/scrollback, so colors land here via
-    // ghostty_terminal_set(COLOR_*).
-    if (config) this.applyConfig(config);
+    // Everything below could fail; cleanupOnConstructorFailure makes the
+    // partially-constructed path idempotent so we can safely centralize
+    // constructor cleanup here.
+    try {
+      // Install the trampoline callbacks so the terminal can deliver
+      // response bytes (DSR, XTVERSION, etc.) back to JS via WRITE_PTY,
+      // and so the embedder can answer XTWINOPS size queries (CSI 14/16/18 t)
+      // via SIZE.
+      this.installCallbacks();
 
-    // Mode 2027 (grapheme clustering) is what lets the terminal treat
-    // multi-codepoint clusters (flag emoji, ZWJ sequences, skin tones) as
-    // a single cell. Coder's old C-side patch enabled it inside the
-    // terminal_new() shim; the new public C ABI doesn't, so we enable it
-    // here from JS to preserve coder's defaults.
-    this.exports.ghostty_terminal_mode_set(this.handle, packMode(2027, false), true);
+      // Apply theme colors + palette overrides. The constructor's options
+      // struct only carries cols/rows/scrollback, so colors land here via
+      // ghostty_terminal_set(COLOR_*).
+      if (config) this.applyConfig(config);
 
-    // Create the render state that owns the per-frame snapshot read by
-    // getCursor/getColors/getViewport. Render state is updated explicitly via
-    // update() rather than implicitly per read, since it's relatively cheap
-    // when the terminal hasn't changed but still costs a WASM crossing.
-    this.renderHandle = this.allocOpaqueOrFail(
-      'ghostty_render_state_new',
-      (out) => this.exports.ghostty_render_state_new(0, out)
-    );
-    // Pre-allocate the row iterator and row-cells iterators once and reuse
-    // them across frames. They're populated from the render state in
-    // getViewport via _get(ROW_ITERATOR) and _row_get(ROW_DATA_CELLS); the
-    // handles themselves stay live for the terminal's lifetime.
-    this.rowIter = this.allocOpaqueOrFail(
-      'ghostty_render_state_row_iterator_new',
-      (out) => this.exports.ghostty_render_state_row_iterator_new(0, out)
-    );
-    this.rowCells = this.allocOpaqueOrFail(
-      'ghostty_render_state_row_cells_new',
-      (out) => this.exports.ghostty_render_state_row_cells_new(0, out)
-    );
+      // Mode 2027 (grapheme clustering) is what lets the terminal treat
+      // multi-codepoint clusters (flag emoji, ZWJ sequences, skin tones) as
+      // a single cell. Coder's old C-side patch enabled it inside the
+      // terminal_new() shim; the new public C ABI doesn't, so we enable it
+      // here from JS to preserve coder's defaults.
+      this.exports.ghostty_terminal_mode_set(this.handle, packMode(2027, false), true);
 
-    this.initCellPool();
+      // Create the render state that owns the per-frame snapshot read by
+      // getCursor/getColors/getViewport. Render state is updated explicitly via
+      // update() rather than implicitly per read, since it's relatively cheap
+      // when the terminal hasn't changed but still costs a WASM crossing.
+      this.renderHandle = this.allocOpaqueOrFail(
+        'ghostty_render_state_new',
+        (out) => this.exports.ghostty_render_state_new(0, out)
+      );
+      // Pre-allocate the row iterator and row-cells iterators once and reuse
+      // them across frames. They're populated from the render state in
+      // getViewport via _get(ROW_ITERATOR) and _row_get(ROW_DATA_CELLS); the
+      // handles themselves stay live for the terminal's lifetime.
+      this.rowIter = this.allocOpaqueOrFail(
+        'ghostty_render_state_row_iterator_new',
+        (out) => this.exports.ghostty_render_state_row_iterator_new(0, out)
+      );
+      this.rowCells = this.allocOpaqueOrFail(
+        'ghostty_render_state_row_cells_new',
+        (out) => this.exports.ghostty_render_state_row_cells_new(0, out)
+      );
+
+      this.initCellPool();
+    } catch (error) {
+      this.cleanupOnConstructorFailure();
+      throw error;
+    }
   }
 
   /**
@@ -537,6 +600,10 @@ export class GhosttyTerminal {
    * before the throw propagates.
    */
   private cleanupOnConstructorFailure(): void {
+    if (this.callbackRegistry) {
+      this.callbackRegistry.instancesByHandle.delete(this.handle);
+      this.callbackRegistry = undefined;
+    }
     if (this.rowCells) {
       this.exports.ghostty_render_state_row_cells_free(this.rowCells);
       this.rowCells = 0;
@@ -551,6 +618,7 @@ export class GhosttyTerminal {
     }
     if (this.handle) {
       this.exports.ghostty_terminal_free(this.handle);
+      this.handle = 0;
     }
   }
 
@@ -645,13 +713,53 @@ export class GhosttyTerminal {
     if (cols === this._cols && rows === this._rows) return;
     this._cols = cols;
     this._rows = rows;
-    // TODO: thread real cell pixel dims (currently 0 = unknown/disabled,
-    // affects size reports and image protocols only).
-    this.exports.ghostty_terminal_resize(this.handle, cols, rows, 0, 0);
+    this.exports.ghostty_terminal_resize(
+      this.handle,
+      cols,
+      rows,
+      this.cellWidthPx,
+      this.cellHeightPx
+    );
     this.initCellPool();
   }
 
+  /**
+   * Push the renderer's per-cell pixel size into the WASM terminal.
+   *
+   * The new C ABI doesn't expose a separate "set pixel size" call —
+   * dimensions only flow through ghostty_terminal_resize, which takes
+   * (cols, rows, cell_width_px, cell_height_px). We cache the cell pixel
+   * dims on the instance so subsequent resize() calls keep the values
+   * stable, and short-circuit when nothing has changed.
+   *
+   * The width/height arguments are PER-CELL CSS pixels — matches what
+   * the renderer reports via getMetrics(). Coder's old setPixelSize
+   * took TOTAL screen pixels (cell_width * cols, cell_height * rows);
+   * we renamed to avoid silent value mis-passing.
+   *
+   * Affects in-band size reports (CSI 14/16/18 t) and kitty graphics
+   * placement sizing. Until called, those query paths return zero.
+   */
+  setCellPixelSize(cellWidthPx: number, cellHeightPx: number): void {
+    const w = Math.max(1, Math.round(cellWidthPx));
+    const h = Math.max(1, Math.round(cellHeightPx));
+    if (w === this.cellWidthPx && h === this.cellHeightPx) return;
+    this.cellWidthPx = w;
+    this.cellHeightPx = h;
+    this.exports.ghostty_terminal_resize(
+      this.handle,
+      this._cols,
+      this._rows,
+      w,
+      h
+    );
+  }
+
   free(): void {
+    if (this.callbackRegistry) {
+      this.callbackRegistry.instancesByHandle.delete(this.handle);
+      this.callbackRegistry = undefined;
+    }
     if (this.rowCells) {
       this.exports.ghostty_render_state_row_cells_free(this.rowCells);
       this.rowCells = 0;
@@ -1560,15 +1668,69 @@ export class GhosttyTerminal {
    * responses" so callers (e.g. demo/PTY echo) degrade gracefully.
    */
   hasResponse(): boolean {
-    return false;
+    return this.pendingResponses.length > 0;
   }
 
   /**
-   * Read pending responses from the terminal. See hasResponse() for the
-   * status of the callback-based replacement.
+   * Read pending responses from the terminal.
    */
   readResponse(): string | null {
-    return null;
+    if (this.pendingResponses.length === 0) return null;
+    let total = 0;
+    for (const chunk of this.pendingResponses) total += chunk.length;
+    const merged = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of this.pendingResponses) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+    this.pendingResponses.length = 0;
+    return new TextDecoder().decode(merged);
+  }
+
+  /**
+   * Install the WRITE_PTY and SIZE trampoline callbacks.
+   */
+  private installCallbacks(): void {
+    const table = (this.exports as unknown as { __indirect_function_table: WebAssembly.Table })
+      .__indirect_function_table;
+
+    let registry = GhosttyTerminal.callbackRegistries.get(table);
+    if (!registry) {
+      const instancesByHandle = new Map<number, GhosttyTerminal>();
+      const writePtyDispatch: WritePtyCallback = (handle, _userdata, dataPtr, dataLen) => {
+        const term = instancesByHandle.get(handle);
+        if (!term) return;
+        term.pendingResponses.push(new Uint8Array(term.memory.buffer, dataPtr, dataLen).slice());
+      };
+      const sizeDispatch: SizeCallback = (handle, _userdata, outSizePtr) => {
+        const term = instancesByHandle.get(handle);
+        if (!term) return 0;
+        if (term.cellWidthPx === 0 || term.cellHeightPx === 0) return 0;
+        const view = new DataView(term.memory.buffer);
+        view.setUint16(outSizePtr + 0, term._rows, true);
+        view.setUint16(outSizePtr + 2, term._cols, true);
+        view.setUint32(outSizePtr + 4, term.cellWidthPx, true);
+        view.setUint32(outSizePtr + 8, term.cellHeightPx, true);
+        return 1;
+      };
+      const { writePtyFwd, sizeFwd } = makeCallbackTrampolines(
+        writePtyDispatch,
+        sizeDispatch
+      );
+      const writePtyIndex = table.grow(1);
+      table.set(writePtyIndex, writePtyFwd);
+      const sizeIndex = table.grow(1);
+      table.set(sizeIndex, sizeFwd);
+      registry = { writePtyIndex, sizeIndex, instancesByHandle };
+      GhosttyTerminal.callbackRegistries.set(table, registry);
+    }
+
+    registry.instancesByHandle.set(this.handle, this);
+    this.callbackRegistry = registry;
+
+    this.exports.ghostty_terminal_set(this.handle, TerminalOption.WRITE_PTY, registry.writePtyIndex);
+    this.exports.ghostty_terminal_set(this.handle, TerminalOption.SIZE, registry.sizeIndex);
   }
 
   /**
