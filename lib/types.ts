@@ -496,6 +496,201 @@ export enum DirtyState {
 }
 
 /**
+ * Keys for ghostty_render_state_get(). Mirrors GhosttyRenderStateData.
+ */
+export enum RenderStateData {
+  COLS = 1,
+  ROWS = 2,
+  DIRTY = 3,
+  ROW_ITERATOR = 4,
+  COLOR_BACKGROUND = 5,
+  COLOR_FOREGROUND = 6,
+  COLOR_CURSOR = 7,
+  COLOR_CURSOR_HAS_VALUE = 8,
+  COLOR_PALETTE = 9,
+  CURSOR_VISUAL_STYLE = 10,
+  CURSOR_VISIBLE = 11,
+  CURSOR_BLINKING = 12,
+  CURSOR_PASSWORD_INPUT = 13,
+  CURSOR_VIEWPORT_HAS_VALUE = 14,
+  CURSOR_VIEWPORT_X = 15,
+  CURSOR_VIEWPORT_Y = 16,
+  CURSOR_VIEWPORT_WIDE_TAIL = 17,
+}
+
+/**
+ * Options for ghostty_render_state_set(). Mirrors GhosttyRenderStateOption.
+ */
+export enum RenderStateOption {
+  DIRTY = 0,
+}
+
+/**
+ * Visual cursor style. Mirrors GhosttyRenderStateCursorVisualStyle.
+ */
+export enum CursorVisualStyle {
+  BAR = 0,
+  BLOCK = 1,
+  UNDERLINE = 2,
+  BLOCK_HOLLOW = 3,
+}
+
+/**
+ * Keys for ghostty_terminal_get(). Mirrors GhosttyTerminalData.
+ * Only entries actually used by the TS layer are listed here; the upstream
+ * enum has more (TITLE, PWD, SCROLLBAR, KITTY_KEYBOARD_FLAGS, palettes, ...).
+ */
+export enum TerminalData {
+  COLS = 1,
+  ROWS = 2,
+  CURSOR_X = 3,
+  CURSOR_Y = 4,
+  CURSOR_PENDING_WRAP = 5,
+  ACTIVE_SCREEN = 6,
+  CURSOR_VISIBLE = 7,
+  KITTY_KEYBOARD_FLAGS = 8,
+  SCROLLBAR = 9,
+  CURSOR_STYLE = 10,
+  MOUSE_TRACKING = 11,
+  TITLE = 12,
+  PWD = 13,
+  TOTAL_ROWS = 14,
+  SCROLLBACK_ROWS = 15,
+  WIDTH_PX = 16,
+  HEIGHT_PX = 17,
+  COLOR_FOREGROUND = 18,
+  COLOR_BACKGROUND = 19,
+  COLOR_CURSOR = 20,
+  COLOR_PALETTE = 21,
+  COLOR_FOREGROUND_DEFAULT = 22,
+  COLOR_BACKGROUND_DEFAULT = 23,
+  COLOR_CURSOR_DEFAULT = 24,
+  COLOR_PALETTE_DEFAULT = 25,
+}
+
+/**
+ * Options for ghostty_terminal_set(). Mirrors GhosttyTerminalOption.
+ * Only the entries the TS layer touches are listed; the upstream enum has
+ * more (callbacks for BELL/TITLE_CHANGED/etc., kitty-image limits, ...).
+ */
+export enum TerminalOption {
+  USERDATA = 0,
+  WRITE_PTY = 1,
+  BELL = 2,
+  ENQUIRY = 3,
+  XTVERSION = 4,
+  TITLE_CHANGED = 5,
+  SIZE = 6,
+  COLOR_FOREGROUND = 11,
+  COLOR_BACKGROUND = 12,
+  COLOR_CURSOR = 13,
+  COLOR_PALETTE = 14,
+}
+
+/**
+ * Active screen identifier. Mirrors GhosttyTerminalScreen.
+ * Returned as the value for TerminalData.ACTIVE_SCREEN.
+ */
+export enum TerminalScreen {
+  PRIMARY = 0,
+  ALTERNATE = 1,
+}
+
+/**
+ * Keys for ghostty_render_state_row_get(). Mirrors GhosttyRenderStateRowData.
+ */
+export enum RenderStateRowData {
+  DIRTY = 1,
+  RAW = 2,
+  CELLS = 3,
+}
+
+/**
+ * Options for ghostty_render_state_row_set(). Mirrors GhosttyRenderStateRowOption.
+ */
+export enum RenderStateRowOption {
+  DIRTY = 0,
+}
+
+/**
+ * Keys for ghostty_render_state_row_cells_get(). Mirrors
+ * GhosttyRenderStateRowCellsData.
+ */
+export enum RowCellsData {
+  RAW = 1,
+  STYLE = 2,
+  GRAPHEMES_LEN = 3,
+  GRAPHEMES_BUF = 4,
+  BG_COLOR = 5,
+  FG_COLOR = 6,
+}
+
+/**
+ * Keys for ghostty_row_get(). Mirrors GhosttyRowData. Used with the raw
+ * GhosttyRow value obtained via _render_state_row_get(iter, RAW, &row).
+ */
+export enum RowData {
+  WRAP = 1,
+  WRAP_CONTINUATION = 2,
+  GRAPHEME = 3,
+  STYLED = 4,
+  HYPERLINK = 5,
+}
+
+/**
+ * Tag values for GhosttyPoint. Mirrors GhosttyPointTag. The tag selects
+ * which coordinate space y is interpreted in.
+ */
+export enum PointTag {
+  ACTIVE = 0,
+  VIEWPORT = 1,
+  SCREEN = 2,
+  HISTORY = 3,
+}
+
+/**
+ * Keys for ghostty_cell_get(). Mirrors GhosttyCellData. Used with the
+ * raw GhosttyCell value obtained via grid_ref_cell or row_cells_get(RAW).
+ */
+export enum CellData {
+  CODEPOINT = 1,
+  CONTENT_TAG = 2,
+  WIDE = 3,
+  HAS_TEXT = 4,
+  HAS_STYLING = 5,
+  STYLE_ID = 6,
+  HAS_HYPERLINK = 7,
+  PROTECTED = 8,
+  SEMANTIC_CONTENT = 9,
+  COLOR_PALETTE = 10,
+  COLOR_RGB = 11,
+}
+
+/**
+ * Cell width classification. Mirrors GhosttyCellWide.
+ *   NARROW: single-column cell (most ASCII, BMP)
+ *   WIDE: leading half of a double-width cell (CJK, most emoji)
+ *   SPACER_TAIL: trailing half of a wide cell — placeholder, no glyph
+ *   SPACER_HEAD: leading placeholder when a wide cell would have crossed
+ *     the right margin and got pushed to the next row
+ */
+export enum CellWide {
+  NARROW = 0,
+  WIDE = 1,
+  SPACER_TAIL = 2,
+  SPACER_HEAD = 3,
+}
+
+/**
+ * Pack a terminal mode number + ANSI flag into the u16 wire format used by
+ * ghostty_terminal_mode_get/_set. Bits 0–14 hold the value (u15), bit 15
+ * is set for ANSI modes (cleared for DEC private modes).
+ */
+export function packMode(mode: number, isAnsi: boolean): number {
+  return (mode & 0x7fff) | (isAnsi ? 0x8000 : 0);
+}
+
+/**
  * Cursor state from RenderState (8 bytes packed)
  * Layout: x(u16) + y(u16) + viewport_x(i16) + viewport_y(i16) + visible(bool) + blinking(bool) + style(u8) + _pad(u8)
  */
