@@ -66,8 +66,12 @@ export type SizeCallback = (
 let compiled: WebAssembly.Module | null = null;
 
 export interface TrampolineExports {
-  writePtyFwd: Function;
-  sizeFwd: Function;
+  // Funcrefs for installation into the main module's
+  // __indirect_function_table. Their JS-side type matches their
+  // corresponding callback signatures since the trampoline body just
+  // forwards arguments through.
+  writePtyFwd: WritePtyCallback;
+  sizeFwd: SizeCallback;
 }
 
 export function makeCallbackTrampolines(
@@ -79,7 +83,7 @@ export function makeCallbackTrampolines(
     env: { write_pty_cb: writePtyCb, size_cb: sizeCb },
   });
   return {
-    writePtyFwd: inst.exports.write_pty_fwd as Function,
-    sizeFwd: inst.exports.size_fwd as Function,
+    writePtyFwd: inst.exports.write_pty_fwd as unknown as WritePtyCallback,
+    sizeFwd: inst.exports.size_fwd as unknown as SizeCallback,
   };
 }
