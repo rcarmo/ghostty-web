@@ -351,7 +351,7 @@ describe('Terminal', () => {
         if (userAgentDescriptor) {
           Object.defineProperty(navigatorProto, 'userAgent', userAgentDescriptor);
         } else {
-          delete (navigatorProto as { userAgent?: string }).userAgent;
+          (navigatorProto as { userAgent?: string }).userAgent = undefined;
         }
         term.dispose();
       }

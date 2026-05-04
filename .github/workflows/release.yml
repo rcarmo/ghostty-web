@@ -43,13 +43,14 @@ jobs:
           echo "tag=v${NEW_VERSION}" >> $GITHUB_OUTPUT
 
           jq --arg v "${NEW_VERSION}" '.version = $v' package.json > /tmp/package.json && mv /tmp/package.json package.json
+          jq --arg v "${NEW_VERSION}" '.version = $v | .packages[""].version = $v' package-lock.json > /tmp/package-lock.json && mv /tmp/package-lock.json package-lock.json
           echo "Bumped ${CURRENT} → ${NEW_VERSION}"
 
       - name: Commit, tag and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
+          git add package.json package-lock.json
           git commit -m "chore: release v${{ steps.version.outputs.new_version }} [skip ci]"
           git tag "${{ steps.version.outputs.tag }}"
           git push origin "HEAD:${{ github.ref_name }}"

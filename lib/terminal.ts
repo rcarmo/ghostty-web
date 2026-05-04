@@ -192,9 +192,11 @@ export class Terminal implements ITerminalCore {
       return false;
     }
 
-    const uaData = (navigator as Navigator & {
-      userAgentData?: { platform?: string; mobile?: boolean };
-    }).userAgentData;
+    const uaData = (
+      navigator as Navigator & {
+        userAgentData?: { platform?: string; mobile?: boolean };
+      }
+    ).userAgentData;
     if (uaData?.platform && /android/i.test(uaData.platform)) {
       return true;
     }

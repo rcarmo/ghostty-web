@@ -13,28 +13,27 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Tag or branch to publish (e.g. v0.4.1 or main)'
+        description: 'Tag or branch to publish (e.g. v0.7.0 or main)'
         required: false
         default: ''
 
 permissions:
-  contents: write # Required for creating GitHub releases
-  packages: write # Required for publishing to GitHub Packages
+  contents: write
 
 jobs:
   publish:
-    name: publish to GitHub Packages
+    name: publish package
     runs-on: ubuntu-latest
-    # Only run if CI workflow succeeded (for workflow_run trigger)
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
-          fetch-depth: 0 # Required for git describe to find tags
+          fetch-depth: 0
           submodules: recursive
 
       - name: Setup Bun
@@ -47,10 +46,13 @@ jobs:
         with:
           version: 0.15.2
 
-      - name: Configure GitHub Packages registry
+      - name: Configure npm registry
         run: |
-          echo "@canopy-hq:registry=https://npm.pkg.github.com/" >> .npmrc
-          echo "//npm.pkg.github.com/:_authToken=${GH_TOKEN}" >> .npmrc
+          if [[ -z "${NPM_TOKEN}" ]]; then
+            echo "NPM_TOKEN secret is not configured"
+            exit 1
+          fi
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
       - name: Build WASM
         run: ./scripts/build-wasm.sh
@@ -78,14 +80,10 @@ jobs:
         run: |
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             echo "is_tag=true" >> $GITHUB_OUTPUT
-            echo "trigger_type=tag" >> $GITHUB_OUTPUT
             echo "trigger_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-            echo "📦 Detected tag push: ${GITHUB_REF#refs/tags/}"
           else
             echo "is_tag=false" >> $GITHUB_OUTPUT
-            echo "trigger_type=branch" >> $GITHUB_OUTPUT
             echo "trigger_name=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
-            echo "🚧 Detected branch push: ${GITHUB_REF#refs/heads/}"
           fi
 
       - name: Generate version
@@ -94,7 +92,6 @@ jobs:
           if [[ "${{ steps.detect.outputs.is_tag }}" == "true" ]]; then
             NPM_VERSION="${GITHUB_REF#refs/tags/v}"
             NPM_TAG="latest"
-            echo "📦 Publishing stable release: ${NPM_VERSION}"
           else
             LATEST_TAG=$(git describe --tags --abbrev=0)
             BASE_VERSION="${LATEST_TAG#v}"
@@ -102,47 +99,14 @@ jobs:
             COMMITS_SINCE_TAG=$(git rev-list --count HEAD ^$(git describe --tags --abbrev=0 2>/dev/null || echo HEAD) 2>/dev/null || echo "0")
             NPM_VERSION="${BASE_VERSION}-next.${COMMITS_SINCE_TAG}.g${GIT_COMMIT}"
             NPM_TAG="next"
-            echo "🚧 Publishing pre-release: ${NPM_VERSION}"
           fi
 
           echo "version=${NPM_VERSION}" >> $GITHUB_OUTPUT
           echo "tag=${NPM_TAG}" >> $GITHUB_OUTPUT
-
           jq --arg v "${NPM_VERSION}" '.version = $v' package.json > /tmp/package.json && mv /tmp/package.json package.json
-          echo "Updated package.json to version ${NPM_VERSION}"
 
-      - name: Check if version exists
-        id: check-exists
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          if gh api /orgs/canopy-hq/packages/npm/%40canopy-hq%2Fghostty-web/versions \
-            --jq '.[].name' 2>/dev/null | grep -qx "${VERSION}"; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Version ${VERSION} already exists on GitHub Packages"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Version ${VERSION} does not exist, will publish"
-          fi
-
-      - name: Publish to GitHub Packages
-        if: steps.check-exists.outputs.exists == 'false'
-        run: bun publish --tag ${{ steps.version.outputs.tag }}
-
-      - name: Update dist-tag (version already exists)
-        if: steps.check-exists.outputs.exists == 'true' && steps.detect.outputs.is_tag == 'true'
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TAG="${{ steps.version.outputs.tag }}"
-          echo "Version ${VERSION} already published, updating dist-tag to ${TAG}"
-          curl -sf -X PUT \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "\"${VERSION}\"" \
-            "https://npm.pkg.github.com/%40canopy-hq%2Fghostty-web/-/dist-tags/${TAG}"
-
-      - name: Skip (pre-release already exists)
-        if: steps.check-exists.outputs.exists == 'true' && steps.detect.outputs.is_tag != 'true'
-        run: echo "⏭️ Pre-release version already exists, skipping"
+      - name: Publish to npm
+        run: bun publish --access public --tag ${{ steps.version.outputs.tag }}
 
       - name: Create GitHub Release
         if: steps.detect.outputs.is_tag == 'true'

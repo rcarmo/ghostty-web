@@ -1,21 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 echo "🔨 Building ghostty-vt.wasm..."
 
-# Check for Zig
-if ! command -v zig &> /dev/null; then
-    echo "❌ Error: Zig not found"
-    echo ""
-    echo "Install Zig 0.15.2+:"
-    echo "  macOS:   brew install zig"
-    echo "  Linux:   https://ziglang.org/download/"
-    echo ""
-    exit 1
-fi
+ZIG_BIN_DIR="$($SCRIPT_DIR/ensure-zig.sh 0.15.2)"
+export PATH="$ZIG_BIN_DIR:$PATH"
 
 ZIG_VERSION=$(zig version)
-echo "✓ Found Zig $ZIG_VERSION"
+echo "✓ Using Zig $ZIG_VERSION"
 
 # Initialize/update submodule
 if [ ! -d "ghostty/.git" ]; then
@@ -28,12 +24,12 @@ fi
 # Apply patch
 echo "🔧 Applying WASM API patch..."
 cd ghostty
-git apply --check ../patches/ghostty-wasm-api.patch || {
-    echo "❌ Patch doesn't apply cleanly"
+git apply --3way --check ../patches/ghostty-wasm-api.patch || {
+    echo "❌ Patch doesn't apply cleanly, even with 3-way merge"
     echo "Ghostty may have changed. Check patches/ghostty-wasm-api.patch"
     exit 1
 }
-git apply ../patches/ghostty-wasm-api.patch
+git apply --3way ../patches/ghostty-wasm-api.patch
 
 # Build WASM
 echo "⚙️  Building WASM (takes ~20 seconds)..."
