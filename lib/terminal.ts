@@ -38,6 +38,61 @@ import { CanvasRenderer, DEFAULT_THEME, type IRenderable } from './renderer';
 import { SelectionManager } from './selection-manager';
 import type { ILink, ILinkProvider } from './types';
 
+/**
+ * Parse a CSS color string (#hex or rgb/rgba) into numeric {r,g,b}.
+ * Returns the fallback for unparseable input.
+ */
+function parseCssColorToRgb(
+  input: string | undefined,
+  fallback: { r: number; g: number; b: number }
+): { r: number; g: number; b: number } {
+  const raw = String(input || '').trim();
+  if (!raw) return fallback;
+
+  if (raw.startsWith('#')) {
+    const hex = raw.slice(1);
+    const full = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+    if (/^[0-9a-fA-F]{6}$/.test(full)) {
+      const value = Number.parseInt(full, 16);
+      return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
+    }
+  }
+
+  const rgbMatch = raw.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (rgbMatch) {
+    return {
+      r: Number.parseInt(rgbMatch[1], 10),
+      g: Number.parseInt(rgbMatch[2], 10),
+      b: Number.parseInt(rgbMatch[3], 10),
+    };
+  }
+
+  return fallback;
+}
+
+/**
+ * Build a blank cell grid using the active theme colors.
+ * Used as a bootstrap snapshot so the terminal renders a clean blank
+ * screen on open() and reset() instead of showing uninitialised WASM memory.
+ */
+function createBlankBootstrapCells(
+  cols: number,
+  rows: number,
+  colors: { foreground: string; background: string }
+): GhosttyCell[][] {
+  const fg = parseCssColorToRgb(colors.foreground, { r: 212, g: 212, b: 212 });
+  const bg = parseCssColorToRgb(colors.background, { r: 30, g: 30, b: 30 });
+  const cell: GhosttyCell = {
+    codepoint: 32,
+    fg_r: fg.r, fg_g: fg.g, fg_b: fg.b,
+    bg_r: bg.r, bg_g: bg.g, bg_b: bg.b,
+    flags: 0, width: 1, hyperlink_id: 0, grapheme_len: 0,
+  };
+  return Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => ({ ...cell }))
+  );
+}
+
 // ============================================================================
 // SnapshotBuffer - Wrapper for playback mode
 // ============================================================================
@@ -657,7 +712,9 @@ export class Terminal implements ITerminalCore {
       // Mark as open
       this.isOpen = true;
 
-      // Render initial blank screen (force full redraw)
+      // Render initial blank screen via snapshot so the canvas shows
+      // theme-coloured blank cells instead of uninitialised WASM memory.
+      this.armBootstrapBlank();
       this.renderer.render(this.snapshotBuffer, true, this.viewportY, this, this.scrollbarOpacity);
 
       // Start render loop
@@ -700,6 +757,10 @@ export class Terminal implements ITerminalCore {
    * Internal write implementation (extracted from write())
    */
   private writeInternal(data: string | Uint8Array, callback?: () => void): void {
+    // First real write clears the bootstrap blank so the renderer
+    // switches back to live WASM terminal output.
+    this.disarmBootstrapBlank();
+
     // Note: We intentionally do NOT clear selection on write - most modern terminals
     // preserve selection when new data arrives. Selection is cleared by user actions
     // like clicking or typing, not by incoming data.
@@ -916,8 +977,10 @@ export class Terminal implements ITerminalCore {
     const config = this.buildWasmConfig();
     this.wasmTerm = this.ghostty!.createTerminal(this.cols, this.rows, config);
 
-    // Clear renderer
+    // Clear renderer and re-arm the bootstrap blank until real output arrives
+    this.armBootstrapBlank();
     this.renderer!.clear();
+    this.renderer!.render(this.snapshotBuffer, true, this.viewportY, this, this.scrollbarOpacity);
 
     // Reset title
     this.currentTitle = '';
@@ -2222,6 +2285,31 @@ export class Terminal implements ITerminalCore {
    */
   public hasSnapshot(): boolean {
     return this.snapshotCells !== null;
+  }
+
+  /**
+   * Arm a blank-cell snapshot so the renderer paints a clean screen
+   * until the first write() arrives.
+   */
+  private armBootstrapBlank(): void {
+    const theme = { ...DEFAULT_THEME, ...this.options.theme };
+    this.snapshotCells = createBlankBootstrapCells(this.cols, this.rows, {
+      foreground: theme.foreground,
+      background: theme.background,
+    });
+    this.snapshotDirty = true;
+  }
+
+  /**
+   * Disarm the bootstrap blank, returning the renderer to live WASM output.
+   * No-op if already disarmed or if a playback snapshot is active.
+   */
+  private disarmBootstrapBlank(): void {
+    // Only clear if we have a snapshot and it looks like our bootstrap
+    // (no cursor set — playback snapshots always set a cursor).
+    if (!this.snapshotCells || this.snapshotCursor) return;
+    this.snapshotCells = null;
+    this.snapshotDirty = true;
   }
 
   // Internal accessors for SnapshotBuffer
