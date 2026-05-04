@@ -2,7 +2,8 @@
 set -euo pipefail
 
 VERSION="${1:-0.15.2}"
-CACHE_DIR="${ZIG_CACHE_DIR:-$(pwd)/.tools/zig/$VERSION}"
+DEFAULT_CACHE_BASE="${XDG_CACHE_HOME:-$HOME/.cache}/ghostty-web/zig"
+CACHE_DIR="${ZIG_CACHE_DIR:-$DEFAULT_CACHE_BASE/$VERSION}"
 
 platform=""
 arch=""
