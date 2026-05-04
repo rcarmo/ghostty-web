@@ -1648,6 +1648,11 @@ export declare class SelectionManager {
      */
     private markCurrentSelectionDirty;
     /**
+     * Mark all visible viewport rows as dirty for redraw.
+     * Used for robust selection-overlay cleanup when exact row mapping is ambiguous.
+     */
+    private markViewportDirty;
+    /**
      * Update auto-scroll based on mouse Y position within canvas
      */
     private updateAutoScroll;
@@ -1714,6 +1719,7 @@ export declare class Terminal implements ITerminalCore {
     private linkDetector?;
     private currentHoveredLink?;
     private mouseMoveThrottleTimeout?;
+    private readonly isAndroidPlatform;
     private pendingMouseMove?;
     private dataEmitter;
     private resizeEmitter;
@@ -1797,6 +1803,7 @@ export declare class Terminal implements ITerminalCore {
      * Requires a pre-loaded Ghostty instance passed to the constructor.
      */
     open(parent: HTMLElement): void;
+    private static detectAndroidPlatform;
     /**
      * Write data to terminal
      */
@@ -2125,6 +2132,16 @@ export declare class Terminal implements ITerminalCore {
      * @returns true if in snapshot/playback mode
      */
     hasSnapshot(): boolean;
+    /**
+     * Arm a blank-cell snapshot so the renderer paints a clean screen
+     * until the first write() arrives.
+     */
+    private armBootstrapBlank;
+    /**
+     * Disarm the bootstrap blank, returning the renderer to live WASM output.
+     * No-op if already disarmed or if a playback snapshot is active.
+     */
+    private disarmBootstrapBlank;
     /* Excluded from this release type: getSnapshotCells */
     /* Excluded from this release type: getSnapshotCursor */
     /* Excluded from this release type: isSnapshotDirty */

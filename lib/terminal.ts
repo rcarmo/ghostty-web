@@ -51,7 +51,13 @@ function parseCssColorToRgb(
 
   if (raw.startsWith('#')) {
     const hex = raw.slice(1);
-    const full = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+    const full =
+      hex.length === 3
+        ? hex
+            .split('')
+            .map((c) => c + c)
+            .join('')
+        : hex;
     if (/^[0-9a-fA-F]{6}$/.test(full)) {
       const value = Number.parseInt(full, 16);
       return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
@@ -84,13 +90,18 @@ function createBlankBootstrapCells(
   const bg = parseCssColorToRgb(colors.background, { r: 30, g: 30, b: 30 });
   const cell: GhosttyCell = {
     codepoint: 32,
-    fg_r: fg.r, fg_g: fg.g, fg_b: fg.b,
-    bg_r: bg.r, bg_g: bg.g, bg_b: bg.b,
-    flags: 0, width: 1, hyperlink_id: 0, grapheme_len: 0,
+    fg_r: fg.r,
+    fg_g: fg.g,
+    fg_b: fg.b,
+    bg_r: bg.r,
+    bg_g: bg.g,
+    bg_b: bg.b,
+    flags: 0,
+    width: 1,
+    hyperlink_id: 0,
+    grapheme_len: 0,
   };
-  return Array.from({ length: rows }, () =>
-    Array.from({ length: cols }, () => ({ ...cell }))
-  );
+  return Array.from({ length: rows }, () => Array.from({ length: cols }, () => ({ ...cell })));
 }
 
 // ============================================================================
@@ -208,6 +219,7 @@ export class Terminal implements ITerminalCore {
   private linkDetector?: LinkDetector;
   private currentHoveredLink?: ILink;
   private mouseMoveThrottleTimeout?: number;
+  private readonly isAndroidPlatform: boolean;
   private pendingMouseMove?: MouseEvent;
 
   // Event emitters
@@ -281,6 +293,7 @@ export class Terminal implements ITerminalCore {
   constructor(options: ITerminalOptions = {}) {
     // Use provided Ghostty instance (for test isolation) or get module-level instance
     this.ghostty = options.ghostty ?? getGhostty();
+    this.isAndroidPlatform = Terminal.detectAndroidPlatform();
 
     // Store link click handler (for webview integration)
     this.linkClickHandler = options.onLinkClick;
@@ -720,14 +733,35 @@ export class Terminal implements ITerminalCore {
       // Start render loop
       this.startRenderLoop();
 
-      // Focus input (auto-focus so user can start typing immediately)
-      this.focus();
+      // Focus input by default, but avoid auto-focusing Android because
+      // focusing the hidden textarea on open can immediately summon the
+      // software keyboard / IME before the user interacts with the terminal.
+      if (!this.isAndroidPlatform) {
+        this.focus();
+      }
     } catch (error) {
       // Clean up on error
       this.isOpen = false;
       this.cleanupComponents();
       throw new Error(`Failed to open terminal: ${error}`);
     }
+  }
+
+  private static detectAndroidPlatform(): boolean {
+    if (typeof navigator === 'undefined') {
+      return false;
+    }
+
+    const uaData = (
+      navigator as Navigator & {
+        userAgentData?: { platform?: string; mobile?: boolean };
+      }
+    ).userAgentData;
+    if (uaData?.platform && /android/i.test(uaData.platform)) {
+      return true;
+    }
+
+    return /android/i.test(navigator.userAgent ?? '');
   }
 
   /**

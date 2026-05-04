@@ -1,4 +1,4 @@
-var x = /* @__PURE__ */ ((g) => (g[g.CURSOR_KEY_APPLICATION = 0] = "CURSOR_KEY_APPLICATION", g[g.KEYPAD_KEY_APPLICATION = 1] = "KEYPAD_KEY_APPLICATION", g[g.IGNORE_KEYPAD_WITH_NUMLOCK = 2] = "IGNORE_KEYPAD_WITH_NUMLOCK", g[g.ALT_ESC_PREFIX = 3] = "ALT_ESC_PREFIX", g[g.MODIFY_OTHER_KEYS_STATE_2 = 4] = "MODIFY_OTHER_KEYS_STATE_2", g[g.KITTY_KEYBOARD_FLAGS = 5] = "KITTY_KEYBOARD_FLAGS", g))(x || {}), u = /* @__PURE__ */ ((g) => (g[g.RELEASE = 0] = "RELEASE", g[g.PRESS = 1] = "PRESS", g[g.REPEAT = 2] = "REPEAT", g))(u || {}), i = /* @__PURE__ */ ((g) => (g[g.UNIDENTIFIED = 0] = "UNIDENTIFIED", g[g.GRAVE = 1] = "GRAVE", g[g.BACKSLASH = 2] = "BACKSLASH", g[g.BRACKET_LEFT = 3] = "BRACKET_LEFT", g[g.BRACKET_RIGHT = 4] = "BRACKET_RIGHT", g[g.COMMA = 5] = "COMMA", g[g.ZERO = 6] = "ZERO", g[g.ONE = 7] = "ONE", g[g.TWO = 8] = "TWO", g[g.THREE = 9] = "THREE", g[g.FOUR = 10] = "FOUR", g[g.FIVE = 11] = "FIVE", g[g.SIX = 12] = "SIX", g[g.SEVEN = 13] = "SEVEN", g[g.EIGHT = 14] = "EIGHT", g[g.NINE = 15] = "NINE", g[g.EQUAL = 16] = "EQUAL", g[g.INTL_BACKSLASH = 17] = "INTL_BACKSLASH", g[g.INTL_RO = 18] = "INTL_RO", g[g.INTL_YEN = 19] = "INTL_YEN", g[g.A = 20] = "A", g[g.B = 21] = "B", g[g.C = 22] = "C", g[g.D = 23] = "D", g[g.E = 24] = "E", g[g.F = 25] = "F", g[g.G = 26] = "G", g[g.H = 27] = "H", g[g.I = 28] = "I", g[g.J = 29] = "J", g[g.K = 30] = "K", g[g.L = 31] = "L", g[g.M = 32] = "M", g[g.N = 33] = "N", g[g.O = 34] = "O", g[g.P = 35] = "P", g[g.Q = 36] = "Q", g[g.R = 37] = "R", g[g.S = 38] = "S", g[g.T = 39] = "T", g[g.U = 40] = "U", g[g.V = 41] = "V", g[g.W = 42] = "W", g[g.X = 43] = "X", g[g.Y = 44] = "Y", g[g.Z = 45] = "Z", g[g.MINUS = 46] = "MINUS", g[g.PERIOD = 47] = "PERIOD", g[g.QUOTE = 48] = "QUOTE", g[g.SEMICOLON = 49] = "SEMICOLON", g[g.SLASH = 50] = "SLASH", g[g.ALT_LEFT = 51] = "ALT_LEFT", g[g.ALT_RIGHT = 52] = "ALT_RIGHT", g[g.BACKSPACE = 53] = "BACKSPACE", g[g.CAPS_LOCK = 54] = "CAPS_LOCK", g[g.CONTEXT_MENU = 55] = "CONTEXT_MENU", g[g.CONTROL_LEFT = 56] = "CONTROL_LEFT", g[g.CONTROL_RIGHT = 57] = "CONTROL_RIGHT", g[g.ENTER = 58] = "ENTER", g[g.META_LEFT = 59] = "META_LEFT", g[g.META_RIGHT = 60] = "META_RIGHT", g[g.SHIFT_LEFT = 61] = "SHIFT_LEFT", g[g.SHIFT_RIGHT = 62] = "SHIFT_RIGHT", g[g.SPACE = 63] = "SPACE", g[g.TAB = 64] = "TAB", g[g.CONVERT = 65] = "CONVERT", g[g.KANA_MODE = 66] = "KANA_MODE", g[g.NON_CONVERT = 67] = "NON_CONVERT", g[g.DELETE = 68] = "DELETE", g[g.END = 69] = "END", g[g.HELP = 70] = "HELP", g[g.HOME = 71] = "HOME", g[g.INSERT = 72] = "INSERT", g[g.PAGE_DOWN = 73] = "PAGE_DOWN", g[g.PAGE_UP = 74] = "PAGE_UP", g[g.DOWN = 75] = "DOWN", g[g.LEFT = 76] = "LEFT", g[g.RIGHT = 77] = "RIGHT", g[g.UP = 78] = "UP", g[g.NUM_LOCK = 79] = "NUM_LOCK", g[g.KP_0 = 80] = "KP_0", g[g.KP_1 = 81] = "KP_1", g[g.KP_2 = 82] = "KP_2", g[g.KP_3 = 83] = "KP_3", g[g.KP_4 = 84] = "KP_4", g[g.KP_5 = 85] = "KP_5", g[g.KP_6 = 86] = "KP_6", g[g.KP_7 = 87] = "KP_7", g[g.KP_8 = 88] = "KP_8", g[g.KP_9 = 89] = "KP_9", g[g.KP_PLUS = 90] = "KP_PLUS", g[g.KP_BACKSPACE = 91] = "KP_BACKSPACE", g[g.KP_CLEAR = 92] = "KP_CLEAR", g[g.KP_CLEAR_ENTRY = 93] = "KP_CLEAR_ENTRY", g[g.KP_COMMA = 94] = "KP_COMMA", g[g.KP_PERIOD = 95] = "KP_PERIOD", g[g.KP_DIVIDE = 96] = "KP_DIVIDE", g[g.KP_ENTER = 97] = "KP_ENTER", g[g.KP_EQUAL = 98] = "KP_EQUAL", g[g.KP_MEMORY_ADD = 99] = "KP_MEMORY_ADD", g[g.KP_MEMORY_CLEAR = 100] = "KP_MEMORY_CLEAR", g[g.KP_MEMORY_RECALL = 101] = "KP_MEMORY_RECALL", g[g.KP_MEMORY_STORE = 102] = "KP_MEMORY_STORE", g[g.KP_MEMORY_SUBTRACT = 103] = "KP_MEMORY_SUBTRACT", g[g.KP_MULTIPLY = 104] = "KP_MULTIPLY", g[g.KP_PAREN_LEFT = 105] = "KP_PAREN_LEFT", g[g.KP_PAREN_RIGHT = 106] = "KP_PAREN_RIGHT", g[g.KP_MINUS = 107] = "KP_MINUS", g[g.KP_SEPARATOR = 108] = "KP_SEPARATOR", g[g.NUMPAD_UP = 109] = "NUMPAD_UP", g[g.NUMPAD_DOWN = 110] = "NUMPAD_DOWN", g[g.NUMPAD_RIGHT = 111] = "NUMPAD_RIGHT", g[g.NUMPAD_LEFT = 112] = "NUMPAD_LEFT", g[g.NUMPAD_BEGIN = 113] = "NUMPAD_BEGIN", g[g.NUMPAD_HOME = 114] = "NUMPAD_HOME", g[g.NUMPAD_END = 115] = "NUMPAD_END", g[g.NUMPAD_INSERT = 116] = "NUMPAD_INSERT", g[g.NUMPAD_DELETE = 117] = "NUMPAD_DELETE", g[g.NUMPAD_PAGE_UP = 118] = "NUMPAD_PAGE_UP", g[g.NUMPAD_PAGE_DOWN = 119] = "NUMPAD_PAGE_DOWN", g[g.ESCAPE = 120] = "ESCAPE", g[g.F1 = 121] = "F1", g[g.F2 = 122] = "F2", g[g.F3 = 123] = "F3", g[g.F4 = 124] = "F4", g[g.F5 = 125] = "F5", g[g.F6 = 126] = "F6", g[g.F7 = 127] = "F7", g[g.F8 = 128] = "F8", g[g.F9 = 129] = "F9", g[g.F10 = 130] = "F10", g[g.F11 = 131] = "F11", g[g.F12 = 132] = "F12", g[g.F13 = 133] = "F13", g[g.F14 = 134] = "F14", g[g.F15 = 135] = "F15", g[g.F16 = 136] = "F16", g[g.F17 = 137] = "F17", g[g.F18 = 138] = "F18", g[g.F19 = 139] = "F19", g[g.F20 = 140] = "F20", g[g.F21 = 141] = "F21", g[g.F22 = 142] = "F22", g[g.F23 = 143] = "F23", g[g.F24 = 144] = "F24", g[g.F25 = 145] = "F25", g[g.FN_LOCK = 146] = "FN_LOCK", g[g.PRINT_SCREEN = 147] = "PRINT_SCREEN", g[g.SCROLL_LOCK = 148] = "SCROLL_LOCK", g[g.PAUSE = 149] = "PAUSE", g[g.BROWSER_BACK = 150] = "BROWSER_BACK", g[g.BROWSER_FAVORITES = 151] = "BROWSER_FAVORITES", g[g.BROWSER_FORWARD = 152] = "BROWSER_FORWARD", g[g.BROWSER_HOME = 153] = "BROWSER_HOME", g[g.BROWSER_REFRESH = 154] = "BROWSER_REFRESH", g[g.BROWSER_SEARCH = 155] = "BROWSER_SEARCH", g[g.BROWSER_STOP = 156] = "BROWSER_STOP", g[g.EJECT = 157] = "EJECT", g[g.LAUNCH_APP_1 = 158] = "LAUNCH_APP_1", g[g.LAUNCH_APP_2 = 159] = "LAUNCH_APP_2", g[g.LAUNCH_MAIL = 160] = "LAUNCH_MAIL", g[g.MEDIA_PLAY_PAUSE = 161] = "MEDIA_PLAY_PAUSE", g[g.MEDIA_SELECT = 162] = "MEDIA_SELECT", g[g.MEDIA_STOP = 163] = "MEDIA_STOP", g[g.MEDIA_TRACK_NEXT = 164] = "MEDIA_TRACK_NEXT", g[g.MEDIA_TRACK_PREVIOUS = 165] = "MEDIA_TRACK_PREVIOUS", g[g.POWER = 166] = "POWER", g[g.SLEEP = 167] = "SLEEP", g[g.AUDIO_VOLUME_DOWN = 168] = "AUDIO_VOLUME_DOWN", g[g.AUDIO_VOLUME_MUTE = 169] = "AUDIO_VOLUME_MUTE", g[g.AUDIO_VOLUME_UP = 170] = "AUDIO_VOLUME_UP", g[g.WAKE_UP = 171] = "WAKE_UP", g[g.COPY = 172] = "COPY", g[g.CUT = 173] = "CUT", g[g.PASTE = 174] = "PASTE", g))(i || {}), K = /* @__PURE__ */ ((g) => (g[g.NONE = 0] = "NONE", g[g.SHIFT = 1] = "SHIFT", g[g.CTRL = 2] = "CTRL", g[g.ALT = 4] = "ALT", g[g.SUPER = 8] = "SUPER", g[g.CAPSLOCK = 16] = "CAPSLOCK", g[g.NUMLOCK = 32] = "NUMLOCK", g))(K || {}), O = /* @__PURE__ */ ((g) => (g[g.NONE = 0] = "NONE", g[g.PARTIAL = 1] = "PARTIAL", g[g.FULL = 2] = "FULL", g))(O || {});
+var x = /* @__PURE__ */ ((g) => (g[g.CURSOR_KEY_APPLICATION = 0] = "CURSOR_KEY_APPLICATION", g[g.KEYPAD_KEY_APPLICATION = 1] = "KEYPAD_KEY_APPLICATION", g[g.IGNORE_KEYPAD_WITH_NUMLOCK = 2] = "IGNORE_KEYPAD_WITH_NUMLOCK", g[g.ALT_ESC_PREFIX = 3] = "ALT_ESC_PREFIX", g[g.MODIFY_OTHER_KEYS_STATE_2 = 4] = "MODIFY_OTHER_KEYS_STATE_2", g[g.KITTY_KEYBOARD_FLAGS = 5] = "KITTY_KEYBOARD_FLAGS", g))(x || {}), z = /* @__PURE__ */ ((g) => (g[g.RELEASE = 0] = "RELEASE", g[g.PRESS = 1] = "PRESS", g[g.REPEAT = 2] = "REPEAT", g))(z || {}), i = /* @__PURE__ */ ((g) => (g[g.UNIDENTIFIED = 0] = "UNIDENTIFIED", g[g.GRAVE = 1] = "GRAVE", g[g.BACKSLASH = 2] = "BACKSLASH", g[g.BRACKET_LEFT = 3] = "BRACKET_LEFT", g[g.BRACKET_RIGHT = 4] = "BRACKET_RIGHT", g[g.COMMA = 5] = "COMMA", g[g.ZERO = 6] = "ZERO", g[g.ONE = 7] = "ONE", g[g.TWO = 8] = "TWO", g[g.THREE = 9] = "THREE", g[g.FOUR = 10] = "FOUR", g[g.FIVE = 11] = "FIVE", g[g.SIX = 12] = "SIX", g[g.SEVEN = 13] = "SEVEN", g[g.EIGHT = 14] = "EIGHT", g[g.NINE = 15] = "NINE", g[g.EQUAL = 16] = "EQUAL", g[g.INTL_BACKSLASH = 17] = "INTL_BACKSLASH", g[g.INTL_RO = 18] = "INTL_RO", g[g.INTL_YEN = 19] = "INTL_YEN", g[g.A = 20] = "A", g[g.B = 21] = "B", g[g.C = 22] = "C", g[g.D = 23] = "D", g[g.E = 24] = "E", g[g.F = 25] = "F", g[g.G = 26] = "G", g[g.H = 27] = "H", g[g.I = 28] = "I", g[g.J = 29] = "J", g[g.K = 30] = "K", g[g.L = 31] = "L", g[g.M = 32] = "M", g[g.N = 33] = "N", g[g.O = 34] = "O", g[g.P = 35] = "P", g[g.Q = 36] = "Q", g[g.R = 37] = "R", g[g.S = 38] = "S", g[g.T = 39] = "T", g[g.U = 40] = "U", g[g.V = 41] = "V", g[g.W = 42] = "W", g[g.X = 43] = "X", g[g.Y = 44] = "Y", g[g.Z = 45] = "Z", g[g.MINUS = 46] = "MINUS", g[g.PERIOD = 47] = "PERIOD", g[g.QUOTE = 48] = "QUOTE", g[g.SEMICOLON = 49] = "SEMICOLON", g[g.SLASH = 50] = "SLASH", g[g.ALT_LEFT = 51] = "ALT_LEFT", g[g.ALT_RIGHT = 52] = "ALT_RIGHT", g[g.BACKSPACE = 53] = "BACKSPACE", g[g.CAPS_LOCK = 54] = "CAPS_LOCK", g[g.CONTEXT_MENU = 55] = "CONTEXT_MENU", g[g.CONTROL_LEFT = 56] = "CONTROL_LEFT", g[g.CONTROL_RIGHT = 57] = "CONTROL_RIGHT", g[g.ENTER = 58] = "ENTER", g[g.META_LEFT = 59] = "META_LEFT", g[g.META_RIGHT = 60] = "META_RIGHT", g[g.SHIFT_LEFT = 61] = "SHIFT_LEFT", g[g.SHIFT_RIGHT = 62] = "SHIFT_RIGHT", g[g.SPACE = 63] = "SPACE", g[g.TAB = 64] = "TAB", g[g.CONVERT = 65] = "CONVERT", g[g.KANA_MODE = 66] = "KANA_MODE", g[g.NON_CONVERT = 67] = "NON_CONVERT", g[g.DELETE = 68] = "DELETE", g[g.END = 69] = "END", g[g.HELP = 70] = "HELP", g[g.HOME = 71] = "HOME", g[g.INSERT = 72] = "INSERT", g[g.PAGE_DOWN = 73] = "PAGE_DOWN", g[g.PAGE_UP = 74] = "PAGE_UP", g[g.DOWN = 75] = "DOWN", g[g.LEFT = 76] = "LEFT", g[g.RIGHT = 77] = "RIGHT", g[g.UP = 78] = "UP", g[g.NUM_LOCK = 79] = "NUM_LOCK", g[g.KP_0 = 80] = "KP_0", g[g.KP_1 = 81] = "KP_1", g[g.KP_2 = 82] = "KP_2", g[g.KP_3 = 83] = "KP_3", g[g.KP_4 = 84] = "KP_4", g[g.KP_5 = 85] = "KP_5", g[g.KP_6 = 86] = "KP_6", g[g.KP_7 = 87] = "KP_7", g[g.KP_8 = 88] = "KP_8", g[g.KP_9 = 89] = "KP_9", g[g.KP_PLUS = 90] = "KP_PLUS", g[g.KP_BACKSPACE = 91] = "KP_BACKSPACE", g[g.KP_CLEAR = 92] = "KP_CLEAR", g[g.KP_CLEAR_ENTRY = 93] = "KP_CLEAR_ENTRY", g[g.KP_COMMA = 94] = "KP_COMMA", g[g.KP_PERIOD = 95] = "KP_PERIOD", g[g.KP_DIVIDE = 96] = "KP_DIVIDE", g[g.KP_ENTER = 97] = "KP_ENTER", g[g.KP_EQUAL = 98] = "KP_EQUAL", g[g.KP_MEMORY_ADD = 99] = "KP_MEMORY_ADD", g[g.KP_MEMORY_CLEAR = 100] = "KP_MEMORY_CLEAR", g[g.KP_MEMORY_RECALL = 101] = "KP_MEMORY_RECALL", g[g.KP_MEMORY_STORE = 102] = "KP_MEMORY_STORE", g[g.KP_MEMORY_SUBTRACT = 103] = "KP_MEMORY_SUBTRACT", g[g.KP_MULTIPLY = 104] = "KP_MULTIPLY", g[g.KP_PAREN_LEFT = 105] = "KP_PAREN_LEFT", g[g.KP_PAREN_RIGHT = 106] = "KP_PAREN_RIGHT", g[g.KP_MINUS = 107] = "KP_MINUS", g[g.KP_SEPARATOR = 108] = "KP_SEPARATOR", g[g.NUMPAD_UP = 109] = "NUMPAD_UP", g[g.NUMPAD_DOWN = 110] = "NUMPAD_DOWN", g[g.NUMPAD_RIGHT = 111] = "NUMPAD_RIGHT", g[g.NUMPAD_LEFT = 112] = "NUMPAD_LEFT", g[g.NUMPAD_BEGIN = 113] = "NUMPAD_BEGIN", g[g.NUMPAD_HOME = 114] = "NUMPAD_HOME", g[g.NUMPAD_END = 115] = "NUMPAD_END", g[g.NUMPAD_INSERT = 116] = "NUMPAD_INSERT", g[g.NUMPAD_DELETE = 117] = "NUMPAD_DELETE", g[g.NUMPAD_PAGE_UP = 118] = "NUMPAD_PAGE_UP", g[g.NUMPAD_PAGE_DOWN = 119] = "NUMPAD_PAGE_DOWN", g[g.ESCAPE = 120] = "ESCAPE", g[g.F1 = 121] = "F1", g[g.F2 = 122] = "F2", g[g.F3 = 123] = "F3", g[g.F4 = 124] = "F4", g[g.F5 = 125] = "F5", g[g.F6 = 126] = "F6", g[g.F7 = 127] = "F7", g[g.F8 = 128] = "F8", g[g.F9 = 129] = "F9", g[g.F10 = 130] = "F10", g[g.F11 = 131] = "F11", g[g.F12 = 132] = "F12", g[g.F13 = 133] = "F13", g[g.F14 = 134] = "F14", g[g.F15 = 135] = "F15", g[g.F16 = 136] = "F16", g[g.F17 = 137] = "F17", g[g.F18 = 138] = "F18", g[g.F19 = 139] = "F19", g[g.F20 = 140] = "F20", g[g.F21 = 141] = "F21", g[g.F22 = 142] = "F22", g[g.F23 = 143] = "F23", g[g.F24 = 144] = "F24", g[g.F25 = 145] = "F25", g[g.FN_LOCK = 146] = "FN_LOCK", g[g.PRINT_SCREEN = 147] = "PRINT_SCREEN", g[g.SCROLL_LOCK = 148] = "SCROLL_LOCK", g[g.PAUSE = 149] = "PAUSE", g[g.BROWSER_BACK = 150] = "BROWSER_BACK", g[g.BROWSER_FAVORITES = 151] = "BROWSER_FAVORITES", g[g.BROWSER_FORWARD = 152] = "BROWSER_FORWARD", g[g.BROWSER_HOME = 153] = "BROWSER_HOME", g[g.BROWSER_REFRESH = 154] = "BROWSER_REFRESH", g[g.BROWSER_SEARCH = 155] = "BROWSER_SEARCH", g[g.BROWSER_STOP = 156] = "BROWSER_STOP", g[g.EJECT = 157] = "EJECT", g[g.LAUNCH_APP_1 = 158] = "LAUNCH_APP_1", g[g.LAUNCH_APP_2 = 159] = "LAUNCH_APP_2", g[g.LAUNCH_MAIL = 160] = "LAUNCH_MAIL", g[g.MEDIA_PLAY_PAUSE = 161] = "MEDIA_PLAY_PAUSE", g[g.MEDIA_SELECT = 162] = "MEDIA_SELECT", g[g.MEDIA_STOP = 163] = "MEDIA_STOP", g[g.MEDIA_TRACK_NEXT = 164] = "MEDIA_TRACK_NEXT", g[g.MEDIA_TRACK_PREVIOUS = 165] = "MEDIA_TRACK_PREVIOUS", g[g.POWER = 166] = "POWER", g[g.SLEEP = 167] = "SLEEP", g[g.AUDIO_VOLUME_DOWN = 168] = "AUDIO_VOLUME_DOWN", g[g.AUDIO_VOLUME_MUTE = 169] = "AUDIO_VOLUME_MUTE", g[g.AUDIO_VOLUME_UP = 170] = "AUDIO_VOLUME_UP", g[g.WAKE_UP = 171] = "WAKE_UP", g[g.COPY = 172] = "COPY", g[g.CUT = 173] = "CUT", g[g.PASTE = 174] = "PASTE", g))(i || {}), y = /* @__PURE__ */ ((g) => (g[g.NONE = 0] = "NONE", g[g.SHIFT = 1] = "SHIFT", g[g.CTRL = 2] = "CTRL", g[g.ALT = 4] = "ALT", g[g.SUPER = 8] = "SUPER", g[g.CAPSLOCK = 16] = "CAPSLOCK", g[g.NUMLOCK = 32] = "NUMLOCK", g))(y || {}), H = /* @__PURE__ */ ((g) => (g[g.NONE = 0] = "NONE", g[g.PARTIAL = 1] = "PARTIAL", g[g.FULL = 2] = "FULL", g))(H || {});
 const f = 80;
 var F = /* @__PURE__ */ ((g) => (g[g.BOLD = 1] = "BOLD", g[g.ITALIC = 2] = "ITALIC", g[g.UNDERLINE = 4] = "UNDERLINE", g[g.STRIKETHROUGH = 8] = "STRIKETHROUGH", g[g.INVERSE = 16] = "INVERSE", g[g.INVISIBLE = 32] = "INVISIBLE", g[g.BLINK = 64] = "BLINK", g[g.FAINT = 128] = "FAINT", g))(F || {});
 class Y {
@@ -6,10 +6,10 @@ class Y {
     this.exports = A.exports, this.memory = this.exports.memory;
   }
   createKeyEncoder() {
-    return new W(this.exports);
+    return new P(this.exports);
   }
   createTerminal(A = 80, Q = 24, B) {
-    return new Z(this.exports, this.memory, A, Q, B);
+    return new j(this.exports, this.memory, A, Q, B);
   }
   static async load(A) {
     if (A)
@@ -67,7 +67,7 @@ class Y {
     return new Y(E);
   }
 }
-class W {
+class P {
   constructor(A) {
     this.encoder = 0, this.exports = A;
     const Q = this.exports.ghostty_wasm_alloc_opaque(), B = this.exports.ghostty_key_encoder_new(0, Q);
@@ -108,7 +108,7 @@ class W {
     this.encoder && (this.exports.ghostty_key_encoder_free(this.encoder), this.encoder = 0);
   }
 }
-const z = class y {
+const V = class K {
   constructor(A, Q, B = 80, E = 24, C) {
     var I;
     if (this.viewportBufferPtr = 0, this.viewportBufferSize = 0, this.cellPool = [], this.graphemeBuffer = null, this.graphemeBufferPtr = 0, this.exports = A, this.memory = Q, this._cols = B, this._rows = E, C) {
@@ -223,7 +223,7 @@ const z = class y {
    * Returns a reusable cell array (zero allocation after warmup).
    */
   getViewport() {
-    const A = this._cols * this._rows, Q = A * y.CELL_SIZE;
+    const A = this._cols * this._rows, Q = A * K.CELL_SIZE;
     return (!this.viewportBufferPtr || this.viewportBufferSize < Q) && (this.viewportBufferPtr && this.exports.ghostty_wasm_free_u8_array(this.viewportBufferPtr, this.viewportBufferSize), this.viewportBufferPtr = this.exports.ghostty_wasm_alloc_u8_array(Q), this.viewportBufferSize = Q), this.exports.ghostty_render_state_get_viewport(
       this.handle,
       this.viewportBufferPtr,
@@ -247,14 +247,14 @@ const z = class y {
   }
   /** For compatibility with old API */
   isDirty() {
-    return this.update() !== O.NONE;
+    return this.update() !== H.NONE;
   }
   /**
    * Check if a full redraw is needed (screen change, resize, etc.)
    * Note: This calls update() to ensure fresh state. Safe to call multiple times.
    */
   needsFullRedraw() {
-    return this.update() === O.FULL;
+    return this.update() === H.FULL;
   }
   /** Mark render state as clean after rendering */
   clearDirty() {
@@ -292,7 +292,7 @@ const z = class y {
    * @param offset 0 = oldest line, (length-1) = most recent scrollback line
    */
   getScrollbackLine(A) {
-    const Q = this._cols * y.CELL_SIZE;
+    const Q = this._cols * K.CELL_SIZE;
     (!this.viewportBufferPtr || this.viewportBufferSize < Q) && (this.viewportBufferPtr && this.exports.ghostty_wasm_free_u8_array(this.viewportBufferPtr, this.viewportBufferSize), this.viewportBufferPtr = this.exports.ghostty_wasm_alloc_u8_array(Q), this.viewportBufferSize = Q), this.update();
     const B = this.exports.ghostty_terminal_get_scrollback_line(
       this.handle,
@@ -302,9 +302,9 @@ const z = class y {
     );
     if (B < 0)
       return null;
-    const E = [], C = this.memory.buffer, I = new Uint8Array(C, this.viewportBufferPtr, B * y.CELL_SIZE), D = new DataView(C, this.viewportBufferPtr, B * y.CELL_SIZE);
+    const E = [], C = this.memory.buffer, I = new Uint8Array(C, this.viewportBufferPtr, B * K.CELL_SIZE), D = new DataView(C, this.viewportBufferPtr, B * K.CELL_SIZE);
     for (let o = 0; o < B; o++) {
-      const w = o * y.CELL_SIZE;
+      const w = o * K.CELL_SIZE;
       E.push({
         codepoint: D.getUint32(w, !0),
         fg_r: I[w + 4],
@@ -418,9 +418,9 @@ const z = class y {
         });
   }
   parseCellsIntoPool(A, Q) {
-    const B = this.memory.buffer, E = new Uint8Array(B, A, Q * y.CELL_SIZE), C = new DataView(B, A, Q * y.CELL_SIZE);
+    const B = this.memory.buffer, E = new Uint8Array(B, A, Q * K.CELL_SIZE), C = new DataView(B, A, Q * K.CELL_SIZE);
     for (let I = 0; I < Q; I++) {
-      const D = I * y.CELL_SIZE, o = this.cellPool[I];
+      const D = I * K.CELL_SIZE, o = this.cellPool[I];
       o.codepoint = C.getUint32(D, !0), o.fg_r = E[D + 4], o.fg_g = E[D + 5], o.fg_b = E[D + 6], o.bg_r = E[D + 7], o.bg_g = E[D + 8], o.bg_b = E[D + 9], o.flags = E[D + 10], o.width = E[D + 11], o.hyperlink_id = C.getUint16(D + 12, !0), o.grapheme_len = E[D + 14];
     }
   }
@@ -483,8 +483,8 @@ const z = class y {
     this.viewportBufferPtr && (this.exports.ghostty_wasm_free_u8_array(this.viewportBufferPtr, this.viewportBufferSize), this.viewportBufferPtr = 0, this.viewportBufferSize = 0), this.graphemeBufferPtr && (this.exports.ghostty_wasm_free_u8_array(this.graphemeBufferPtr, 16 * 4), this.graphemeBufferPtr = 0, this.graphemeBuffer = null);
   }
 };
-z.CELL_SIZE = 16;
-let Z = z;
+V.CELL_SIZE = 16;
+let j = V;
 class n {
   constructor() {
     this.listeners = [], this.event = (A) => (this.listeners.push(A), {
@@ -502,7 +502,7 @@ class n {
     this.listeners = [];
   }
 }
-class P {
+class v {
   constructor(A) {
     this.bufferChangeEmitter = new n(), this.terminal = A;
   }
@@ -543,7 +543,7 @@ class b {
       hyperlink_id: 0,
       grapheme_len: 0
     };
-    this.nullCell = new H(B, 0);
+    this.nullCell = new p(B, 0);
   }
   get type() {
     return this.bufferType;
@@ -578,7 +578,7 @@ class b {
     } else
       C = this.bufferType === "normal" ? A - B : A, E = Q.getLine(C), I = Q.isRowWrapped(C);
     if (E)
-      return new j(E, I, Q.cols);
+      return new X(E, I, Q.cols);
   }
   getNullCell() {
     return this.nullCell;
@@ -587,7 +587,7 @@ class b {
     return this.terminal.wasmTerm;
   }
 }
-class j {
+class X {
   constructor(A, Q, B) {
     this.cells = A, this._isWrapped = Q, this._length = B;
   }
@@ -599,7 +599,7 @@ class j {
   }
   getCell(A) {
     if (!(A < 0 || A >= this._length))
-      return A >= this.cells.length ? new H(
+      return A >= this.cells.length ? new p(
         {
           codepoint: 0,
           fg_r: 204,
@@ -614,7 +614,7 @@ class j {
           grapheme_len: 0
         },
         A
-      ) : new H(this.cells[A], A);
+      ) : new p(this.cells[A], A);
   }
   translateToString(A = !1, Q = 0, B = this._length) {
     const E = Math.max(0, Math.min(Q, this._length)), C = Math.max(E, Math.min(B, this._length));
@@ -629,7 +629,7 @@ class j {
     return A && (I = I.trimEnd()), I;
   }
 }
-class H {
+class p {
   constructor(A, Q) {
     this.cell = A, this.x = Q;
   }
@@ -701,7 +701,7 @@ class H {
     return (this.cell.flags & F.FAINT) !== 0;
   }
 }
-const v = {
+const _ = {
   // Letters
   KeyA: i.A,
   KeyB: i.B,
@@ -821,7 +821,7 @@ const v = {
   F22: i.F22,
   F23: i.F23,
   F24: i.F24
-}, V = class q {
+}, W = class q {
   /**
    * Create a new InputHandler
    * @param ghostty - Ghostty instance (for creating KeyEncoder)
@@ -859,7 +859,7 @@ const v = {
    * @returns Key enum value or null if unmapped
    */
   mapKeyCode(A) {
-    return v[A] ?? null;
+    return _[A] ?? null;
   }
   /**
    * Extract modifier flags from KeyboardEvent
@@ -867,8 +867,8 @@ const v = {
    * @returns Mods flags
    */
   extractModifiers(A) {
-    let Q = K.NONE;
-    return A.shiftKey && (Q |= K.SHIFT), A.ctrlKey && (Q |= K.CTRL), A.altKey && (Q |= K.ALT), A.metaKey && (Q |= K.SUPER), Q;
+    let Q = y.NONE;
+    return A.shiftKey && (Q |= y.SHIFT), A.ctrlKey && (Q |= y.CTRL), A.altKey && (Q |= y.ALT), A.metaKey && (Q |= y.SUPER), Q;
   }
   /**
    * Check if this is a printable character with no special modifiers
@@ -918,14 +918,14 @@ const v = {
     if (Q === null)
       return;
     const B = this.extractModifiers(A);
-    if (B === K.NONE || B === K.SHIFT) {
+    if (B === y.NONE || B === y.SHIFT) {
       let C = null;
       switch (Q) {
         case i.ENTER:
           C = "\r";
           break;
         case i.TAB:
-          B === K.SHIFT ? C = "\x1B[Z" : C = "	";
+          B === y.SHIFT ? C = "\x1B[Z" : C = "	";
           break;
         case i.BACKSPACE:
           C = "";
@@ -993,7 +993,7 @@ const v = {
         return;
       }
     }
-    const E = u.PRESS;
+    const E = z.PRESS;
     try {
       if (this.getModeCallback) {
         const w = this.getModeCallback(1);
@@ -1326,9 +1326,9 @@ const v = {
     return !this.isDisposed;
   }
 };
-V.BEFORE_INPUT_IGNORE_MS = 100;
-let X = V;
-class _ {
+W.BEFORE_INPUT_IGNORE_MS = 100;
+let $ = W;
+class AA {
   // Terminal instance for buffer access
   constructor(A) {
     this.terminal = A, this.providers = [], this.linkCache = /* @__PURE__ */ new Map(), this.scannedRows = /* @__PURE__ */ new Set();
@@ -1423,7 +1423,7 @@ class _ {
     this.providers = [];
   }
 }
-class $ {
+class QA {
   constructor(A) {
     this.terminal = A;
   }
@@ -1611,8 +1611,8 @@ const d = class L {
 };
 d.URL_REGEX = /(?:https?:\/\/|mailto:|ftp:\/\/|ssh:\/\/|git:\/\/|tel:|magnet:|gemini:\/\/|gopher:\/\/|news:)[\w\-.~:\/?#@!$&*+,;=%]+/gi;
 d.TRAILING_PUNCTUATION = /[.,;!?)\]]+$/;
-let AA = d;
-const p = {
+let BA = d;
+const R = {
   foreground: "#d4d4d4",
   background: "#1e1e1e",
   cursor: "#ffffff",
@@ -1638,13 +1638,13 @@ const p = {
   brightCyan: "#29b8db",
   brightWhite: "#ffffff"
 };
-class QA {
+class gA {
   constructor(A, Q = {}) {
     this.cursorVisible = !0, this.lastCursorPosition = { x: 0, y: 0 }, this.lastViewportY = 0, this.currentBuffer = null, this.currentSelectionCoords = null, this.hoveredHyperlinkId = 0, this.previousHoveredHyperlinkId = 0, this.hoveredLinkRange = null, this.previousHoveredLinkRange = null, this.canvas = A;
     const B = A.getContext("2d", { alpha: !0 });
     if (!B)
       throw new Error("Failed to get 2D rendering context");
-    this.ctx = B, this.fontSize = Q.fontSize ?? 15, this.fontFamily = Q.fontFamily ?? "monospace", this.cursorStyle = Q.cursorStyle ?? "block", this.cursorBlink = Q.cursorBlink ?? !1, this.theme = { ...p, ...Q.theme }, this.devicePixelRatio = Q.devicePixelRatio ?? window.devicePixelRatio ?? 1, this.palette = [
+    this.ctx = B, this.fontSize = Q.fontSize ?? 15, this.fontFamily = Q.fontFamily ?? "monospace", this.cursorStyle = Q.cursorStyle ?? "block", this.cursorBlink = Q.cursorBlink ?? !1, this.theme = { ...R, ...Q.theme }, this.devicePixelRatio = Q.devicePixelRatio ?? window.devicePixelRatio ?? 1, this.palette = [
       this.theme.black,
       this.theme.red,
       this.theme.green,
@@ -1757,23 +1757,23 @@ class QA {
         this.selectionManager.clearDirtySelectionRows();
       }
     }
-    const a = /* @__PURE__ */ new Set(), c = this.hoveredHyperlinkId !== this.previousHoveredHyperlinkId, J = JSON.stringify(this.hoveredLinkRange) !== JSON.stringify(this.previousHoveredLinkRange);
+    const a = /* @__PURE__ */ new Set(), c = this.hoveredHyperlinkId !== this.previousHoveredHyperlinkId, r = JSON.stringify(this.hoveredLinkRange) !== JSON.stringify(this.previousHoveredLinkRange);
     if (c) {
       for (let h = 0; h < w.rows; h++) {
         let G = null;
         if (I > 0)
           if (h < I && E) {
-            const r = s - Math.floor(I) + h;
-            G = E.getScrollbackLine(r);
+            const J = s - Math.floor(I) + h;
+            G = E.getScrollbackLine(J);
           } else {
-            const r = h - Math.floor(I);
-            G = A.getLine(r);
+            const J = h - Math.floor(I);
+            G = A.getLine(J);
           }
         else
           G = A.getLine(h);
         if (G) {
-          for (const r of G)
-            if (r.hyperlink_id === this.hoveredHyperlinkId || r.hyperlink_id === this.previousHoveredHyperlinkId) {
+          for (const J of G)
+            if (J.hyperlink_id === this.hoveredHyperlinkId || J.hyperlink_id === this.previousHoveredHyperlinkId) {
               a.add(h);
               break;
             }
@@ -1781,7 +1781,7 @@ class QA {
       }
       this.previousHoveredHyperlinkId = this.hoveredHyperlinkId;
     }
-    if (J) {
+    if (r) {
       if (this.previousHoveredLinkRange)
         for (let h = this.previousHoveredLinkRange.startY; h <= this.previousHoveredLinkRange.endY; h++)
           a.add(h);
@@ -1799,11 +1799,11 @@ class QA {
       let G = null;
       if (I > 0)
         if (h < I && E) {
-          const r = s - Math.floor(I) + h;
-          G = E.getScrollbackLine(r);
+          const J = s - Math.floor(I) + h;
+          G = E.getScrollbackLine(J);
         } else {
-          const r = I > 0 ? h - Math.floor(I) : h;
-          G = A.getLine(r);
+          const J = I > 0 ? h - Math.floor(I) : h;
+          G = A.getLine(J);
         }
       else
         G = A.getLine(h);
@@ -1853,7 +1853,7 @@ class QA {
    * Selection foreground color is applied here to match the selection background.
    */
   renderCellText(A, Q, B, E) {
-    var J;
+    var r;
     const C = Q * this.metrics.width, I = B * this.metrics.height, D = this.metrics.width * A.width;
     if (A.flags & F.INVISIBLE)
       return;
@@ -1871,7 +1871,7 @@ class QA {
     A.flags & F.FAINT && (this.ctx.globalAlpha = 0.5);
     const k = C, e = I + this.metrics.baseline;
     let a;
-    A.grapheme_len > 0 && ((J = this.currentBuffer) != null && J.getGraphemeString) ? a = this.currentBuffer.getGraphemeString(B, Q) : a = String.fromCodePoint(A.codepoint || 32);
+    A.grapheme_len > 0 && ((r = this.currentBuffer) != null && r.getGraphemeString) ? a = this.currentBuffer.getGraphemeString(B, Q) : a = String.fromCodePoint(A.codepoint || 32);
     const c = A.codepoint || 32;
     if (this.renderBlockChar(c, C, I, D) || this.renderPowerlineGlyph(c, C, I, D) || this.ctx.fillText(a, k, e), A.flags & F.FAINT && (this.ctx.globalAlpha = 1), A.flags & F.UNDERLINE) {
       const N = I + this.metrics.baseline + 2;
@@ -2017,7 +2017,7 @@ class QA {
    * Update theme colors
    */
   setTheme(A) {
-    this.theme = { ...p, ...A }, this.palette = [
+    this.theme = { ...R, ...A }, this.palette = [
       this.theme.black,
       this.theme.red,
       this.theme.green,
@@ -2074,8 +2074,8 @@ class QA {
       return;
     const M = Q + B, k = Math.max(20, B / M * t), e = A / Q, a = s + (t - k) * (1 - e);
     C.fillStyle = `rgba(128, 128, 128, ${0.1 * E})`, C.fillRect(w, s, o, t);
-    const J = A > 0 ? 0.5 : 0.3;
-    C.fillStyle = `rgba(128, 128, 128, ${J * E})`, C.fillRect(w, a, o, k);
+    const r = A > 0 ? 0.5 : 0.3;
+    C.fillStyle = `rgba(128, 128, 128, ${r * E})`, C.fillRect(w, a, o, k);
   }
   getMetrics() {
     return { ...this.metrics };
@@ -2141,7 +2141,7 @@ class QA {
     this.stopCursorBlink();
   }
 }
-const S = class l {
+const O = class l {
   // ms between scroll steps
   constructor(A, Q, B, E) {
     this.selectionStart = null, this.selectionEnd = null, this.isSelecting = !1, this.mouseDownTarget = null, this.mouseButtonsPressed = /* @__PURE__ */ new Set(), this.dirtySelectionRows = /* @__PURE__ */ new Set(), this.selectionChangedEmitter = new n(), this.boundMouseUpHandler = null, this.boundContextMenuHandler = null, this.boundClickHandler = null, this.boundDocumentMouseMoveHandler = null, this.autoScrollInterval = null, this.autoScrollDirection = 0, this.terminal = A, this.renderer = Q, this.wasmTerm = B, this.textarea = E, this.attachEventListeners();
@@ -2221,7 +2221,7 @@ const S = class l {
    * Check if there's an active selection
    */
   hasSelection() {
-    return !(!this.selectionStart || !this.selectionEnd);
+    return !(!this.selectionStart || !this.selectionEnd || this.isSelecting && this.selectionStart.col === this.selectionEnd.col && this.selectionStart.absoluteRow === this.selectionEnd.absoluteRow);
   }
   /**
    * Copy the current selection to clipboard
@@ -2415,7 +2415,7 @@ const S = class l {
         return;
       }
       if (Q.button === 0) {
-        this.hasSelection() && this.clearSelection();
+        this.markViewportDirty(), this.hasSelection() && this.clearSelection();
         const C = this.viewportRowToAbsolute(B.row);
         this.selectionStart = { col: B.col, absoluteRow: C }, this.selectionEnd = { col: B.col, absoluteRow: C }, this.isSelecting = !0;
       }
@@ -2462,7 +2462,7 @@ const S = class l {
       }
       if (B !== null && this.mouseButtonsPressed.delete(B), this.isSelecting) {
         if (this.isSelecting = !1, this.stopAutoScroll(), this.selectionStart && this.selectionEnd && this.selectionStart.col === this.selectionEnd.col && this.selectionStart.absoluteRow === this.selectionEnd.absoluteRow) {
-          this.selectionStart = null, this.selectionEnd = null;
+          this.markViewportDirty(), this.selectionStart = null, this.selectionEnd = null, this.requestRender();
           return;
         }
         if (this.hasSelection()) {
@@ -2533,6 +2533,15 @@ const S = class l {
     if (A)
       for (let Q = A.startRow; Q <= A.endRow; Q++)
         this.dirtySelectionRows.add(Q);
+  }
+  /**
+   * Mark all visible viewport rows as dirty for redraw.
+   * Used for robust selection-overlay cleanup when exact row mapping is ambiguous.
+   */
+  markViewportDirty() {
+    const A = this.wasmTerm.getDimensions();
+    for (let Q = 0; Q < A.rows; Q++)
+      this.dirtySelectionRows.add(Q);
   }
   /**
    * Update auto-scroll based on mouse Y position within canvas
@@ -2675,11 +2684,45 @@ const S = class l {
   requestRender() {
   }
 };
-S.AUTO_SCROLL_EDGE_SIZE = 30;
-S.AUTO_SCROLL_SPEED = 3;
-S.AUTO_SCROLL_INTERVAL = 50;
-let BA = S;
-class gA {
+O.AUTO_SCROLL_EDGE_SIZE = 30;
+O.AUTO_SCROLL_SPEED = 3;
+O.AUTO_SCROLL_INTERVAL = 50;
+let EA = O;
+function u(g, A) {
+  const Q = String(g || "").trim();
+  if (!Q)
+    return A;
+  if (Q.startsWith("#")) {
+    const E = Q.slice(1), C = E.length === 3 ? E.split("").map((I) => I + I).join("") : E;
+    if (/^[0-9a-fA-F]{6}$/.test(C)) {
+      const I = Number.parseInt(C, 16);
+      return { r: I >> 16 & 255, g: I >> 8 & 255, b: I & 255 };
+    }
+  }
+  const B = Q.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  return B ? {
+    r: Number.parseInt(B[1], 10),
+    g: Number.parseInt(B[2], 10),
+    b: Number.parseInt(B[3], 10)
+  } : A;
+}
+function CA(g, A, Q) {
+  const B = u(Q.foreground, { r: 212, g: 212, b: 212 }), E = u(Q.background, { r: 30, g: 30, b: 30 }), C = {
+    codepoint: 32,
+    fg_r: B.r,
+    fg_g: B.g,
+    fg_b: B.b,
+    bg_r: E.r,
+    bg_g: E.g,
+    bg_b: E.b,
+    flags: 0,
+    width: 1,
+    hyperlink_id: 0,
+    grapheme_len: 0
+  };
+  return Array.from({ length: A }, () => Array.from({ length: g }, () => ({ ...C })));
+}
+class IA {
   constructor(A) {
     this.terminal = A;
   }
@@ -2720,7 +2763,7 @@ class gA {
     return E != null && E.getGraphemeString ? E.getGraphemeString(A, Q) : " ";
   }
 }
-class iA {
+class Z {
   constructor(A = {}) {
     this.unicode = {
       get activeVersion() {
@@ -2789,8 +2832,8 @@ class iA {
         const s = this.canvas.getBoundingClientRect(), t = B.clientX - s.left, M = B.clientY - s.top, k = this.renderer.getMetrics(), e = Math.max(0, Math.min(Math.floor(t / k.width), this.cols - 1)), a = Math.max(0, Math.min(Math.floor(M / k.height), this.rows - 1));
         let c = 0;
         B.shiftKey && (c += 4), (B.altKey || B.metaKey) && (c += 8), B.ctrlKey && (c += 16);
-        const J = Math.min(Math.abs(Math.round(B.deltaY / 33)), 5), U = (B.deltaY < 0 ? 64 : 65) + c;
-        for (let h = 0; h < J; h++)
+        const r = Math.min(Math.abs(Math.round(B.deltaY / 33)), 5), U = (B.deltaY < 0 ? 64 : 65) + c;
+        for (let h = 0; h < r; h++)
           this.dataEmitter.fire(`\x1B[<${U};${e + 1};${a + 1}M`);
         return;
       }
@@ -2819,7 +2862,7 @@ class iA {
       const C = this.canvas.getBoundingClientRect(), I = B.clientX - C.left, D = B.clientY - C.top, o = C.width, w = C.height, s = 8, t = o - s - 4, M = 4;
       if (I >= t && I <= t + s) {
         B.preventDefault(), B.stopPropagation(), B.stopImmediatePropagation();
-        const k = w - M * 2, e = this.rows, a = E + e, c = Math.max(20, e / a * k), J = this.viewportY / E, N = M + (k - c) * (1 - J);
+        const k = w - M * 2, e = this.rows, a = E + e, c = Math.max(20, e / a * k), r = this.viewportY / E, N = M + (k - c) * (1 - r);
         if (D >= N && D <= N + c)
           this.isDraggingScrollbar = !0, this.scrollbarDragStart = D, this.scrollbarDragStartViewportY = this.viewportY, this.canvas && (this.canvas.style.userSelect = "none", this.canvas.style.webkitUserSelect = "none");
         else {
@@ -2829,7 +2872,7 @@ class iA {
       }
     }, this.handleMouseUp = () => {
       this.isDraggingScrollbar && (this.isDraggingScrollbar = !1, this.scrollbarDragStart = null, this.canvas && (this.canvas.style.userSelect = "", this.canvas.style.webkitUserSelect = ""), this.scrollbarVisible && this.getScrollbackLength() > 0 && this.showScrollbar());
-    }, this.ghostty = A.ghostty ?? oA(), this.linkClickHandler = A.onLinkClick;
+    }, this.ghostty = A.ghostty ?? sA(), this.isAndroidPlatform = Z.detectAndroidPlatform(), this.linkClickHandler = A.onLinkClick;
     const Q = {
       cols: A.cols ?? 80,
       rows: A.rows ?? 24,
@@ -2850,7 +2893,7 @@ class iA {
         const I = B[E];
         return B[E] = C, this.isOpen && this.handleOptionChange(E, C, I), !0;
       }
-    }), this.cols = this.options.cols, this.rows = this.options.rows, this.buffer = new P(this), this.snapshotBuffer = new gA(this);
+    }), this.cols = this.options.cols, this.rows = this.options.rows, this.buffer = new v(this), this.snapshotBuffer = new IA(this);
   }
   // ==========================================================================
   // Option Change Handling (for mutable options)
@@ -2923,7 +2966,7 @@ class iA {
     const A = this.options.theme, Q = this.options.scrollback;
     if (!A && Q === 1e4)
       return;
-    const B = { ...p, ...A }, E = [
+    const B = { ...R, ...A }, E = [
       this.parseColorToHex(B.black),
       this.parseColorToHex(B.red),
       this.parseColorToHex(B.green),
@@ -2967,7 +3010,7 @@ class iA {
     try {
       A.setAttribute("tabindex", "-1"), A.setAttribute("role", "textbox"), A.setAttribute("aria-label", "Terminal input"), A.setAttribute("aria-multiline", "true");
       const Q = this.buildWasmConfig();
-      this.wasmTerm = this.ghostty.createTerminal(this.cols, this.rows, Q), this.canvas = document.createElement("canvas"), this.canvas.style.display = "block", A.appendChild(this.canvas), this.textarea = document.createElement("textarea"), this.textarea.setAttribute("autocorrect", "off"), this.textarea.setAttribute("autocapitalize", "off"), this.textarea.setAttribute("spellcheck", "false"), this.textarea.setAttribute("tabindex", "0"), this.textarea.setAttribute("aria-label", "Terminal input"), this.textarea.style.position = "absolute", this.textarea.style.left = "0", this.textarea.style.top = "0", this.textarea.style.width = "1px", this.textarea.style.height = "1px", this.textarea.style.padding = "0", this.textarea.style.border = "none", this.textarea.style.margin = "0", this.textarea.style.opacity = "0", this.textarea.style.clipPath = "inset(50%)", this.textarea.style.overflow = "hidden", this.textarea.style.whiteSpace = "nowrap", this.textarea.style.resize = "none", A.appendChild(this.textarea), this.compositionPreview = document.createElement("div"), this.compositionPreview.style.position = "absolute", this.compositionPreview.style.top = "4px", this.compositionPreview.style.right = "4px", this.compositionPreview.style.padding = "2px 8px", this.compositionPreview.style.backgroundColor = "rgba(0, 0, 0, 0.7)", this.compositionPreview.style.color = "#ffcc00", this.compositionPreview.style.fontFamily = "monospace", this.compositionPreview.style.fontSize = "12px", this.compositionPreview.style.borderRadius = "3px", this.compositionPreview.style.display = "none", this.compositionPreview.style.zIndex = "1000", A.appendChild(this.compositionPreview), this.textarea.addEventListener("compositionupdate", (o) => {
+      this.wasmTerm = this.ghostty.createTerminal(this.cols, this.rows, Q), this.canvas = document.createElement("canvas"), this.canvas.style.display = "block", A.appendChild(this.canvas), this.textarea = document.createElement("textarea"), this.textarea.setAttribute("autocorrect", "off"), this.textarea.setAttribute("autocapitalize", "off"), this.textarea.setAttribute("spellcheck", "false"), this.textarea.setAttribute("tabindex", "0"), this.textarea.setAttribute("aria-label", "Terminal input"), this.textarea.style.position = "absolute", this.textarea.style.left = "0", this.textarea.style.top = "0", this.textarea.style.width = "1px", this.textarea.style.height = "1px", this.textarea.style.padding = "0", this.textarea.style.border = "none", this.textarea.style.margin = "0", this.textarea.style.opacity = "0", this.textarea.style.caretColor = "transparent", this.textarea.style.clipPath = "inset(50%)", this.textarea.style.overflow = "hidden", this.textarea.style.whiteSpace = "nowrap", this.textarea.style.resize = "none", A.appendChild(this.textarea), this.compositionPreview = document.createElement("div"), this.compositionPreview.style.position = "absolute", this.compositionPreview.style.top = "4px", this.compositionPreview.style.right = "4px", this.compositionPreview.style.padding = "2px 8px", this.compositionPreview.style.backgroundColor = "rgba(0, 0, 0, 0.7)", this.compositionPreview.style.color = "#ffcc00", this.compositionPreview.style.fontFamily = "monospace", this.compositionPreview.style.fontSize = "12px", this.compositionPreview.style.borderRadius = "3px", this.compositionPreview.style.display = "none", this.compositionPreview.style.zIndex = "1000", A.appendChild(this.compositionPreview), this.textarea.addEventListener("compositionupdate", (o) => {
         o.data && (this.compositionPreview.textContent = `조합중: ${o.data}`, this.compositionPreview.style.display = "block");
       }), this.textarea.addEventListener("compositionend", () => {
         this.compositionPreview.style.display = "none";
@@ -2981,7 +3024,7 @@ class iA {
         o.target === A && (o.preventDefault(), B.focus());
       }), A.addEventListener("focus", () => {
         B.focus();
-      }), this.renderer = new QA(this.canvas, {
+      }), this.renderer = new gA(this.canvas, {
         fontSize: this.options.fontSize,
         fontFamily: this.options.fontFamily,
         cursorStyle: this.options.cursorStyle,
@@ -3001,7 +3044,7 @@ class iA {
           return { left: o.left, top: o.top };
         }
       };
-      this.inputHandler = new X(
+      this.inputHandler = new $(
         this.ghostty,
         A,
         (o) => {
@@ -3021,17 +3064,23 @@ class iA {
         () => this.copySelection(),
         this.textarea,
         D
-      ), this.selectionManager = new BA(
+      ), this.selectionManager = new EA(
         this,
         this.renderer,
         this.wasmTerm,
         this.textarea
       ), this.renderer.setSelectionManager(this.selectionManager), this.selectionManager.onSelectionChange(() => {
         this.selectionChangeEmitter.fire();
-      }), this.linkDetector = new _(this), this.linkDetector.registerProvider(new $(this)), this.linkDetector.registerProvider(new AA(this)), A.addEventListener("mousedown", this.handleMouseDown, { capture: !0 }), A.addEventListener("mousemove", this.handleMouseMove), A.addEventListener("mouseleave", this.handleMouseLeave), A.addEventListener("click", this.handleClick), document.addEventListener("mouseup", this.handleMouseUp), A.addEventListener("wheel", this.handleWheel, { passive: !1, capture: !0 }), this.isOpen = !0, this.renderer.render(this.snapshotBuffer, !0, this.viewportY, this, this.scrollbarOpacity), this.startRenderLoop(), this.focus();
+      }), this.linkDetector = new AA(this), this.linkDetector.registerProvider(new QA(this)), this.linkDetector.registerProvider(new BA(this)), A.addEventListener("mousedown", this.handleMouseDown, { capture: !0 }), A.addEventListener("mousemove", this.handleMouseMove), A.addEventListener("mouseleave", this.handleMouseLeave), A.addEventListener("click", this.handleClick), document.addEventListener("mouseup", this.handleMouseUp), A.addEventListener("wheel", this.handleWheel, { passive: !1, capture: !0 }), this.isOpen = !0, this.armBootstrapBlank(), this.renderer.render(this.snapshotBuffer, !0, this.viewportY, this, this.scrollbarOpacity), this.startRenderLoop(), this.isAndroidPlatform || this.focus();
     } catch (Q) {
       throw this.isOpen = !1, this.cleanupComponents(), new Error(`Failed to open terminal: ${Q}`);
     }
+  }
+  static detectAndroidPlatform() {
+    if (typeof navigator > "u")
+      return !1;
+    const A = navigator.userAgentData;
+    return A != null && A.platform && /android/i.test(A.platform) ? !0 : /android/i.test(navigator.userAgent ?? "");
   }
   /**
    * Write data to terminal
@@ -3050,7 +3099,7 @@ class iA {
    */
   writeInternal(A, Q) {
     var B;
-    this.wasmTerm.write(A), this.processTerminalResponses(), typeof A == "string" && A.includes("\x07") ? this.bellEmitter.fire() : A instanceof Uint8Array && A.includes(7) && this.bellEmitter.fire(), (B = this.linkDetector) == null || B.invalidateCache(), this.viewportY !== 0 && this.scrollToBottom(), typeof A == "string" && A.includes("\x1B]") && this.checkForTitleChange(A), Q && requestAnimationFrame(Q);
+    this.disarmBootstrapBlank(), this.wasmTerm.write(A), this.processTerminalResponses(), typeof A == "string" && A.includes("\x07") ? this.bellEmitter.fire() : A instanceof Uint8Array && A.includes(7) && this.bellEmitter.fire(), (B = this.linkDetector) == null || B.invalidateCache(), this.viewportY !== 0 && this.scrollToBottom(), typeof A == "string" && A.includes("\x1B]") && this.checkForTitleChange(A), Q && requestAnimationFrame(Q);
   }
   /**
    * Write data with newline
@@ -3129,7 +3178,7 @@ class iA {
   reset() {
     this.assertOpen(), this.wasmTerm && this.wasmTerm.free();
     const A = this.buildWasmConfig();
-    this.wasmTerm = this.ghostty.createTerminal(this.cols, this.rows, A), this.renderer.clear(), this.currentTitle = "";
+    this.wasmTerm = this.ghostty.createTerminal(this.cols, this.rows, A), this.armBootstrapBlank(), this.renderer.clear(), this.renderer.render(this.snapshotBuffer, !0, this.viewportY, this, this.scrollbarOpacity), this.currentTitle = "";
   }
   /**
    * Focus terminal input
@@ -3455,10 +3504,10 @@ class iA {
     else
       M = t + C;
     this.linkDetector.getLinkAt(B, M).then((a) => {
-      var c, J, N, U;
-      if (a !== this.currentHoveredLink && ((J = (c = this.currentHoveredLink) == null ? void 0 : c.hover) == null || J.call(c, !1), this.currentHoveredLink = a, (N = a == null ? void 0 : a.hover) == null || N.call(a, !0), this.element && (this.element.style.cursor = a ? "pointer" : "text"), this.renderer))
+      var c, r, N, U;
+      if (a !== this.currentHoveredLink && ((r = (c = this.currentHoveredLink) == null ? void 0 : c.hover) == null || r.call(c, !1), this.currentHoveredLink = a, (N = a == null ? void 0 : a.hover) == null || N.call(a, !0), this.element && (this.element.style.cursor = a ? "pointer" : "text"), this.renderer))
         if (a) {
-          const h = ((U = this.wasmTerm) == null ? void 0 : U.getScrollbackLength()) || 0, G = this.getViewportY(), r = Math.max(0, Math.floor(G)), T = a.range.start.y - h + r, m = a.range.end.y - h + r;
+          const h = ((U = this.wasmTerm) == null ? void 0 : U.getScrollbackLength()) || 0, G = this.getViewportY(), J = Math.max(0, Math.floor(G)), T = a.range.start.y - h + J, m = a.range.end.y - h + J;
           T < this.rows && m >= 0 ? this.renderer.setHoveredLinkRange({
             startX: a.range.start.x,
             startY: Math.max(0, T),
@@ -3626,6 +3675,24 @@ class iA {
   hasSnapshot() {
     return this.snapshotCells !== null;
   }
+  /**
+   * Arm a blank-cell snapshot so the renderer paints a clean screen
+   * until the first write() arrives.
+   */
+  armBootstrapBlank() {
+    const A = { ...R, ...this.options.theme };
+    this.snapshotCells = CA(this.cols, this.rows, {
+      foreground: A.foreground,
+      background: A.background
+    }), this.snapshotDirty = !0;
+  }
+  /**
+   * Disarm the bootstrap blank, returning the renderer to live WASM output.
+   * No-op if already disarmed or if a playback snapshot is active.
+   */
+  disarmBootstrapBlank() {
+    !this.snapshotCells || this.snapshotCursor || (this.snapshotCells = null, this.snapshotDirty = !0);
+  }
   // Internal accessors for SnapshotBuffer
   /** @internal */
   getSnapshotCells() {
@@ -3644,8 +3711,8 @@ class iA {
     this.snapshotDirty = !1;
   }
 }
-const EA = 2, CA = 1, IA = 15, DA = 100;
-class wA {
+const DA = 2, oA = 1, iA = 15, wA = 100;
+class tA {
   constructor() {
     this._isResizing = !1;
   }
@@ -3712,7 +3779,7 @@ class wA {
     const C = window.getComputedStyle(E), I = Number.parseInt(C.getPropertyValue("padding-top")) || 0, D = Number.parseInt(C.getPropertyValue("padding-bottom")) || 0, o = Number.parseInt(C.getPropertyValue("padding-left")) || 0, w = Number.parseInt(C.getPropertyValue("padding-right")) || 0, s = E.clientWidth, t = E.clientHeight;
     if (s === 0 || t === 0)
       return;
-    const M = s - o - w - IA, k = t - I - D, e = Math.max(EA, Math.floor(M / B.width)), a = Math.max(CA, Math.floor(k / B.height));
+    const M = s - o - w - iA, k = t - I - D, e = Math.max(DA, Math.floor(M / B.width)), a = Math.max(oA, Math.floor(k / B.height));
     return { cols: e, rows: a };
   }
   /**
@@ -3729,16 +3796,16 @@ class wA {
     (A = this._terminal) != null && A.element && (this._resizeObserver || (this._resizeObserver = new ResizeObserver((Q) => {
       this._isResizing || !Q[0] || (this._resizeDebounceTimer && clearTimeout(this._resizeDebounceTimer), this._resizeDebounceTimer = setTimeout(() => {
         this.fit();
-      }, DA));
+      }, wA));
     }), this._resizeObserver.observe(this._terminal.element)));
   }
 }
-let R = null;
-async function sA() {
-  R || (R = await Y.load());
+let S = null;
+async function hA() {
+  S || (S = await Y.load());
 }
-function oA() {
-  if (!R)
+function sA() {
+  if (!S)
     throw new Error(
       `ghostty-web not initialized. Call init() before creating Terminal instances.
 Example:
@@ -3751,24 +3818,24 @@ For tests, pass a Ghostty instance directly:
   const ghostty = await Ghostty.load();
   const term = new Terminal({ ghostty });`
     );
-  return R;
+  return S;
 }
 export {
-  QA as CanvasRenderer,
+  gA as CanvasRenderer,
   F as CellFlags,
-  p as DEFAULT_THEME,
+  R as DEFAULT_THEME,
   n as EventEmitter,
-  wA as FitAddon,
+  tA as FitAddon,
   Y as Ghostty,
-  Z as GhosttyTerminal,
-  X as InputHandler,
-  W as KeyEncoder,
+  j as GhosttyTerminal,
+  $ as InputHandler,
+  P as KeyEncoder,
   x as KeyEncoderOption,
-  _ as LinkDetector,
-  $ as OSC8LinkProvider,
-  BA as SelectionManager,
-  iA as Terminal,
-  AA as UrlRegexProvider,
-  oA as getGhostty,
-  sA as init
+  AA as LinkDetector,
+  QA as OSC8LinkProvider,
+  EA as SelectionManager,
+  Z as Terminal,
+  BA as UrlRegexProvider,
+  sA as getGhostty,
+  hA as init
 };
