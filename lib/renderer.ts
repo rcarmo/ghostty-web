@@ -18,7 +18,7 @@ import { CellFlags } from './types';
 // Interface for objects that can be rendered
 export interface IRenderable {
   getLine(y: number): GhosttyCell[] | null;
-  getCursor(): { x: number; y: number; visible: boolean };
+  getCursor(): { x: number; y: number; visible: boolean; style?: 'block' | 'underline' | 'bar' };
   getDimensions(): { cols: number; rows: number };
   isRowDirty(y: number): boolean;
   /** Returns true if a full redraw is needed (e.g., screen change) */
@@ -41,6 +41,8 @@ export interface IScrollbackProvider {
 // Type Definitions
 // ============================================================================
 
+export const DEFAULT_SCROLLBAR_WIDTH = 8;
+
 export interface RendererOptions {
   fontSize?: number; // Default: 15
   fontFamily?: string; // Default: 'monospace'
@@ -48,6 +50,7 @@ export interface RendererOptions {
   cursorBlink?: boolean; // Default: false
   theme?: ITheme;
   devicePixelRatio?: number; // Default: window.devicePixelRatio
+  scrollbarWidth?: number; // 0 = hidden
 }
 
 export interface FontMetrics {
@@ -55,6 +58,8 @@ export interface FontMetrics {
   height: number; // Character cell height in CSS pixels
   baseline: number; // Distance from top to text baseline
 }
+
+const LINK_HOVER_COLOR = '#4A90E2';
 
 // ============================================================================
 // Default Theme
@@ -100,8 +105,9 @@ export class CanvasRenderer {
   private cursorBlink: boolean;
   private theme: Required<ITheme>;
   private devicePixelRatio: number;
+  private scrollbarWidth: number;
   private metrics: FontMetrics;
-  private palette: string[];
+  private fontStrings: { plain: string; bold: string; italic: string; boldItalic: string };
 
   // Cursor blinking state
   private cursorVisible: boolean = true;
@@ -153,28 +159,10 @@ export class CanvasRenderer {
     this.cursorBlink = options.cursorBlink ?? false;
     this.theme = { ...DEFAULT_THEME, ...options.theme };
     this.devicePixelRatio = options.devicePixelRatio ?? window.devicePixelRatio ?? 1;
+    this.scrollbarWidth = options.scrollbarWidth ?? DEFAULT_SCROLLBAR_WIDTH;
 
-    // Build color palette (16 ANSI colors)
-    this.palette = [
-      this.theme.black,
-      this.theme.red,
-      this.theme.green,
-      this.theme.yellow,
-      this.theme.blue,
-      this.theme.magenta,
-      this.theme.cyan,
-      this.theme.white,
-      this.theme.brightBlack,
-      this.theme.brightRed,
-      this.theme.brightGreen,
-      this.theme.brightYellow,
-      this.theme.brightBlue,
-      this.theme.brightMagenta,
-      this.theme.brightCyan,
-      this.theme.brightWhite,
-    ];
-
-    // Measure font metrics
+    // Measure font metrics (also builds cached font strings)
+    this.fontStrings = this.buildFontStrings();
     this.metrics = this.measureFont();
 
     // Setup cursor blinking if enabled
@@ -187,26 +175,61 @@ export class CanvasRenderer {
   // Font Metrics Measurement
   // ==========================================================================
 
+  private buildFontStrings(): { plain: string; bold: string; italic: string; boldItalic: string } {
+    // Quote font family names that contain spaces but aren't already quoted
+    const quotedFamily = this.fontFamily
+      .split(',')
+      .map((f) => {
+        const trimmed = f.trim();
+        if (trimmed.startsWith('"') || trimmed.startsWith("'") || !trimmed.includes(' ')) {
+          return trimmed;
+        }
+        return `"${trimmed}"`;
+      })
+      .join(', ');
+    const base = `${this.fontSize}px ${quotedFamily}`;
+    return {
+      plain: base,
+      bold: `bold ${base}`,
+      italic: `italic ${base}`,
+      boldItalic: `bold italic ${base}`,
+    };
+  }
+
+  private getFontString(bold: boolean, italic: boolean): string {
+    if (bold && italic) return this.fontStrings.boldItalic;
+    if (bold) return this.fontStrings.bold;
+    if (italic) return this.fontStrings.italic;
+    return this.fontStrings.plain;
+  }
+
   private measureFont(): FontMetrics {
     // Use an offscreen canvas for measurement
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
 
     // Set font (use actual pixel size for accurate measurement)
-    ctx.font = `${this.fontSize}px ${this.fontFamily}`;
+    ctx.font = this.fontStrings.plain;
 
     // Measure width using 'M' (typically widest character)
     const widthMetrics = ctx.measureText('M');
     const width = Math.ceil(widthMetrics.width);
 
-    // Measure height using ascent + descent with padding for glyph overflow
-    const ascent = widthMetrics.actualBoundingBoxAscent || this.fontSize * 0.8;
-    const descent = widthMetrics.actualBoundingBoxDescent || this.fontSize * 0.2;
+    // Use font-level metrics (fontBoundingBox) rather than glyph-specific metrics (actualBoundingBox).
+    // This ensures the cell height accommodates ALL glyphs in the font, including powerline
+    // characters (U+E0B0, U+E0B6, etc.) which are designed to fill the full cell height.
+    // Fall back to actual metrics if font metrics aren't available.
+    const ascent =
+      widthMetrics.fontBoundingBoxAscent ??
+      widthMetrics.actualBoundingBoxAscent ??
+      this.fontSize * 0.8;
+    const descent =
+      widthMetrics.fontBoundingBoxDescent ??
+      widthMetrics.actualBoundingBoxDescent ??
+      this.fontSize * 0.2;
 
-    // Add 2px padding to height to account for glyphs that overflow (like 'f', 'd', 'g', 'p')
-    // and anti-aliasing pixels
-    const height = Math.ceil(ascent + descent) + 2;
-    const baseline = Math.ceil(ascent) + 1; // Offset baseline by half the padding
+    const height = Math.ceil(ascent + descent);
+    const baseline = Math.ceil(ascent);
 
     return { width, height, baseline };
   }
@@ -355,8 +378,16 @@ export class CanvasRenderer {
     // Track rows with hyperlinks that need redraw when hover changes
     const hyperlinkRows = new Set<number>();
     const hyperlinkChanged = this.hoveredHyperlinkId !== this.previousHoveredHyperlinkId;
+    const a = this.hoveredLinkRange,
+      b = this.previousHoveredLinkRange;
     const linkRangeChanged =
-      JSON.stringify(this.hoveredLinkRange) !== JSON.stringify(this.previousHoveredLinkRange);
+      a !== b &&
+      (!a ||
+        !b ||
+        a.startX !== b.startX ||
+        a.startY !== b.startY ||
+        a.endX !== b.endX ||
+        a.endY !== b.endY);
 
     if (hyperlinkChanged) {
       // Find rows containing the old or new hovered hyperlink
@@ -485,11 +516,13 @@ export class CanvasRenderer {
 
     // Render cursor (only if we're at the bottom, not scrolled)
     if (viewportY === 0 && cursor.visible && this.cursorVisible) {
-      this.renderCursor(cursor.x, cursor.y);
+      // Use cursor style from buffer if provided, otherwise use renderer default
+      const cursorStyle = cursor.style ?? this.cursorStyle;
+      this.renderCursor(cursor.x, cursor.y, cursorStyle);
     }
 
     // Render scrollbar if scrolled or scrollback exists (with opacity for fade effect)
-    if (scrollbackProvider && scrollbarOpacity > 0) {
+    if (scrollbackProvider && scrollbarOpacity > 0 && this.scrollbarWidth > 0) {
       this.renderScrollbar(viewportY, scrollbackLength, dims.rows, scrollbarOpacity);
     }
 
@@ -585,6 +618,15 @@ export class CanvasRenderer {
     }
   }
 
+  private drawHorizontalLine(x: number, y: number, width: number, color: string): void {
+    this.ctx.strokeStyle = color;
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, y);
+    this.ctx.lineTo(x + width, y);
+    this.ctx.stroke();
+  }
+
   /**
    * Render a cell's text and decorations (Pass 2 of two-pass rendering)
    * Selection foreground color is applied here to match the selection background.
@@ -602,32 +644,29 @@ export class CanvasRenderer {
     // Check if this cell is selected
     const isSelected = this.isInSelection(x, y);
 
-    // Set text style
-    let fontStyle = '';
-    if (cell.flags & CellFlags.ITALIC) fontStyle += 'italic ';
-    if (cell.flags & CellFlags.BOLD) fontStyle += 'bold ';
-    this.ctx.font = `${fontStyle}${this.fontSize}px ${this.fontFamily}`;
+    this.ctx.font = this.getFontString(
+      !!(cell.flags & CellFlags.BOLD),
+      !!(cell.flags & CellFlags.ITALIC)
+    );
 
-    // Set text color - use override, selection foreground, or normal color
+    // Set text color - use override if provided, otherwise selection or cell color
+    let fillColor: string;
     if (colorOverride) {
-      this.ctx.fillStyle = colorOverride;
+      fillColor = colorOverride;
     } else if (isSelected) {
-      this.ctx.fillStyle = this.theme.selectionForeground;
+      fillColor = this.theme.selectionForeground;
     } else {
-      // Extract colors and handle inverse
       let fg_r = cell.fg_r,
         fg_g = cell.fg_g,
         fg_b = cell.fg_b;
-
       if (cell.flags & CellFlags.INVERSE) {
-        // When inverted, foreground becomes background
         fg_r = cell.bg_r;
         fg_g = cell.bg_g;
         fg_b = cell.bg_b;
       }
-
-      this.ctx.fillStyle = this.rgbToCSS(fg_r, fg_g, fg_b);
+      fillColor = this.rgbToCSS(fg_r, fg_g, fg_b);
     }
+    this.ctx.fillStyle = fillColor;
 
     // Apply faint effect
     if (cell.flags & CellFlags.FAINT) {
@@ -638,91 +677,242 @@ export class CanvasRenderer {
     const textX = cellX;
     const textY = cellY + this.metrics.baseline;
 
-    // Get the character to render - use grapheme lookup for complex scripts
-    let char: string;
-    if (cell.grapheme_len > 0 && this.currentBuffer?.getGraphemeString) {
-      // Cell has additional codepoints - get full grapheme cluster
-      char = this.currentBuffer.getGraphemeString(y, x);
+    const codepoint = cell.codepoint || 32;
+
+    // Handle special characters that need pixel-perfect rendering:
+    // - Block drawing characters (U+2580-U+259F): rectangles for gap-free ASCII art
+    // - Powerline glyphs (U+E0B0-U+E0BF): vector shapes to match exact cell height
+    if (
+      codepoint >= 0x2580 &&
+      codepoint <= 0x259f &&
+      this.renderBlockChar(codepoint, cellX, cellY, cellWidth)
+    ) {
+      // rendered as rectangle
+    } else if (
+      codepoint >= 0xe0b0 &&
+      codepoint <= 0xe0b7 &&
+      this.renderPowerlineGlyph(codepoint, cellX, cellY, cellWidth)
+    ) {
+      // rendered as vector path
     } else {
-      // Simple cell - single codepoint
-      char = String.fromCodePoint(cell.codepoint || 32); // Default to space if null
+      // Use grapheme lookup for complex scripts, single codepoint otherwise
+      const char =
+        cell.grapheme_len > 0 && this.currentBuffer?.getGraphemeString
+          ? this.currentBuffer.getGraphemeString(y, x)
+          : String.fromCodePoint(codepoint);
+      this.ctx.fillText(char, textX, textY);
     }
-    this.ctx.fillText(char, textX, textY);
 
     // Reset alpha
     if (cell.flags & CellFlags.FAINT) {
       this.ctx.globalAlpha = 1.0;
     }
 
-    // Draw underline
+    const underlineY = cellY + this.metrics.baseline + 2;
+
     if (cell.flags & CellFlags.UNDERLINE) {
-      const underlineY = cellY + this.metrics.baseline + 2;
-      this.ctx.strokeStyle = this.ctx.fillStyle;
-      this.ctx.lineWidth = 1;
-      this.ctx.beginPath();
-      this.ctx.moveTo(cellX, underlineY);
-      this.ctx.lineTo(cellX + cellWidth, underlineY);
-      this.ctx.stroke();
+      this.drawHorizontalLine(cellX, underlineY, cellWidth, fillColor);
     }
-
-    // Draw strikethrough
     if (cell.flags & CellFlags.STRIKETHROUGH) {
-      const strikeY = cellY + this.metrics.height / 2;
-      this.ctx.strokeStyle = this.ctx.fillStyle;
-      this.ctx.lineWidth = 1;
-      this.ctx.beginPath();
-      this.ctx.moveTo(cellX, strikeY);
-      this.ctx.lineTo(cellX + cellWidth, strikeY);
-      this.ctx.stroke();
+      this.drawHorizontalLine(cellX, cellY + this.metrics.height / 2, cellWidth, fillColor);
     }
-
-    // Draw hyperlink underline (for OSC8 hyperlinks)
-    if (cell.hyperlink_id > 0) {
-      const isHovered = cell.hyperlink_id === this.hoveredHyperlinkId;
-
-      // Only show underline when hovered (cleaner look)
-      if (isHovered) {
-        const underlineY = cellY + this.metrics.baseline + 2;
-        this.ctx.strokeStyle = '#4A90E2'; // Blue underline on hover
-        this.ctx.lineWidth = 1;
-        this.ctx.beginPath();
-        this.ctx.moveTo(cellX, underlineY);
-        this.ctx.lineTo(cellX + cellWidth, underlineY);
-        this.ctx.stroke();
-      }
+    if (cell.hyperlink_id > 0 && cell.hyperlink_id === this.hoveredHyperlinkId) {
+      this.drawHorizontalLine(cellX, underlineY, cellWidth, LINK_HOVER_COLOR);
     }
-
-    // Draw regex link underline (for plain text URLs)
     if (this.hoveredLinkRange) {
       const range = this.hoveredLinkRange;
-      // Check if this cell is within the hovered link range
       const isInRange =
         (y === range.startY && x >= range.startX && (y < range.endY || x <= range.endX)) ||
         (y > range.startY && y < range.endY) ||
         (y === range.endY && x <= range.endX && (y > range.startY || x >= range.startX));
-
       if (isInRange) {
-        const underlineY = cellY + this.metrics.baseline + 2;
-        this.ctx.strokeStyle = '#4A90E2'; // Blue underline on hover
-        this.ctx.lineWidth = 1;
-        this.ctx.beginPath();
-        this.ctx.moveTo(cellX, underlineY);
-        this.ctx.lineTo(cellX + cellWidth, underlineY);
-        this.ctx.stroke();
+        this.drawHorizontalLine(cellX, underlineY, cellWidth, LINK_HOVER_COLOR);
       }
+    }
+  }
+
+  /**
+   * Render block drawing characters as filled rectangles for pixel-perfect rendering.
+   * Returns true if the character was handled, false if it should be rendered as text.
+   */
+  private renderBlockChar(
+    codepoint: number,
+    cellX: number,
+    cellY: number,
+    cellWidth: number
+  ): boolean {
+    const height = this.metrics.height;
+
+    // Block Elements (U+2580-U+259F)
+    switch (codepoint) {
+      case 0x2580: // ▀ UPPER HALF BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth, height / 2);
+        return true;
+      case 0x2581: // ▁ LOWER ONE EIGHTH BLOCK
+        this.ctx.fillRect(cellX, cellY + (height * 7) / 8, cellWidth, height / 8);
+        return true;
+      case 0x2582: // ▂ LOWER ONE QUARTER BLOCK
+        this.ctx.fillRect(cellX, cellY + (height * 3) / 4, cellWidth, height / 4);
+        return true;
+      case 0x2583: // ▃ LOWER THREE EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY + (height * 5) / 8, cellWidth, (height * 3) / 8);
+        return true;
+      case 0x2584: // ▄ LOWER HALF BLOCK
+        this.ctx.fillRect(cellX, cellY + height / 2, cellWidth, height / 2);
+        return true;
+      case 0x2585: // ▅ LOWER FIVE EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY + (height * 3) / 8, cellWidth, (height * 5) / 8);
+        return true;
+      case 0x2586: // ▆ LOWER THREE QUARTERS BLOCK
+        this.ctx.fillRect(cellX, cellY + height / 4, cellWidth, (height * 3) / 4);
+        return true;
+      case 0x2587: // ▇ LOWER SEVEN EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY + height / 8, cellWidth, (height * 7) / 8);
+        return true;
+      case 0x2588: // █ FULL BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth, height);
+        return true;
+      case 0x2589: // ▉ LEFT SEVEN EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY, (cellWidth * 7) / 8, height);
+        return true;
+      case 0x258a: // ▊ LEFT THREE QUARTERS BLOCK
+        this.ctx.fillRect(cellX, cellY, (cellWidth * 3) / 4, height);
+        return true;
+      case 0x258b: // ▋ LEFT FIVE EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY, (cellWidth * 5) / 8, height);
+        return true;
+      case 0x258c: // ▌ LEFT HALF BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth / 2, height);
+        return true;
+      case 0x258d: // ▍ LEFT THREE EIGHTHS BLOCK
+        this.ctx.fillRect(cellX, cellY, (cellWidth * 3) / 8, height);
+        return true;
+      case 0x258e: // ▎ LEFT ONE QUARTER BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth / 4, height);
+        return true;
+      case 0x258f: // ▏ LEFT ONE EIGHTH BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth / 8, height);
+        return true;
+      case 0x2590: // ▐ RIGHT HALF BLOCK
+        this.ctx.fillRect(cellX + cellWidth / 2, cellY, cellWidth / 2, height);
+        return true;
+      case 0x2594: // ▔ UPPER ONE EIGHTH BLOCK
+        this.ctx.fillRect(cellX, cellY, cellWidth, height / 8);
+        return true;
+      case 0x2595: // ▕ RIGHT ONE EIGHTH BLOCK
+        this.ctx.fillRect(cellX + (cellWidth * 7) / 8, cellY, cellWidth / 8, height);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  // Stroke the current path using the current fillStyle (for soft/outline powerline dividers)
+  private strokeWithFillColor(): void {
+    this.ctx.strokeStyle = this.ctx.fillStyle;
+    this.ctx.lineWidth = 1;
+    this.ctx.stroke();
+  }
+
+  /**
+   * Render Powerline glyphs as vector shapes for pixel-perfect cell height.
+   * Powerline glyphs (U+E0B0-U+E0BF) are designed to span the full cell height,
+   * but font rendering often makes them slightly taller/shorter than the cell.
+   * Drawing them as paths ensures they exactly fill the cell bounds.
+   * Returns true if the character was handled, false if it should be rendered as text.
+   */
+  private renderPowerlineGlyph(
+    codepoint: number,
+    cellX: number,
+    cellY: number,
+    cellWidth: number
+  ): boolean {
+    const height = this.metrics.height;
+    const ctx = this.ctx;
+
+    switch (codepoint) {
+      case 0xe0b0: // Right-pointing triangle (hard divider)
+      case 0xe0b1: // Right-pointing angle (soft divider)
+        ctx.beginPath();
+        ctx.moveTo(cellX, cellY);
+        ctx.lineTo(cellX + cellWidth, cellY + height / 2);
+        ctx.lineTo(cellX, cellY + height);
+        if (codepoint === 0xe0b0) {
+          ctx.closePath();
+          ctx.fill();
+        } else this.strokeWithFillColor();
+        return true;
+
+      case 0xe0b2: // Left-pointing triangle (hard divider)
+      case 0xe0b3: // Left-pointing angle (soft divider)
+        ctx.beginPath();
+        ctx.moveTo(cellX + cellWidth, cellY);
+        ctx.lineTo(cellX, cellY + height / 2);
+        ctx.lineTo(cellX + cellWidth, cellY + height);
+        if (codepoint === 0xe0b2) {
+          ctx.closePath();
+          ctx.fill();
+        } else this.strokeWithFillColor();
+        return true;
+
+      case 0xe0b4: // Right semicircle (filled)
+      case 0xe0b5: // Right semicircle (outline)
+        ctx.beginPath();
+        ctx.moveTo(cellX, cellY);
+        // Ellipse curving right: center at left edge, radii = cellWidth (x) and height/2 (y)
+        ctx.ellipse(
+          cellX,
+          cellY + height / 2,
+          cellWidth,
+          height / 2,
+          0,
+          -Math.PI / 2,
+          Math.PI / 2,
+          false
+        );
+        if (codepoint === 0xe0b4) {
+          ctx.closePath();
+          ctx.fill();
+        } else this.strokeWithFillColor();
+        return true;
+
+      case 0xe0b6: // Left semicircle (filled)
+      case 0xe0b7: // Left semicircle (outline)
+        ctx.beginPath();
+        ctx.moveTo(cellX + cellWidth, cellY);
+        // Ellipse curving left: center at right edge, radii = cellWidth (x) and height/2 (y)
+        ctx.ellipse(
+          cellX + cellWidth,
+          cellY + height / 2,
+          cellWidth,
+          height / 2,
+          0,
+          -Math.PI / 2,
+          Math.PI / 2,
+          true
+        );
+        if (codepoint === 0xe0b6) {
+          ctx.closePath();
+          ctx.fill();
+        } else this.strokeWithFillColor();
+        return true;
+
+      default:
+        return false;
     }
   }
 
   /**
    * Render cursor
    */
-  private renderCursor(x: number, y: number): void {
+  private renderCursor(x: number, y: number, style?: 'block' | 'underline' | 'bar'): void {
     const cursorX = x * this.metrics.width;
     const cursorY = y * this.metrics.height;
+    const cursorStyle = style ?? this.cursorStyle;
 
     this.ctx.fillStyle = this.theme.cursor;
 
-    switch (this.cursorStyle) {
+    switch (cursorStyle) {
       case 'block':
         // Full cell block
         this.ctx.fillRect(cursorX, cursorY, this.metrics.width, this.metrics.height);
@@ -788,26 +978,6 @@ export class CanvasRenderer {
    */
   public setTheme(theme: ITheme): void {
     this.theme = { ...DEFAULT_THEME, ...theme };
-
-    // Rebuild palette
-    this.palette = [
-      this.theme.black,
-      this.theme.red,
-      this.theme.green,
-      this.theme.yellow,
-      this.theme.blue,
-      this.theme.magenta,
-      this.theme.cyan,
-      this.theme.white,
-      this.theme.brightBlack,
-      this.theme.brightRed,
-      this.theme.brightGreen,
-      this.theme.brightYellow,
-      this.theme.brightBlue,
-      this.theme.brightMagenta,
-      this.theme.brightCyan,
-      this.theme.brightWhite,
-    ];
   }
 
   /**
@@ -815,6 +985,7 @@ export class CanvasRenderer {
    */
   public setFontSize(size: number): void {
     this.fontSize = size;
+    this.fontStrings = this.buildFontStrings();
     this.metrics = this.measureFont();
   }
 
@@ -823,6 +994,7 @@ export class CanvasRenderer {
    */
   public setFontFamily(family: string): void {
     this.fontFamily = family;
+    this.fontStrings = this.buildFontStrings();
     this.metrics = this.measureFont();
   }
 
@@ -847,10 +1019,6 @@ export class CanvasRenderer {
   }
 
   /**
-   * Get current font metrics
-   */
-
-  /**
    * Render scrollbar (Phase 2)
    * Shows scroll position and allows click/drag interaction
    * @param opacity Opacity level (0-1) for fade in/out effect
@@ -866,7 +1034,7 @@ export class CanvasRenderer {
     const canvasWidth = this.canvas.width / this.devicePixelRatio;
 
     // Scrollbar dimensions
-    const scrollbarWidth = 8;
+    const scrollbarWidth = this.scrollbarWidth;
     const scrollbarX = canvasWidth - scrollbarWidth - 4;
     const scrollbarPadding = 4;
     const scrollbarTrackHeight = canvasHeight - scrollbarPadding * 2;

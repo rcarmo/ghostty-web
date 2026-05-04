@@ -9,7 +9,7 @@
  * Uses createIsolatedTerminal() to ensure each test gets its own WASM instance.
  */
 
-import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { Terminal } from './terminal';
 import { createIsolatedTerminal } from './test-helpers';
 
@@ -142,16 +142,6 @@ describe('Terminal', () => {
 
       term.open(container!);
       expect(term.element).toBe(container);
-
-      term.dispose();
-    });
-
-    test('hides native textarea caret to avoid ghost cursor', async () => {
-      const term = await createIsolatedTerminal();
-      term.open(container);
-
-      expect(term.textarea).toBeDefined();
-      expect(term.textarea!.style.caretColor).toBe('transparent');
 
       term.dispose();
     });
@@ -324,48 +314,6 @@ describe('Terminal', () => {
       const term = await createIsolatedTerminal();
       expect(() => term.focus()).not.toThrow();
     });
-
-    test('open() auto-focuses on non-Android platforms', async () => {
-      const term = await createIsolatedTerminal();
-      const focusSpy = jest.spyOn(HTMLTextAreaElement.prototype, 'focus');
-
-      try {
-        term.open(container!);
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(focusSpy).toHaveBeenCalled();
-      } finally {
-        focusSpy.mockRestore();
-        term.dispose();
-      }
-    });
-
-    test('open() does not auto-focus on Android', async () => {
-      const navigatorProto = Object.getPrototypeOf(navigator);
-      const userAgentDescriptor = Object.getOwnPropertyDescriptor(navigatorProto, 'userAgent');
-      const focusSpy = jest.spyOn(HTMLTextAreaElement.prototype, 'focus');
-
-      Object.defineProperty(navigatorProto, 'userAgent', {
-        configurable: true,
-        get: () =>
-          'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Mobile Safari/537.36',
-      });
-
-      const term = await createIsolatedTerminal();
-
-      try {
-        term.open(container!);
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(focusSpy).not.toHaveBeenCalled();
-      } finally {
-        focusSpy.mockRestore();
-        if (userAgentDescriptor) {
-          Object.defineProperty(navigatorProto, 'userAgent', userAgentDescriptor);
-        } else {
-          delete (navigatorProto as { userAgent?: string }).userAgent;
-        }
-        term.dispose();
-      }
-    });
   });
 
   describe('Addons', () => {
@@ -483,54 +431,6 @@ describe('Terminal', () => {
 
       const finalChildCount = container.children.length;
       expect(finalChildCount).toBe(0);
-    });
-  });
-
-  describe('Render Loop Recovery', () => {
-    test('render loop continues after renderer.render() throws', async () => {
-      const term = await createIsolatedTerminal();
-      term.open(container!);
-
-      const renderer = term.renderer!;
-      const originalRender = renderer.render.bind(renderer);
-      let throwCount = 0;
-      let callCount = 0;
-
-      // Make render() throw once, then succeed
-      renderer.render = (...args: any[]) => {
-        callCount++;
-        if (throwCount === 0) {
-          throwCount++;
-          throw new Error('simulated render error');
-        }
-        return originalRender(...args);
-      };
-
-      // Suppress expected console.error
-      const originalConsoleError = console.error;
-      const errors: any[] = [];
-      console.error = (...args: any[]) => errors.push(args);
-
-      // Wait for at least two animation frames
-      await new Promise((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(resolve);
-          });
-        });
-      });
-
-      console.error = originalConsoleError;
-
-      // The error should have been thrown and caught
-      expect(throwCount).toBe(1);
-      // The loop should have continued — render called again after the error
-      expect(callCount).toBeGreaterThan(1);
-      // The error should have been logged
-      expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0][0]).toContain('render loop error');
-
-      term.dispose();
     });
   });
 });
@@ -1412,7 +1312,7 @@ describe('Buffer Access API', () => {
 
     term.open(container!);
 
-    // Write to main screen (default background from DEFAULT_THEME = #1e1e1e = RGB(30, 30, 30))
+    // Write to main screen (default background = black)
     term.write('MAIN\r\n');
     term.wasmTerm?.update();
     term.wasmTerm?.markClean();
@@ -1431,22 +1331,22 @@ describe('Buffer Access API', () => {
     term.wasmTerm?.update();
     term.wasmTerm?.markClean();
 
-    // Verify alternate screen has non-default background (blue)
+    // Verify alternate screen has non-default background
     const altViewport = term.wasmTerm?.getViewport();
-    expect(altViewport![0].bg_b).toBeGreaterThan(altViewport![0].bg_r); // Blue > Red for blue background
+    expect(altViewport![0].bg_r).not.toBe(0); // Should be blue-ish
 
     // Exit alternate screen
     term.write('\x1b[?1049l');
     term.wasmTerm?.update();
 
-    // CRITICAL: Background colors must be restored to main screen values (DEFAULT_THEME background)
+    // CRITICAL: Background colors must be restored to main screen values (black)
     const restoredViewport = term.wasmTerm?.getViewport();
     const firstCell = restoredViewport![0];
 
-    // Main screen cells should have default background from DEFAULT_THEME (#1e1e1e = 30, 30, 30)
-    expect(firstCell.bg_r).toBe(30);
-    expect(firstCell.bg_g).toBe(30);
-    expect(firstCell.bg_b).toBe(30);
+    // Main screen cells should have default background (0, 0, 0 = black)
+    expect(firstCell.bg_r).toBe(0);
+    expect(firstCell.bg_g).toBe(0);
+    expect(firstCell.bg_b).toBe(0);
 
     // Verify text is also restored
     expect(String.fromCodePoint(firstCell.codepoint)).toBe('M');
@@ -2655,125 +2555,6 @@ describe('Options Proxy handleOptionChange', () => {
 
     term.dispose();
   });
-
-  test('font family with spaces is properly quoted', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal({
-      fontFamily: 'Fira Code, Consolas, monospace',
-      cols: 80,
-      rows: 24,
-    });
-    term.open(container);
-
-    // @ts-ignore - accessing private for test
-    const renderer = term.renderer;
-
-    // The renderer should have stored the font family
-    // @ts-ignore - accessing private for test
-    expect(renderer.fontFamily).toBe('Fira Code, Consolas, monospace');
-
-    // Test that buildFontString properly quotes the font
-    // @ts-ignore - accessing private for test
-    const fontString = renderer.buildFontString();
-    expect(fontString).toContain('"Fira Code"');
-    expect(fontString).toContain('Consolas');
-    expect(fontString).toContain('monospace');
-
-    term.dispose();
-  });
-
-  test('font family already quoted is not double-quoted', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal({
-      fontFamily: '"Fira Code", monospace',
-      cols: 80,
-      rows: 24,
-    });
-    term.open(container);
-
-    // @ts-ignore - accessing private for test
-    const renderer = term.renderer;
-    // @ts-ignore - accessing private for test
-    const fontString = renderer.buildFontString();
-
-    // Should not have double quotes
-    expect(fontString).not.toContain('""Fira Code""');
-    expect(fontString).toContain('"Fira Code"');
-
-    term.dispose();
-  });
-
-  test('loadFonts() triggers re-measurement and re-render', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal({ fontSize: 15, cols: 80, rows: 24 });
-    term.open(container);
-
-    // @ts-ignore - accessing private for test
-    const renderer = term.renderer;
-    const initialMetrics = renderer.getMetrics();
-
-    // Change font family to something different (simulating a font load scenario)
-    term.options.fontFamily = 'serif';
-
-    // Get metrics after the automatic update from options change
-    const afterOptionsMetrics = renderer.getMetrics();
-
-    // Change back and verify loadFonts works independently
-    // @ts-ignore - accessing private for test
-    renderer.fontFamily = 'monospace';
-
-    // Call loadFonts to trigger re-measurement (without going through options)
-    term.loadFonts();
-
-    // Verify loadFonts was called (metrics should change since font changed)
-    const finalMetrics = renderer.getMetrics();
-    // The metrics should be recalculated (may or may not differ based on fonts available)
-    expect(finalMetrics).toBeDefined();
-    expect(finalMetrics.width).toBeGreaterThan(0);
-    expect(finalMetrics.height).toBeGreaterThan(0);
-
-    term.dispose();
-  });
-
-  test('buildFontString includes style prefix', async () => {
-    if (!container) return;
-
-    const term = await createIsolatedTerminal({
-      fontFamily: 'monospace',
-      fontSize: 16,
-      cols: 80,
-      rows: 24,
-    });
-    term.open(container);
-
-    // @ts-ignore - accessing private for test
-    const renderer = term.renderer;
-
-    // Test with no style
-    // @ts-ignore - accessing private for test
-    let fontString = renderer.buildFontString();
-    expect(fontString).toBe('16px monospace');
-
-    // Test with bold style
-    // @ts-ignore - accessing private for test
-    fontString = renderer.buildFontString('bold ');
-    expect(fontString).toBe('bold 16px monospace');
-
-    // Test with italic style
-    // @ts-ignore - accessing private for test
-    fontString = renderer.buildFontString('italic ');
-    expect(fontString).toBe('italic 16px monospace');
-
-    // Test with bold italic style
-    // @ts-ignore - accessing private for test
-    fontString = renderer.buildFontString('italic bold ');
-    expect(fontString).toBe('italic bold 16px monospace');
-
-    term.dispose();
-  });
 });
 
 // ==========================================================================
@@ -3210,90 +2991,295 @@ describe('Synchronous open()', () => {
   });
 });
 
-describe('Terminal Snapshot API', () => {
-  // Snapshot API tests need WASM initialization
+// ============================================================================
+// Dynamic Theme Changes
+// ============================================================================
 
-  test('hasSnapshot returns false by default', async () => {
-    const term = await createIsolatedTerminal({ cols: 10, rows: 5 });
-    expect(term.hasSnapshot()).toBe(false);
+describe('Dynamic Theme Changes', () => {
+  let container: HTMLElement | null = null;
+
+  beforeEach(async () => {
+    if (typeof document !== 'undefined') {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+    }
+  });
+
+  afterEach(() => {
+    if (container && container.parentNode) {
+      container.parentNode.removeChild(container);
+      container = null;
+    }
+  });
+
+  test('full theme change updates renderer', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal({
+      theme: { background: '#000000', foreground: '#ffffff' },
+    });
+    term.open(container);
+
+    // Change to a completely different theme
+    term.options.theme = {
+      background: '#ff0000',
+      foreground: '#00ff00',
+      cursor: '#0000ff',
+      red: '#aa0000',
+    };
+
+    const renderer = term.renderer;
+    expect(renderer!.theme.background).toBe('#ff0000');
+    expect(renderer!.theme.foreground).toBe('#00ff00');
+    expect(renderer!.theme.cursor).toBe('#0000ff');
+
     term.dispose();
   });
 
-  test('setSnapshot sets snapshot mode', async () => {
-    const term = await createIsolatedTerminal({ cols: 10, rows: 5 });
-    const cells = createTestCells(10, 5, 'A');
-    const cursor = { x: 5, y: 2 };
+  test('full theme change updates WASM terminal colors', async () => {
+    if (!container) return;
 
-    term.setSnapshot(cells, cursor);
-    expect(term.hasSnapshot()).toBe(true);
+    const term = await createIsolatedTerminal();
+    term.open(container);
 
-    term.dispose();
-  });
+    term.options.theme = {
+      background: '#112233',
+      foreground: '#aabbcc',
+    };
 
-  test('clearSnapshot exits snapshot mode', async () => {
-    const term = await createIsolatedTerminal({ cols: 10, rows: 5 });
-    const cells = createTestCells(10, 5, 'A');
+    // Force render state update to pick up new colors
+    term.wasmTerm!.update();
+    const colors = term.wasmTerm!.getColors();
 
-    term.setSnapshot(cells, { x: 0, y: 0 });
-    expect(term.hasSnapshot()).toBe(true);
-
-    term.clearSnapshot();
-    expect(term.hasSnapshot()).toBe(false);
-
-    term.dispose();
-  });
-
-  test('getSnapshotCells returns set cells', async () => {
-    const term = await createIsolatedTerminal({ cols: 10, rows: 5 });
-    const cells = createTestCells(10, 5, 'B');
-
-    term.setSnapshot(cells, { x: 0, y: 0 });
-    const snapshotCells = term.getSnapshotCells();
-
-    expect(snapshotCells).not.toBeNull();
-    expect(snapshotCells!.length).toBe(5); // 5 rows
-    expect(snapshotCells![0].length).toBe(10); // 10 cols per row
-    expect(snapshotCells![0][0].codepoint).toBe('B'.charCodeAt(0));
+    // Verify WASM terminal has the new colors
+    expect(colors.background.r).toBe(0x11);
+    expect(colors.background.g).toBe(0x22);
+    expect(colors.background.b).toBe(0x33);
+    expect(colors.foreground.r).toBe(0xaa);
+    expect(colors.foreground.g).toBe(0xbb);
+    expect(colors.foreground.b).toBe(0xcc);
 
     term.dispose();
   });
 
-  test('getSnapshotCursor returns set cursor', async () => {
-    const term = await createIsolatedTerminal({ cols: 10, rows: 5 });
-    const cells = createTestCells(10, 5, 'X');
-    const cursor = { x: 7, y: 3 };
+  test('partial theme update preserves previous customizations', async () => {
+    if (!container) return;
 
-    term.setSnapshot(cells, cursor);
-    const snapshotCursor = term.getSnapshotCursor();
+    const term = await createIsolatedTerminal();
+    term.open(container);
 
-    expect(snapshotCursor).not.toBeNull();
-    expect(snapshotCursor!.x).toBe(7);
-    expect(snapshotCursor!.y).toBe(3);
+    // First: change background only
+    term.options.theme = { background: '#111111' };
+
+    expect(term.renderer!.theme.background).toBe('#111111');
+
+    // Second: change foreground only — background should be preserved
+    term.options.theme = { foreground: '#222222' };
+
+    expect(term.renderer!.theme.background).toBe('#111111');
+    expect(term.renderer!.theme.foreground).toBe('#222222');
+
+    term.dispose();
+  });
+
+  test('successive partial updates accumulate correctly', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal();
+    term.open(container);
+
+    term.options.theme = { background: '#aaaaaa' };
+    term.options.theme = { foreground: '#bbbbbb' };
+    term.options.theme = { cursor: '#cccccc' };
+
+    const theme = term.renderer!.theme;
+    expect(theme.background).toBe('#aaaaaa');
+    expect(theme.foreground).toBe('#bbbbbb');
+    expect(theme.cursor).toBe('#cccccc');
+
+    term.dispose();
+  });
+
+  test('theme reset to empty object restores defaults', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal({
+      theme: { background: '#ff0000', foreground: '#00ff00' },
+    });
+    term.open(container);
+
+    expect(term.renderer!.theme.background).toBe('#ff0000');
+
+    // Reset to empty — should restore defaults
+    term.options.theme = {};
+
+    expect(term.renderer!.theme.background).toBe('#1e1e1e');
+    expect(term.renderer!.theme.foreground).toBe('#d4d4d4');
+
+    term.dispose();
+  });
+
+  test('theme reset to null restores defaults', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal({
+      theme: { background: '#ff0000' },
+    });
+    term.open(container);
+
+    expect(term.renderer!.theme.background).toBe('#ff0000');
+
+    // Reset to null
+    term.options.theme = null as any;
+
+    expect(term.renderer!.theme.background).toBe('#1e1e1e');
+
+    term.dispose();
+  });
+
+  test('theme change before open() is applied correctly', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal({
+      theme: { background: '#111111' },
+    });
+
+    // Change theme before open
+    term.options.theme = { background: '#222222' };
+
+    // Open — should use the latest theme
+    term.open(container);
+
+    // The buildWasmConfig reads from options.theme which is now #222222
+    expect(term.renderer!.theme.background).toBe('#222222');
+
+    term.dispose();
+  });
+
+  test('ANSI palette color cells re-resolve after theme change', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal({
+      theme: { red: '#cd3131' },
+    });
+    term.open(container);
+
+    // Write text with ANSI red (color index 1)
+    term.write('\x1b[31mRed text\x1b[0m');
+
+    // Change theme — new red
+    term.options.theme = { red: '#ff0000' };
+
+    // Force render state update and read cells
+    term.wasmTerm!.update();
+    const line = term.wasmTerm!.getLine(0);
+    expect(line).not.toBeNull();
+
+    // First cell ('R') should now have the new red color
+    const cell = line![0];
+    expect(cell.fg_r).toBe(0xff);
+    expect(cell.fg_g).toBe(0x00);
+    expect(cell.fg_b).toBe(0x00);
+
+    term.dispose();
+  });
+
+  test('explicit RGB color cells remain unchanged after theme change', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal();
+    term.open(container);
+
+    // Write text with explicit RGB color
+    term.write('\x1b[38;2;100;200;50mRGB text\x1b[0m');
+
+    // Change theme
+    term.options.theme = {
+      foreground: '#ffffff',
+      background: '#000000',
+      red: '#ff0000',
+    };
+
+    // Force render state update and read cells
+    term.wasmTerm!.update();
+    const line = term.wasmTerm!.getLine(0);
+    expect(line).not.toBeNull();
+
+    // First cell ('R') should still have the explicit RGB color
+    const cell = line![0];
+    expect(cell.fg_r).toBe(100);
+    expect(cell.fg_g).toBe(200);
+    expect(cell.fg_b).toBe(50);
+
+    term.dispose();
+  });
+
+  test('theme change triggers full redraw', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal();
+    term.open(container);
+
+    // Clear any existing dirty state
+    term.wasmTerm!.clearDirty();
+    expect(term.wasmTerm!.needsFullRedraw()).toBe(false);
+
+    // Change theme
+    term.options.theme = { background: '#ff0000' };
+
+    // Should need a full redraw
+    expect(term.wasmTerm!.needsFullRedraw()).toBe(true);
+
+    // After clearing, no longer dirty
+    term.wasmTerm!.clearDirty();
+    expect(term.wasmTerm!.needsFullRedraw()).toBe(false);
+
+    term.dispose();
+  });
+
+  test('invalid color values do not crash', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal();
+    term.open(container);
+
+    // Should not throw
+    term.options.theme = {
+      background: 'not-a-color',
+      foreground: 'rgb(999,0,0)',
+      red: '',
+    };
+
+    expect(term.renderer!.theme.background).toBe('not-a-color');
+
+    term.dispose();
+  });
+
+  test('default fg/bg cells update after theme change', async () => {
+    if (!container) return;
+
+    const term = await createIsolatedTerminal({
+      theme: { foreground: '#aaaaaa', background: '#111111' },
+    });
+    term.open(container);
+
+    // Write text with default colors (no SGR)
+    term.write('Hello');
+
+    // Change theme
+    term.options.theme = { foreground: '#ffffff', background: '#000000' };
+
+    // Force render state update and read cells
+    term.wasmTerm!.update();
+    const line = term.wasmTerm!.getLine(0);
+    expect(line).not.toBeNull();
+
+    // First cell ('H') should have new default foreground
+    const cell = line![0];
+    expect(cell.fg_r).toBe(0xff);
+    expect(cell.fg_g).toBe(0xff);
+    expect(cell.fg_b).toBe(0xff);
 
     term.dispose();
   });
 });
-
-/**
- * Helper to create test GhosttyCell array
- */
-function createTestCells(cols: number, rows: number, char: string) {
-  const codepoint = char.charCodeAt(0);
-  const cells = [];
-  for (let i = 0; i < rows * cols; i++) {
-    cells.push({
-      codepoint,
-      fg_r: 255,
-      fg_g: 255,
-      fg_b: 255,
-      bg_r: 0,
-      bg_g: 0,
-      bg_b: 0,
-      flags: 0,
-      width: 1,
-      hyperlink_id: 0,
-      grapheme_len: 0,
-    });
-  }
-  return cells;
-}

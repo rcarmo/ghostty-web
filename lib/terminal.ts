@@ -29,12 +29,13 @@ import type {
   ITerminalAddon,
   ITerminalCore,
   ITerminalOptions,
+  ITheme,
   IUnicodeVersionProvider,
 } from './interfaces';
 import { LinkDetector } from './link-detector';
 import { OSC8LinkProvider } from './providers/osc8-link-provider';
 import { UrlRegexProvider } from './providers/url-regex-provider';
-import { CanvasRenderer } from './renderer';
+import { CanvasRenderer, DEFAULT_SCROLLBAR_WIDTH, DEFAULT_THEME } from './renderer';
 import { SelectionManager } from './selection-manager';
 import type { ILink, ILinkProvider } from './types';
 
@@ -86,6 +87,7 @@ export class Terminal implements ITerminalCore {
   private scrollEmitter = new EventEmitter<number>();
   private renderEmitter = new EventEmitter<{ start: number; end: number }>();
   private cursorMoveEmitter = new EventEmitter<void>();
+  private openEmitter = new EventEmitter<void>();
   // Public event accessors (xterm.js compatibility)
   public readonly onData: IEvent<string> = this.dataEmitter.event;
   public readonly onResize: IEvent<{ cols: number; rows: number }> = this.resizeEmitter.event;
@@ -96,10 +98,13 @@ export class Terminal implements ITerminalCore {
   public readonly onScroll: IEvent<number> = this.scrollEmitter.event;
   public readonly onRender: IEvent<{ start: number; end: number }> = this.renderEmitter.event;
   public readonly onCursorMove: IEvent<void> = this.cursorMoveEmitter.event;
+  /** Fired once when the terminal is mounted to the DOM and ready to receive input. */
+  public readonly onOpen: IEvent<void> = this.openEmitter.event;
 
   // Lifecycle state
   private isOpen = false;
   private isDisposed = false;
+  private isSuspended = false;
   private animationFrameId?: number;
   private writeQueue: Uint8Array[] = [];
 
@@ -111,6 +116,8 @@ export class Terminal implements ITerminalCore {
 
   // Phase 1: Title tracking
   private currentTitle: string = '';
+
+  private currentTheme!: Required<ITheme>;
 
   // Phase 2: Viewport and scrolling state
   public viewportY: number = 0; // Top line of viewport in scrollback buffer (0 = at bottom, can be fractional during smooth scroll)
@@ -171,6 +178,9 @@ export class Terminal implements ITerminalCore {
     this.cols = this.options.cols;
     this.rows = this.options.rows;
 
+    // Initialize accumulated theme (merge user theme with defaults)
+    this.currentTheme = { ...DEFAULT_THEME, ...options.theme };
+
     // Initialize buffer API
     this.buffer = new BufferNamespace(this);
   }
@@ -201,8 +211,20 @@ export class Terminal implements ITerminalCore {
         break;
 
       case 'theme':
-        if (this.renderer) {
-          console.warn('ghostty-web: theme changes after open() are not yet fully supported');
+        if (this.renderer && this.wasmTerm) {
+          // Merge partial theme with current accumulated theme.
+          // Null/undefined/empty resets to defaults.
+          const incoming = newValue && typeof newValue === 'object' ? newValue : {};
+          const hasProperties = Object.keys(incoming).length > 0;
+          this.currentTheme = hasProperties
+            ? { ...this.currentTheme, ...incoming }
+            : { ...DEFAULT_THEME };
+
+          // Update renderer (selection, cursor, palette colors)
+          this.renderer.setTheme(this.currentTheme);
+
+          // Update WASM terminal colors (for cell color re-resolution)
+          this.wasmTerm.setColors(this.buildThemeColorsConfig(this.currentTheme));
         }
         break;
 
@@ -295,10 +317,30 @@ export class Terminal implements ITerminalCore {
       return undefined;
     }
 
-    // Build palette array from theme colors
-    // Order: black, red, green, yellow, blue, magenta, cyan, white,
-    //        brightBlack, brightRed, brightGreen, brightYellow, brightBlue, brightMagenta, brightCyan, brightWhite
-    const palette: number[] = [
+    return {
+      scrollbackLimit: scrollback,
+      fgColor: this.parseColorToHex(theme?.foreground),
+      bgColor: this.parseColorToHex(theme?.background),
+      cursorColor: this.parseColorToHex(theme?.cursor),
+      palette: this.buildThemePalette(theme),
+    };
+  }
+
+  /**
+   * Build a WASM colors config from a fully-resolved theme.
+   * Unlike buildWasmConfig(), all color values are valid (no sentinel).
+   */
+  private buildThemeColorsConfig(theme: Required<ITheme>): GhosttyTerminalConfig {
+    return {
+      fgColor: this.parseColorToHex(theme.foreground),
+      bgColor: this.parseColorToHex(theme.background),
+      cursorColor: this.parseColorToHex(theme.cursor),
+      palette: this.buildThemePalette(theme),
+    };
+  }
+
+  private buildThemePalette(theme: ITheme | undefined): number[] {
+    return [
       this.parseColorToHex(theme?.black),
       this.parseColorToHex(theme?.red),
       this.parseColorToHex(theme?.green),
@@ -316,14 +358,6 @@ export class Terminal implements ITerminalCore {
       this.parseColorToHex(theme?.brightCyan),
       this.parseColorToHex(theme?.brightWhite),
     ];
-
-    return {
-      scrollbackLimit: scrollback,
-      fgColor: this.parseColorToHex(theme?.foreground),
-      bgColor: this.parseColorToHex(theme?.background),
-      cursorColor: this.parseColorToHex(theme?.cursor),
-      palette,
-    };
   }
 
   // ==========================================================================
@@ -423,6 +457,7 @@ export class Terminal implements ITerminalCore {
         cursorStyle: this.options.cursorStyle,
         cursorBlink: this.options.cursorBlink,
         theme: this.options.theme,
+        scrollbarWidth: this.options.scrollbarWidth,
       });
 
       // Size canvas to terminal dimensions (use renderer.resize for proper DPI scaling)
@@ -524,6 +559,11 @@ export class Terminal implements ITerminalCore {
 
       // Start render loop
       this.startRenderLoop();
+
+      // Notify listeners that the terminal is mounted and ready for input.
+      // Dispose immediately after — onOpen fires exactly once, releasing subscriber closures.
+      this.openEmitter.fire();
+      this.openEmitter.dispose();
 
       // Focus input (auto-focus so user can start typing immediately)
       this.focus();
@@ -700,7 +740,9 @@ export class Terminal implements ITerminalCore {
 
     // Flush any writes that were queued during resize, then restart render loop
     this.flushWriteQueue();
-    this.startRenderLoop();
+    if (!this.isSuspended) {
+      this.startRenderLoop();
+    }
   }
 
   /**
@@ -755,6 +797,36 @@ export class Terminal implements ITerminalCore {
     if (this.isOpen && this.element) {
       this.element.blur();
     }
+  }
+
+  /**
+   * Suspend rendering. Stops the render loop without destroying terminal state.
+   * Writes continue to be processed by the WASM terminal; they will be rendered
+   * on the next frame after resume() is called.
+   *
+   * Also cancels any in-progress smooth-scroll animation — it will resume from
+   * its current position when resume() is called.
+   *
+   * Intended for terminals that are mounted but not visible (e.g. inactive tabs).
+   */
+  suspend(): void {
+    if (this.isSuspended || !this.isOpen) return;
+    this.isSuspended = true;
+    this.cancelRenderLoop();
+    this.cancelScrollAnimation();
+  }
+
+  /**
+   * Resume rendering after a suspend() call.
+   * Restarts any scroll animation that was in progress when suspended.
+   */
+  resume(): void {
+    if (!this.isSuspended || !this.isOpen) return;
+    this.isSuspended = false;
+    if (this.scrollAnimationStartTime !== undefined && !this.scrollAnimationFrame) {
+      this.animateScroll();
+    }
+    this.startRenderLoop();
   }
 
   /**
@@ -1086,16 +1158,14 @@ export class Terminal implements ITerminalCore {
 
     this.isDisposed = true;
     this.isOpen = false;
+    this.isSuspended = false;
 
     // Stop render loop and clear write queue
     this.cancelRenderLoop();
     this.writeQueue.length = 0;
 
     // Stop smooth scroll animation
-    if (this.scrollAnimationFrame) {
-      cancelAnimationFrame(this.scrollAnimationFrame);
-      this.scrollAnimationFrame = undefined;
-    }
+    this.cancelScrollAnimation();
 
     // Clear mouse move throttle timeout
     if (this.mouseMoveThrottleTimeout) {
@@ -1136,6 +1206,13 @@ export class Terminal implements ITerminalCore {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = undefined;
+    }
+  }
+
+  private cancelScrollAnimation(): void {
+    if (this.scrollAnimationFrame) {
+      cancelAnimationFrame(this.scrollAnimationFrame);
+      this.scrollAnimationFrame = undefined;
     }
   }
 
@@ -1607,6 +1684,9 @@ export class Terminal implements ITerminalCore {
   private handleMouseDown = (e: MouseEvent): void => {
     if (!this.canvas || !this.renderer || !this.wasmTerm) return;
 
+    const scrollbarWidth = this.options.scrollbarWidth ?? DEFAULT_SCROLLBAR_WIDTH;
+    if (scrollbarWidth === 0) return;
+
     const scrollbackLength = this.wasmTerm.getScrollbackLength();
     if (scrollbackLength === 0) return; // No scrollbar if no scrollback
 
@@ -1618,7 +1698,6 @@ export class Terminal implements ITerminalCore {
     // Use rect dimensions which are already in CSS pixels
     const canvasWidth = rect.width;
     const canvasHeight = rect.height;
-    const scrollbarWidth = 8;
     const scrollbarX = canvasWidth - scrollbarWidth - 4;
     const scrollbarPadding = 4;
 

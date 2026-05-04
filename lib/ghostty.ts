@@ -36,6 +36,9 @@ export {
   type RenderStateCursor,
 };
 
+// Reused across all WASM log callbacks — TextDecoder is stateless but expensive to construct.
+const wasmLogDecoder = new TextDecoder();
+
 /**
  * Main Ghostty WASM wrapper class
  */
@@ -139,19 +142,89 @@ export class Ghostty {
     }
 
     const wasmModule = await WebAssembly.compile(wasmBytes);
-    const wasmInstance = await WebAssembly.instantiate(wasmModule, {
-      env: {
-        log: (ptr: number, len: number) => {
-          const bytes = new Uint8Array(
-            (wasmInstance.exports as GhosttyWasmExports).memory.buffer,
-            ptr,
-            len
-          );
-          console.log('[ghostty-vt]', new TextDecoder().decode(bytes));
+    return Ghostty._instantiateFromModule(wasmModule);
+  }
+
+  /**
+   * Load and instantiate the Ghostty WASM module from a pre-fetched ArrayBuffer.
+   *
+   * This is the fast path when bytes are already available (e.g. from an
+   * IndexedDB cache). It skips the fetch round-trip but still compiles the
+   * module — use `loadFromResponse` to also overlap compilation with the
+   * download via `instantiateStreaming`.
+   */
+  static async loadFromBytes(bytes: ArrayBuffer): Promise<Ghostty> {
+    const wasmModule = await WebAssembly.compile(bytes);
+    return Ghostty._instantiateFromModule(wasmModule);
+  }
+
+  /**
+   * Load and instantiate the Ghostty WASM module from a fetch `Response`.
+   *
+   * Uses `WebAssembly.instantiateStreaming` when the response carries the
+   * required `Content-Type: application/wasm` header, allowing compilation
+   * to overlap with the download. Falls back to `arrayBuffer()` + `compile`
+   * if streaming is unavailable or the Content-Type is wrong.
+   */
+  static async loadFromResponse(response: Response): Promise<Ghostty> {
+    if (typeof WebAssembly.instantiateStreaming === 'function') {
+      // Clone only when streaming is attempted so the body is available on fallback.
+      const responseClone = response.clone();
+      try {
+        const { imports, setInstance } = Ghostty._makeImports();
+        const { instance } = await WebAssembly.instantiateStreaming(response, imports);
+        setInstance(instance);
+        return new Ghostty(instance);
+      } catch {
+        // Content-Type mismatch or streaming not supported — fall through.
+        const bytes = await responseClone.arrayBuffer();
+        return Ghostty.loadFromBytes(bytes);
+      }
+    }
+    const bytes = await response.arrayBuffer();
+    return Ghostty.loadFromBytes(bytes);
+  }
+
+  /**
+   * Compile and instantiate a pre-compiled WASM module.
+   * Shared by `loadFromPath`, `loadFromBytes`, and the streaming fallback.
+   */
+  private static async _instantiateFromModule(wasmModule: WebAssembly.Module): Promise<Ghostty> {
+    const { imports, setInstance } = Ghostty._makeImports();
+    const wasmInstance = await WebAssembly.instantiate(wasmModule, imports);
+    setInstance(wasmInstance);
+    return new Ghostty(wasmInstance);
+  }
+
+  /**
+   * Build the WebAssembly imports object with the WASM-to-host `log` callback.
+   * Returns a `setInstance` setter that must be called after instantiation so
+   * the callback can access the instance's memory buffer.
+   * Safe because WASM only calls `log` after full instantiation.
+   */
+  private static _makeImports(): {
+    imports: WebAssembly.Imports;
+    setInstance: (i: WebAssembly.Instance) => void;
+  } {
+    const ref: { instance?: WebAssembly.Instance } = {};
+    return {
+      imports: {
+        env: {
+          log: (ptr: number, len: number) => {
+            if (!ref.instance) return;
+            const data = new Uint8Array(
+              (ref.instance.exports as GhosttyWasmExports).memory.buffer,
+              ptr,
+              len
+            );
+            console.log('[ghostty-vt]', wasmLogDecoder.decode(data));
+          },
         },
       },
-    });
-    return new Ghostty(wasmInstance);
+      setInstance: (i: WebAssembly.Instance) => {
+        ref.instance = i;
+      },
+    };
   }
 }
 
@@ -288,35 +361,9 @@ export class GhosttyTerminal {
       }
 
       try {
-        // Write config to WASM memory
-        const view = new DataView(this.memory.buffer);
-        let offset = configPtr;
-
-        // scrollback_limit (u32)
-        view.setUint32(offset, config.scrollbackLimit ?? 10000, true);
-        offset += 4;
-
-        // fg_color (u32)
-        view.setUint32(offset, config.fgColor ?? 0, true);
-        offset += 4;
-
-        // bg_color (u32)
-        view.setUint32(offset, config.bgColor ?? 0, true);
-        offset += 4;
-
-        // cursor_color (u32)
-        view.setUint32(offset, config.cursorColor ?? 0, true);
-        offset += 4;
-
-        // palette[16] (u32 * 16)
-        for (let i = 0; i < 16; i++) {
-          view.setUint32(offset, config.palette?.[i] ?? 0, true);
-          offset += 4;
-        }
-
+        this.writeConfigToPtr(configPtr, config);
         this.handle = this.exports.ghostty_terminal_new_with_config(cols, rows, configPtr);
       } finally {
-        // Free the config memory
         this.exports.ghostty_wasm_free_u8_array(configPtr, GHOSTTY_CONFIG_SIZE);
       }
     } else {
@@ -364,6 +411,52 @@ export class GhosttyTerminal {
     this.exports.ghostty_terminal_free(this.handle);
   }
 
+  /**
+   * Update terminal colors at runtime. All color values are applied directly
+   * (no sentinel — 0x000000 is valid black). Forces a full redraw on next render.
+   */
+  setColors(config: GhosttyTerminalConfig): void {
+    const configPtr = this.exports.ghostty_wasm_alloc_u8_array(GHOSTTY_CONFIG_SIZE);
+    if (configPtr === 0) return;
+
+    try {
+      this.writeConfigToPtr(configPtr, config);
+      this.exports.ghostty_terminal_set_colors(this.handle, configPtr);
+    } finally {
+      this.exports.ghostty_wasm_free_u8_array(configPtr, GHOSTTY_CONFIG_SIZE);
+    }
+  }
+
+  /**
+   * Write a GhosttyTerminalConfig into WASM memory at configPtr.
+   *
+   * Layout must match GhosttyTerminalConfig in src/terminal/c/terminal.zig:
+   *   scrollback_limit: u32  (+0)
+   *   fg_color:         u32  (+4)
+   *   bg_color:         u32  (+8)
+   *   cursor_color:     u32  (+12)
+   *   palette:          [16]u32 (+16..+79)
+   * Total: 80 bytes. Any struct change in Zig must be mirrored here.
+   */
+  private writeConfigToPtr(configPtr: number, config: GhosttyTerminalConfig): void {
+    const view = new DataView(this.memory.buffer);
+    let offset = configPtr;
+
+    view.setUint32(offset, config.scrollbackLimit ?? 0, true);
+    offset += 4;
+    view.setUint32(offset, config.fgColor ?? 0, true);
+    offset += 4;
+    view.setUint32(offset, config.bgColor ?? 0, true);
+    offset += 4;
+    view.setUint32(offset, config.cursorColor ?? 0, true);
+    offset += 4;
+
+    for (let i = 0; i < 16; i++) {
+      view.setUint32(offset, config.palette?.[i] ?? 0, true);
+      offset += 4;
+    }
+  }
+
   // ==========================================================================
   // RenderState API - The key performance optimization
   // ==========================================================================
@@ -400,7 +493,7 @@ export class GhosttyTerminal {
       viewportY: this.exports.ghostty_render_state_get_cursor_y(this.handle),
       visible: this.exports.ghostty_render_state_get_cursor_visible(this.handle),
       blinking: false, // TODO: Add blinking support
-      style: 'block', // TODO: Add style support
+      style: undefined, // TODO: Add style support via WASM
     };
   }
 

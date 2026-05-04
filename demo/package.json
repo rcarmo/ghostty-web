@@ -1,5 +1,5 @@
 {
-  "name": "@ghostty-web/demo",
+  "name": "@canopy-hq/ghostty-web-demo",
   "version": "0.3.0",
   "description": "Cross-platform demo server for ghostty-web terminal emulator",
   "type": "module",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@lydell/node-pty": "^1.0.1",
-    "ghostty-web": "latest",
+    "@canopy-hq/ghostty-web": "latest",
     "ws": "^8.18.0"
   },
   "files": [
@@ -37,6 +37,7 @@
   "license": "MIT",
   "author": "Coder",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
   }
 }

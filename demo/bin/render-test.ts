@@ -10,7 +10,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 // Get script directory
@@ -19,6 +19,16 @@ const __dirname = dirname(__filename);
 const DEMO_DIR = dirname(__dirname);
 const BASELINES_DIR = join(DEMO_DIR, 'baselines');
 const PROJECT_ROOT = dirname(DEMO_DIR);
+
+const CONTENT_TYPES: Record<string, string> = {
+  html: 'text/html',
+  js: 'application/javascript',
+  css: 'text/css',
+  json: 'application/json',
+  wasm: 'application/wasm',
+  png: 'image/png',
+  ttf: 'font/ttf',
+};
 
 // Parse args
 const args = process.argv.slice(2);
@@ -57,20 +67,7 @@ interface TestResult {
 async function main() {
   console.log('🧪 Visual Render Test Runner\n');
 
-  // Dynamic import puppeteer (install if needed)
-  let puppeteer: typeof import('puppeteer');
-  try {
-    puppeteer = await import('puppeteer');
-  } catch {
-    console.log('📦 Installing puppeteer...');
-    const proc = Bun.spawn(['bun', 'add', '-d', 'puppeteer'], {
-      cwd: PROJECT_ROOT,
-      stdout: 'inherit',
-      stderr: 'inherit',
-    });
-    await proc.exited;
-    puppeteer = await import('puppeteer');
-  }
+  const puppeteer = await import('puppeteer');
 
   // Start local server
   console.log('🌐 Starting local server...');
@@ -88,19 +85,9 @@ async function main() {
       try {
         const file = Bun.file(filePath);
         if (await file.exists()) {
-          // Set content type based on extension
           const ext = filePath.split('.').pop() || '';
-          const contentTypes: Record<string, string> = {
-            html: 'text/html',
-            js: 'application/javascript',
-            css: 'text/css',
-            json: 'application/json',
-            wasm: 'application/wasm',
-            png: 'image/png',
-            ttf: 'font/ttf',
-          };
           return new Response(file, {
-            headers: { 'Content-Type': contentTypes[ext] || 'application/octet-stream' },
+            headers: { 'Content-Type': CONTENT_TYPES[ext] || 'application/octet-stream' },
           });
         }
       } catch {
@@ -133,18 +120,9 @@ async function main() {
       timeout: 30000,
     });
 
-    // Wait for fonts to load - match the logic in render-test.html
-    await page.evaluate(async () => {
-      const fontVariants = [
-        '14px "JetBrainsMono NF"',
-        'bold 14px "JetBrainsMono NF"',
-        'italic 14px "JetBrainsMono NF"',
-        'bold italic 14px "JetBrainsMono NF"',
-      ];
-      await Promise.all(fontVariants.map(font => document.fonts.load(font)));
-      await document.fonts.ready;
-    });
-    await new Promise((r) => setTimeout(r, 500)); // Extra time for font rendering
+    // Wait for the page's runAllTests() to complete.
+    // render-test.html sets window.__testsComplete = true when done.
+    await page.waitForFunction('window.__testsComplete === true', { timeout: 60000 });
 
     // Get test cases from the page
     const testCases = await page.evaluate(() => {
@@ -187,9 +165,7 @@ async function main() {
         continue;
       }
 
-      // Convert data URL to buffer
-      const base64Data = canvasDataUrl.replace(/^data:image\/png;base64,/, '');
-      const currentBuffer = Buffer.from(base64Data, 'base64');
+      const currentBuffer = Buffer.from(canvasDataUrl.split(',')[1], 'base64');
 
       if (updateMode) {
         // Update mode: save current as baseline
@@ -260,32 +236,30 @@ async function main() {
 }
 
 /**
- * Calculate approximate difference percentage between two PNG buffers.
- * This is a simple comparison - for production you might want pixelmatch.
+ * Heuristic difference percentage between two PNG buffers (byte-level, not pixel-level).
+ * NOTE: compares compressed bytes — identical-looking renders with different metadata
+ * may produce non-zero results. Replace with pixelmatch for pixel-accurate comparison.
  */
 function calculateDiffPercent(buf1: Buffer, buf2: Buffer): number {
-  // Simple approach: compare decoded pixel data
-  // For a more accurate comparison, use a library like pixelmatch
-
-  // Quick heuristic based on buffer size difference and content
-  const sizeDiff = Math.abs(buf1.length - buf2.length);
   const maxSize = Math.max(buf1.length, buf2.length);
+  const sizeDiff = Math.abs(buf1.length - buf2.length);
 
   if (sizeDiff > 0) {
-    // Different sizes means different images
     return (sizeDiff / maxSize) * 100;
   }
 
-  // Compare bytes
+  const threshold = maxSize * 0.001; // 0.1%
   let diffBytes = 0;
-  const minLen = Math.min(buf1.length, buf2.length);
-  for (let i = 0; i < minLen; i++) {
-    if (buf1[i] !== buf2[i]) {
-      diffBytes++;
+  for (let i = 0; i < buf1.length; i++) {
+    if (buf1[i] !== buf2[i] && ++diffBytes > threshold) {
+      return (diffBytes / maxSize) * 100;
     }
   }
 
   return (diffBytes / maxSize) * 100;
 }
 
-main().catch(console.error);
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

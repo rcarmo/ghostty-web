@@ -25,11 +25,40 @@ let ghosttyInstance: Ghostty | null = null;
  * term.open(document.getElementById('terminal'));
  * ```
  */
-export async function init(): Promise<void> {
+export async function init(wasmPath?: string): Promise<void> {
   if (ghosttyInstance) {
     return; // Already initialized
   }
-  ghosttyInstance = await Ghostty.load();
+  ghosttyInstance = await Ghostty.load(wasmPath);
+}
+
+/**
+ * Initialize ghostty-web from a pre-fetched `ArrayBuffer` (e.g. from an
+ * IndexedDB cache). Skips the fetch but still compiles the module.
+ *
+ * No-op if the singleton is already set, but **deduplication of concurrent
+ * calls is the caller's responsibility** — two overlapping awaits will both
+ * proceed past the guard and the second will overwrite the first. Wrap this
+ * in a shared promise (e.g. `if (!ready) ready = initFromBytes(...)`) to
+ * guarantee at-most-once execution.
+ */
+export async function initFromBytes(bytes: ArrayBuffer): Promise<void> {
+  if (ghosttyInstance) return;
+  ghosttyInstance = await Ghostty.loadFromBytes(bytes);
+}
+
+/**
+ * Initialize ghostty-web from a fetch `Response`, using
+ * `WebAssembly.instantiateStreaming` when `Content-Type: application/wasm`
+ * is set so compilation overlaps with the download. Falls back to
+ * `arrayBuffer()` + `compile` if the header is missing.
+ *
+ * Same deduplication contract as `initFromBytes`: concurrent callers must
+ * coordinate externally (e.g. via a shared promise).
+ */
+export async function initFromResponse(response: Response): Promise<void> {
+  if (ghosttyInstance) return;
+  ghosttyInstance = await Ghostty.loadFromResponse(response);
 }
 
 /**

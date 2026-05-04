@@ -1,6 +1,6 @@
 {
-  "name": "ghostty-web",
-  "version": "0.4.6",
+  "name": "@canopy-hq/ghostty-web",
+  "version": "0.6.0",
   "description": "Web-based terminal emulator using Ghostty's VT100 parser via WebAssembly",
   "type": "module",
   "main": "./dist/ghostty-web.umd.cjs",
@@ -12,7 +12,8 @@
       "import": "./dist/ghostty-web.js",
       "require": "./dist/ghostty-web.umd.cjs"
     },
-    "./ghostty-vt.wasm": "./ghostty-vt.wasm"
+    "./ghostty-vt.wasm": "./ghostty-vt.wasm",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -40,7 +41,8 @@
   "license": "MIT",
   "author": "Coder",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
     "dev": "vite --port 8000",
@@ -72,7 +74,7 @@
     "@xterm/xterm": "^5.5.0",
     "mitata": "^1.0.34",
     "prettier": "^3.6.2",
-    "puppeteer": "^24.36.1",
+    "puppeteer": "^24.37.5",
     "typescript": "^5.9.3",
     "vite": "^4.5.0",
     "vite-plugin-dts": "^4.5.4"

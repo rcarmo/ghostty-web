@@ -21,6 +21,7 @@ export interface ITerminalOptions {
 
   // Scrolling options
   smoothScrollDuration?: number; // Duration in ms for smooth scroll animation (default: 100, 0 = instant)
+  scrollbarWidth?: number; // 0 = hidden, default: 8
 
   // Link handling
   // Called when a link is clicked. Return true to prevent default link handling.
@@ -75,6 +76,8 @@ export interface ITerminalCore {
   rows: number;
   element?: HTMLElement;
   textarea?: HTMLTextAreaElement;
+  suspend(): void;
+  resume(): void;
 }
 
 /**
