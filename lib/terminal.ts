@@ -34,153 +34,9 @@ import type {
 import { LinkDetector } from './link-detector';
 import { OSC8LinkProvider } from './providers/osc8-link-provider';
 import { UrlRegexProvider } from './providers/url-regex-provider';
-import { CanvasRenderer, DEFAULT_THEME, type IRenderable } from './renderer';
+import { CanvasRenderer } from './renderer';
 import { SelectionManager } from './selection-manager';
 import type { ILink, ILinkProvider } from './types';
-
-/**
- * Parse a CSS color string (#hex or rgb/rgba) into numeric {r,g,b}.
- * Returns the fallback for unparseable input.
- */
-function parseCssColorToRgb(
-  input: string | undefined,
-  fallback: { r: number; g: number; b: number }
-): { r: number; g: number; b: number } {
-  const raw = String(input || '').trim();
-  if (!raw) return fallback;
-
-  if (raw.startsWith('#')) {
-    const hex = raw.slice(1);
-    const full =
-      hex.length === 3
-        ? hex
-            .split('')
-            .map((c) => c + c)
-            .join('')
-        : hex;
-    if (/^[0-9a-fA-F]{6}$/.test(full)) {
-      const value = Number.parseInt(full, 16);
-      return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
-    }
-  }
-
-  const rgbMatch = raw.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-  if (rgbMatch) {
-    return {
-      r: Number.parseInt(rgbMatch[1], 10),
-      g: Number.parseInt(rgbMatch[2], 10),
-      b: Number.parseInt(rgbMatch[3], 10),
-    };
-  }
-
-  return fallback;
-}
-
-/**
- * Build a blank cell grid using the active theme colors.
- * Used as a bootstrap snapshot so the terminal renders a clean blank
- * screen on open() and reset() instead of showing uninitialised WASM memory.
- */
-function createBlankBootstrapCells(
-  cols: number,
-  rows: number,
-  colors: { foreground: string; background: string }
-): GhosttyCell[][] {
-  const fg = parseCssColorToRgb(colors.foreground, { r: 212, g: 212, b: 212 });
-  const bg = parseCssColorToRgb(colors.background, { r: 30, g: 30, b: 30 });
-  const cell: GhosttyCell = {
-    codepoint: 32,
-    fg_r: fg.r,
-    fg_g: fg.g,
-    fg_b: fg.b,
-    bg_r: bg.r,
-    bg_g: bg.g,
-    bg_b: bg.b,
-    flags: 0,
-    width: 1,
-    hyperlink_id: 0,
-    grapheme_len: 0,
-  };
-  return Array.from({ length: rows }, () => Array.from({ length: cols }, () => ({ ...cell })));
-}
-
-// ============================================================================
-// SnapshotBuffer - Wrapper for playback mode
-// ============================================================================
-
-/**
- * A wrapper that implements IRenderable for snapshot-based rendering.
- * When snapshot is set, returns snapshot data; otherwise delegates to wasmTerm.
- * This enables direct terminal state injection for playback without re-parsing VT100 sequences.
- */
-class SnapshotBuffer implements IRenderable {
-  private terminal: Terminal;
-
-  constructor(terminal: Terminal) {
-    this.terminal = terminal;
-  }
-
-  getLine(y: number): GhosttyCell[] | null {
-    const snapshot = this.terminal.getSnapshotCells();
-    if (snapshot && y >= 0 && y < snapshot.length) {
-      return snapshot[y];
-    }
-    return this.terminal.wasmTerm?.getLine(y) ?? null;
-  }
-
-  getCursor(): { x: number; y: number; visible: boolean } {
-    const snapshotCursor = this.terminal.getSnapshotCursor();
-    if (snapshotCursor) {
-      return { ...snapshotCursor, visible: true };
-    }
-    return this.terminal.wasmTerm?.getCursor() ?? { x: 0, y: 0, visible: true };
-  }
-
-  getDimensions(): { cols: number; rows: number } {
-    return { cols: this.terminal.cols, rows: this.terminal.rows };
-  }
-
-  isRowDirty(y: number): boolean {
-    if (this.terminal.isSnapshotDirty()) {
-      return true;
-    }
-    return this.terminal.wasmTerm?.isRowDirty(y) ?? false;
-  }
-
-  needsFullRedraw(): boolean {
-    if (this.terminal.isSnapshotDirty()) {
-      return true;
-    }
-    // Check if method exists (older versions may not have it)
-    const wasmTerm = this.terminal.wasmTerm as any;
-    if (wasmTerm?.needsFullRedraw) {
-      return wasmTerm.needsFullRedraw();
-    }
-    return false;
-  }
-
-  clearDirty(): void {
-    this.terminal.clearSnapshotDirty();
-    this.terminal.wasmTerm?.clearDirty();
-  }
-
-  getGraphemeString(row: number, col: number): string {
-    const snapshot = this.terminal.getSnapshotCells();
-    if (snapshot && row >= 0 && row < snapshot.length) {
-      const cell = snapshot[row][col];
-      if (cell) {
-        return String.fromCodePoint(cell.codepoint || 32);
-      }
-      return ' ';
-    }
-    // Check if method exists (older versions may not have it)
-    const wasmTerm = this.terminal.wasmTerm as any;
-    if (wasmTerm?.getGraphemeString) {
-      return wasmTerm.getGraphemeString(row, col);
-    }
-    return ' ';
-  }
-}
 
 // ============================================================================
 // Terminal Class
@@ -213,13 +69,11 @@ export class Terminal implements ITerminalCore {
   private inputHandler?: InputHandler;
   private selectionManager?: SelectionManager;
   private canvas?: HTMLCanvasElement;
-  private compositionPreview?: HTMLDivElement;
 
   // Link detection system
   private linkDetector?: LinkDetector;
   private currentHoveredLink?: ILink;
   private mouseMoveThrottleTimeout?: number;
-  private readonly isAndroidPlatform: boolean;
   private pendingMouseMove?: MouseEvent;
 
   // Event emitters
@@ -247,17 +101,13 @@ export class Terminal implements ITerminalCore {
   private isOpen = false;
   private isDisposed = false;
   private animationFrameId?: number;
-
-  // Resize protection: queue writes during resize to prevent race conditions
-  private _isResizing = false;
-  private _writeQueue: Array<{ data: string | Uint8Array; callback?: () => void }> = [];
-  private _resizeFlushFrameId?: number;
+  private writeQueue: Uint8Array[] = [];
 
   // Addons
   private addons: ITerminalAddon[] = [];
 
   // Phase 1: Custom event handlers
-  private customKeyEventHandler?: (event: KeyboardEvent) => boolean | undefined;
+  private customKeyEventHandler?: (event: KeyboardEvent) => boolean;
 
   // Phase 1: Title tracking
   private currentTitle: string = '';
@@ -269,7 +119,6 @@ export class Terminal implements ITerminalCore {
   private scrollAnimationStartY?: number;
   private scrollAnimationFrame?: number;
   private customWheelEventHandler?: (event: WheelEvent) => boolean;
-  private linkClickHandler?: (url: string, event: MouseEvent) => boolean;
   private lastCursorY: number = 0; // Track cursor position for onCursorMove
 
   // Scrollbar interaction state
@@ -284,19 +133,9 @@ export class Terminal implements ITerminalCore {
   private readonly SCROLLBAR_HIDE_DELAY_MS = 1500; // Hide after 1.5 seconds
   private readonly SCROLLBAR_FADE_DURATION_MS = 200; // 200ms fade animation
 
-  // Snapshot state for playback mode (bypasses WASM terminal)
-  private snapshotCells: GhosttyCell[][] | null = null;
-  private snapshotCursor: { x: number; y: number } | null = null;
-  private snapshotDirty: boolean = false;
-  private snapshotBuffer: SnapshotBuffer;
-
   constructor(options: ITerminalOptions = {}) {
     // Use provided Ghostty instance (for test isolation) or get module-level instance
     this.ghostty = options.ghostty ?? getGhostty();
-    this.isAndroidPlatform = Terminal.detectAndroidPlatform();
-
-    // Store link click handler (for webview integration)
-    this.linkClickHandler = options.onLinkClick;
 
     // Create base options object with all defaults (excluding ghostty)
     const baseOptions = {
@@ -334,9 +173,6 @@ export class Terminal implements ITerminalCore {
 
     // Initialize buffer API
     this.buffer = new BufferNamespace(this);
-
-    // Initialize snapshot buffer for playback mode
-    this.snapshotBuffer = new SnapshotBuffer(this);
   }
 
   // ==========================================================================
@@ -366,11 +202,7 @@ export class Terminal implements ITerminalCore {
 
       case 'theme':
         if (this.renderer) {
-          this.renderer.setTheme(this.options.theme);
-          // Force full re-render with new theme
-          if (this.wasmTerm) {
-            this.renderer.render(this.wasmTerm, true, this.viewportY, this);
-          }
+          console.warn('ghostty-web: theme changes after open() are not yet fully supported');
         }
         break;
 
@@ -453,8 +285,6 @@ export class Terminal implements ITerminalCore {
 
   /**
    * Convert terminal options to WASM terminal config.
-   * Merges user theme with DEFAULT_THEME to ensure all colors are set,
-   * preventing WASM from falling back to its internal palette.
    */
   private buildWasmConfig(): GhosttyTerminalConfig | undefined {
     const theme = this.options.theme;
@@ -465,37 +295,33 @@ export class Terminal implements ITerminalCore {
       return undefined;
     }
 
-    // Merge user theme with defaults to ensure all colors are set
-    // This prevents WASM from using its internal palette for unset colors
-    const mergedTheme = { ...DEFAULT_THEME, ...theme };
-
-    // Build palette array from merged theme colors
+    // Build palette array from theme colors
     // Order: black, red, green, yellow, blue, magenta, cyan, white,
     //        brightBlack, brightRed, brightGreen, brightYellow, brightBlue, brightMagenta, brightCyan, brightWhite
     const palette: number[] = [
-      this.parseColorToHex(mergedTheme.black),
-      this.parseColorToHex(mergedTheme.red),
-      this.parseColorToHex(mergedTheme.green),
-      this.parseColorToHex(mergedTheme.yellow),
-      this.parseColorToHex(mergedTheme.blue),
-      this.parseColorToHex(mergedTheme.magenta),
-      this.parseColorToHex(mergedTheme.cyan),
-      this.parseColorToHex(mergedTheme.white),
-      this.parseColorToHex(mergedTheme.brightBlack),
-      this.parseColorToHex(mergedTheme.brightRed),
-      this.parseColorToHex(mergedTheme.brightGreen),
-      this.parseColorToHex(mergedTheme.brightYellow),
-      this.parseColorToHex(mergedTheme.brightBlue),
-      this.parseColorToHex(mergedTheme.brightMagenta),
-      this.parseColorToHex(mergedTheme.brightCyan),
-      this.parseColorToHex(mergedTheme.brightWhite),
+      this.parseColorToHex(theme?.black),
+      this.parseColorToHex(theme?.red),
+      this.parseColorToHex(theme?.green),
+      this.parseColorToHex(theme?.yellow),
+      this.parseColorToHex(theme?.blue),
+      this.parseColorToHex(theme?.magenta),
+      this.parseColorToHex(theme?.cyan),
+      this.parseColorToHex(theme?.white),
+      this.parseColorToHex(theme?.brightBlack),
+      this.parseColorToHex(theme?.brightRed),
+      this.parseColorToHex(theme?.brightGreen),
+      this.parseColorToHex(theme?.brightYellow),
+      this.parseColorToHex(theme?.brightBlue),
+      this.parseColorToHex(theme?.brightMagenta),
+      this.parseColorToHex(theme?.brightCyan),
+      this.parseColorToHex(theme?.brightWhite),
     ];
 
     return {
       scrollbackLimit: scrollback,
-      fgColor: this.parseColorToHex(mergedTheme.foreground),
-      bgColor: this.parseColorToHex(mergedTheme.background),
-      cursorColor: this.parseColorToHex(mergedTheme.cursor),
+      fgColor: this.parseColorToHex(theme?.foreground),
+      bgColor: this.parseColorToHex(theme?.background),
+      cursorColor: this.parseColorToHex(theme?.cursor),
       palette,
     };
   }
@@ -523,15 +349,20 @@ export class Terminal implements ITerminalCore {
     this.isOpen = true;
 
     try {
-      // Set tabindex="-1" on parent so it's not focusable via click/tab.
-      // We want all focus to go to the hidden textarea for proper IME handling.
-      // The textarea will handle keyboard input and composition events.
-      parent.setAttribute('tabindex', '-1');
+      // Make parent focusable if it isn't already
+      if (!parent.hasAttribute('tabindex')) {
+        parent.setAttribute('tabindex', '0');
+      }
 
-      // Note: We intentionally do NOT set contenteditable on the parent container.
-      // Setting contenteditable causes IME (Korean, Chinese, Japanese) input to be
-      // inserted directly into the container as text nodes, bypassing our textarea.
-      // Instead, we use the hidden textarea for all keyboard/IME input.
+      // Mark as contenteditable so browser extensions (Vimium, etc.) recognize
+      // this as an input element and don't intercept keyboard events.
+      parent.setAttribute('contenteditable', 'true');
+      // Prevent actual content editing - we handle input ourselves
+      parent.addEventListener('beforeinput', (e) => {
+        if (e.target === parent) {
+          e.preventDefault();
+        }
+      });
 
       // Add accessibility attributes for screen readers and extensions
       parent.setAttribute('role', 'textbox');
@@ -545,6 +376,8 @@ export class Terminal implements ITerminalCore {
       // Create canvas element
       this.canvas = document.createElement('canvas');
       this.canvas.style.display = 'block';
+      this.canvas.style.cursor = 'text';
+
       parent.appendChild(this.canvas);
 
       // Create hidden textarea for keyboard input (must be inside parent for event bubbling)
@@ -564,42 +397,15 @@ export class Terminal implements ITerminalCore {
       this.textarea.style.border = 'none';
       this.textarea.style.margin = '0';
       this.textarea.style.opacity = '0';
-      this.textarea.style.caretColor = 'transparent';
       this.textarea.style.clipPath = 'inset(50%)'; // Clip everything including caret
       this.textarea.style.overflow = 'hidden';
       this.textarea.style.whiteSpace = 'nowrap';
       this.textarea.style.resize = 'none';
       parent.appendChild(this.textarea);
 
-      // Create composition preview element for IME input (Korean, Chinese, Japanese)
-      this.compositionPreview = document.createElement('div');
-      this.compositionPreview.style.position = 'absolute';
-      this.compositionPreview.style.top = '4px';
-      this.compositionPreview.style.right = '4px';
-      this.compositionPreview.style.padding = '2px 8px';
-      this.compositionPreview.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-      this.compositionPreview.style.color = '#ffcc00';
-      this.compositionPreview.style.fontFamily = 'monospace';
-      this.compositionPreview.style.fontSize = '12px';
-      this.compositionPreview.style.borderRadius = '3px';
-      this.compositionPreview.style.display = 'none';
-      this.compositionPreview.style.zIndex = '1000';
-      parent.appendChild(this.compositionPreview);
-
-      // Listen to composition events for preview
-      this.textarea.addEventListener('compositionupdate', (e: CompositionEvent) => {
-        if (e.data) {
-          this.compositionPreview!.textContent = `조합중: ${e.data}`;
-          this.compositionPreview!.style.display = 'block';
-        }
-      });
-      this.textarea.addEventListener('compositionend', () => {
-        this.compositionPreview!.style.display = 'none';
-      });
-
       // Focus textarea on interaction - preventDefault before focus
       const textarea = this.textarea;
-      // Desktop: mousedown on canvas
+      // Desktop: mousedown
       this.canvas.addEventListener('mousedown', (ev) => {
         ev.preventDefault();
         textarea.focus();
@@ -607,17 +413,6 @@ export class Terminal implements ITerminalCore {
       // Mobile: touchend with preventDefault to suppress iOS caret
       this.canvas.addEventListener('touchend', (ev) => {
         ev.preventDefault();
-        textarea.focus();
-      });
-      // Redirect focus from parent container to textarea
-      // This ensures IME composition events always go to the textarea
-      parent.addEventListener('mousedown', (ev) => {
-        if (ev.target === parent) {
-          ev.preventDefault();
-          textarea.focus();
-        }
-      });
-      parent.addEventListener('focus', () => {
         textarea.focus();
       });
 
@@ -659,6 +454,8 @@ export class Terminal implements ITerminalCore {
           if (this.options.disableStdin) {
             return;
           }
+          // Clear selection when user types
+          this.selectionManager?.clearSelection();
           // Input handler fires data events
           this.dataEmitter.fire(data);
         },
@@ -722,46 +519,20 @@ export class Terminal implements ITerminalCore {
       // Use capture phase to ensure we get the event before browser scrolling
       parent.addEventListener('wheel', this.handleWheel, { passive: false, capture: true });
 
-      // Mark as open
-      this.isOpen = true;
-
-      // Render initial blank screen via snapshot so the canvas shows
-      // theme-coloured blank cells instead of uninitialised WASM memory.
-      this.armBootstrapBlank();
-      this.renderer.render(this.snapshotBuffer, true, this.viewportY, this, this.scrollbarOpacity);
+      // Render initial blank screen (force full redraw)
+      this.renderer.render(this.wasmTerm, true, this.viewportY, this, this.scrollbarOpacity);
 
       // Start render loop
       this.startRenderLoop();
 
-      // Focus input by default, but avoid auto-focusing Android because
-      // focusing the hidden textarea on open can immediately summon the
-      // software keyboard / IME before the user interacts with the terminal.
-      if (!this.isAndroidPlatform) {
-        this.focus();
-      }
+      // Focus input (auto-focus so user can start typing immediately)
+      this.focus();
     } catch (error) {
       // Clean up on error
       this.isOpen = false;
       this.cleanupComponents();
       throw new Error(`Failed to open terminal: ${error}`);
     }
-  }
-
-  private static detectAndroidPlatform(): boolean {
-    if (typeof navigator === 'undefined') {
-      return false;
-    }
-
-    const uaData = (
-      navigator as Navigator & {
-        userAgentData?: { platform?: string; mobile?: boolean };
-      }
-    ).userAgentData;
-    if (uaData?.platform && /android/i.test(uaData.platform)) {
-      return true;
-    }
-
-    return /android/i.test(navigator.userAgent ?? '');
   }
 
   /**
@@ -775,15 +546,6 @@ export class Terminal implements ITerminalCore {
       data = data.replace(/\n/g, '\r\n');
     }
 
-    // Queue writes during resize to prevent WASM race conditions.
-    // Writes will be flushed after resize completes.
-    // Copy Uint8Array data to prevent mutation by caller before flush.
-    if (this._isResizing) {
-      const dataCopy = data instanceof Uint8Array ? new Uint8Array(data) : data;
-      this._writeQueue.push({ data: dataCopy, callback });
-      return;
-    }
-
     this.writeInternal(data, callback);
   }
 
@@ -791,10 +553,6 @@ export class Terminal implements ITerminalCore {
    * Internal write implementation (extracted from write())
    */
   private writeInternal(data: string | Uint8Array, callback?: () => void): void {
-    // First real write clears the bootstrap blank so the renderer
-    // switches back to live WASM terminal output.
-    this.disarmBootstrapBlank();
-
     // Note: We intentionally do NOT clear selection on write - most modern terminals
     // preserve selection when new data arrives. Selection is cleared by user actions
     // like clicking or typing, not by incoming data.
@@ -899,11 +657,6 @@ export class Terminal implements ITerminalCore {
 
   /**
    * Resize terminal
-   *
-   * Note: We pause the render loop and queue writes during resize to prevent
-   * race conditions. The WASM terminal reallocates internal buffers during
-   * resize, and if the render loop or writes access those buffers concurrently,
-   * it can cause a crash.
    */
   resize(cols: number, rows: number): void {
     this.assertOpen();
@@ -912,31 +665,19 @@ export class Terminal implements ITerminalCore {
       return; // No change
     }
 
-    // Cancel any pending resize flush from a previous resize - this resize supersedes it
-    if (this._resizeFlushFrameId) {
-      cancelAnimationFrame(this._resizeFlushFrameId);
-      this._resizeFlushFrameId = undefined;
-    }
-
-    // Set resizing flag to queue any incoming writes
-    this._isResizing = true;
-
-    // Pause render loop during resize to prevent race condition.
-    // The render loop reads from WASM buffers that are reallocated during resize.
-    // Without this, concurrent access can cause SIGSEGV crashes.
-    const wasRunning = this.animationFrameId !== undefined;
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = undefined;
-    }
+    // Cancel render loop before resize to prevent accessing detached TypedArray
+    // views while WASM reallocates buffers. We restart it after resize completes.
+    // This avoids the background-tab regression of using an isResizing flag
+    // cleared via requestAnimationFrame (rAF is throttled/paused in background tabs).
+    this.cancelRenderLoop();
 
     try {
-      // Resize WASM terminal (this reallocates internal buffers)
-      this.wasmTerm!.resize(cols, rows);
-
-      // Update dimensions after successful WASM resize
+      // Update dimensions
       this.cols = cols;
       this.rows = rows;
+
+      // Resize WASM terminal (may reallocate buffers, invalidating TypedArray views)
+      this.wasmTerm!.resize(cols, rows);
 
       // Resize renderer
       this.renderer!.resize(cols, rows);
@@ -951,42 +692,15 @@ export class Terminal implements ITerminalCore {
       // Fire resize event
       this.resizeEmitter.fire({ cols, rows });
 
-      // Force full render with new dimensions
-      this.renderer!.render(this.snapshotBuffer, true, this.viewportY, this);
-    } catch (err) {
-      console.error('[ghostty-web] Resize error:', err);
-      // Still clear the flag so future resizes can proceed
+      // Force full render
+      this.renderer!.render(this.wasmTerm!, true, this.viewportY, this);
+    } catch (e) {
+      console.error('Terminal resize failed:', e);
     }
 
-    // Restart render loop if it was running
-    if (wasRunning) {
-      this.startRenderLoop();
-    }
-
-    // Clear resizing flag and flush queued writes after a frame
-    // This ensures WASM state has fully settled before processing writes
-    // Track the frame ID so it can be canceled on dispose
-    this._resizeFlushFrameId = requestAnimationFrame(() => {
-      this._resizeFlushFrameId = undefined;
-      this._isResizing = false;
-      this.flushWriteQueue();
-    });
-  }
-
-  /**
-   * Flush queued writes that were blocked during resize
-   */
-  private flushWriteQueue(): void {
-    // Guard against flush after dispose
-    if (this.isDisposed || !this.isOpen) {
-      this._writeQueue = [];
-      return;
-    }
-    const queue = this._writeQueue;
-    this._writeQueue = [];
-    for (const { data, callback } of queue) {
-      this.writeInternal(data, callback);
-    }
+    // Flush any writes that were queued during resize, then restart render loop
+    this.flushWriteQueue();
+    this.startRenderLoop();
   }
 
   /**
@@ -1011,10 +725,8 @@ export class Terminal implements ITerminalCore {
     const config = this.buildWasmConfig();
     this.wasmTerm = this.ghostty!.createTerminal(this.cols, this.rows, config);
 
-    // Clear renderer and re-arm the bootstrap blank until real output arrives
-    this.armBootstrapBlank();
+    // Clear renderer
     this.renderer!.clear();
-    this.renderer!.render(this.snapshotBuffer, true, this.viewportY, this, this.scrollbarOpacity);
 
     // Reset title
     this.currentTitle = '';
@@ -1024,21 +736,15 @@ export class Terminal implements ITerminalCore {
    * Focus terminal input
    */
   focus(): void {
-    if (this.isOpen) {
-      // Focus the textarea for keyboard/IME input.
-      // The textarea is the actual input element that receives keyboard events
-      // and IME composition events. Focusing the container doesn't work for IME
-      // because composition events fire on the focused element.
-      const target = this.textarea || this.element;
-      if (target) {
-        target.focus();
+    if (this.isOpen && this.element) {
+      // Focus immediately for immediate keyboard/wheel event handling
+      this.element.focus();
 
-        // Also schedule a delayed focus as backup to ensure it sticks
-        // (some browsers may need this if DOM isn't fully settled)
-        setTimeout(() => {
-          target?.focus();
-        }, 0);
-      }
+      // Also schedule a delayed focus as backup to ensure it sticks
+      // (some browsers may need this if DOM isn't fully settled)
+      setTimeout(() => {
+        this.element?.focus();
+      }, 0);
     }
   }
 
@@ -1136,12 +842,10 @@ export class Terminal implements ITerminalCore {
 
   /**
    * Attach a custom keyboard event handler
-   * Returns: true = terminal handles it (preventDefault)
-   *          false = let event bubble to host (VS Code)
-   *          undefined = continue with default terminal processing
+   * Returns true to prevent default handling
    */
   public attachCustomKeyEventHandler(
-    customKeyEventHandler: (event: KeyboardEvent) => boolean | undefined
+    customKeyEventHandler: (event: KeyboardEvent) => boolean
   ): void {
     this.customKeyEventHandler = customKeyEventHandler;
     // Update input handler if already created
@@ -1158,40 +862,6 @@ export class Terminal implements ITerminalCore {
     customWheelEventHandler?: (event: WheelEvent) => boolean
   ): void {
     this.customWheelEventHandler = customWheelEventHandler;
-  }
-
-  // ==========================================================================
-  // Font Management
-  // ==========================================================================
-
-  /**
-   * Load custom fonts and update terminal rendering.
-   *
-   * Call this after loading web fonts to ensure the terminal measures and
-   * renders with the correct font metrics. The terminal will re-measure
-   * fonts and trigger a full re-render.
-   *
-   * @example
-   * ```typescript
-   * // Option 1: Wait for specific fonts
-   * await document.fonts.load('16px "Fira Code"');
-   * terminal.loadFonts();
-   *
-   * // Option 2: Wait for all fonts
-   * await document.fonts.ready;
-   * terminal.loadFonts();
-   *
-   * // Option 3: Use FontFace API
-   * const font = new FontFace('Fira Code', 'url(/fonts/FiraCode.woff2)');
-   * await font.load();
-   * document.fonts.add(font);
-   * terminal.loadFonts();
-   * ```
-   */
-  public loadFonts(): void {
-    if (!this.renderer) return;
-    this.renderer.remeasureFont();
-    this.handleFontChange();
   }
 
   // ==========================================================================
@@ -1417,25 +1087,15 @@ export class Terminal implements ITerminalCore {
     this.isDisposed = true;
     this.isOpen = false;
 
-    // Stop render loop
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = undefined;
-    }
+    // Stop render loop and clear write queue
+    this.cancelRenderLoop();
+    this.writeQueue.length = 0;
 
     // Stop smooth scroll animation
     if (this.scrollAnimationFrame) {
       cancelAnimationFrame(this.scrollAnimationFrame);
       this.scrollAnimationFrame = undefined;
     }
-
-    // Cancel pending resize flush and clear write queue
-    if (this._resizeFlushFrameId) {
-      cancelAnimationFrame(this._resizeFlushFrameId);
-      this._resizeFlushFrameId = undefined;
-    }
-    this._writeQueue = [];
-    this._isResizing = false;
 
     // Clear mouse move throttle timeout
     if (this.mouseMoveThrottleTimeout) {
@@ -1470,40 +1130,50 @@ export class Terminal implements ITerminalCore {
   // ==========================================================================
 
   /**
+   * Cancel the render loop
+   */
+  private cancelRenderLoop(): void {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = undefined;
+    }
+  }
+
+  /**
+   * Flush any writes that were queued during resize
+   */
+  private flushWriteQueue(): void {
+    while (this.writeQueue.length > 0) {
+      const data = this.writeQueue.shift()!;
+      this.wasmTerm!.write(data);
+    }
+  }
+
+  /**
    * Start the render loop
    */
   private startRenderLoop(): void {
+    if (this.animationFrameId) return; // already running
     const loop = () => {
       if (!this.isDisposed && this.isOpen) {
-        try {
-          // Render using WASM's native dirty tracking
-          // The render() method:
-          // 1. Calls update() once to sync state and check dirty flags
-          // 2. Only redraws dirty rows when forceAll=false
-          // 3. Always calls clearDirty() at the end
-          // Use snapshotBuffer which delegates to wasmTerm when no snapshot is set
-          this.renderer!.render(
-            this.snapshotBuffer,
-            false,
-            this.viewportY,
-            this,
-            this.scrollbarOpacity
-          );
+        // Render using WASM's native dirty tracking
+        // The render() method:
+        // 1. Calls update() once to sync state and check dirty flags
+        // 2. Only redraws dirty rows when forceAll=false
+        // 3. Always calls clearDirty() at the end
+        this.renderer!.render(this.wasmTerm!, false, this.viewportY, this, this.scrollbarOpacity);
 
-          // Check for cursor movement (Phase 2: onCursorMove event)
-          // Note: getCursor() reads from already-updated render state (from render() above)
-          const cursor = this.wasmTerm!.getCursor();
-          if (cursor.y !== this.lastCursorY) {
-            this.lastCursorY = cursor.y;
-            this.cursorMoveEmitter.fire();
-          }
-
-          // Note: onRender event is intentionally not fired in the render loop
-          // to avoid performance issues. For now, consumers can use requestAnimationFrame
-          // if they need frame-by-frame updates.
-        } catch (e) {
-          console.error('[ghostty-web] render loop error (recovering):', e);
+        // Check for cursor movement (Phase 2: onCursorMove event)
+        // Note: getCursor() reads from already-updated render state (from render() above)
+        const cursor = this.wasmTerm!.getCursor();
+        if (cursor.y !== this.lastCursorY) {
+          this.lastCursorY = cursor.y;
+          this.cursorMoveEmitter.fire();
         }
+
+        // Note: onRender event is intentionally not fired in the render loop
+        // to avoid performance issues. For now, consumers can use requestAnimationFrame
+        // if they need frame-by-frame updates.
 
         this.animationFrameId = requestAnimationFrame(loop);
       }
@@ -1563,12 +1233,6 @@ export class Terminal implements ITerminalCore {
       this.textarea = undefined;
     }
 
-    // Remove composition preview from DOM
-    if (this.compositionPreview && this.compositionPreview.parentNode) {
-      this.compositionPreview.parentNode.removeChild(this.compositionPreview);
-      this.compositionPreview = undefined;
-    }
-
     // Remove event listeners
     if (this.element) {
       this.element.removeEventListener('wheel', this.handleWheel);
@@ -1577,7 +1241,8 @@ export class Terminal implements ITerminalCore {
       this.element.removeEventListener('mouseleave', this.handleMouseLeave);
       this.element.removeEventListener('click', this.handleClick);
 
-      // Remove accessibility attributes added in open()
+      // Remove contenteditable and accessibility attributes added in open()
+      this.element.removeAttribute('contenteditable');
       this.element.removeAttribute('role');
       this.element.removeAttribute('aria-label');
       this.element.removeAttribute('aria-multiline');
@@ -1750,9 +1415,13 @@ export class Terminal implements ITerminalCore {
           // Notify new link we're entering
           link?.hover?.(true);
 
-          // Update cursor style
+          // Update cursor style on both container and canvas
+          const cursorStyle = link ? 'pointer' : 'text';
           if (this.element) {
-            this.element.style.cursor = link ? 'pointer' : 'text';
+            this.element.style.cursor = cursorStyle;
+          }
+          if (this.canvas) {
+            this.canvas.style.cursor = cursorStyle;
           }
 
           // Update renderer for underline (for regex URLs without hyperlink_id)
@@ -1816,6 +1485,9 @@ export class Terminal implements ITerminalCore {
       // Reset cursor
       if (this.element) {
         this.element.style.cursor = 'text';
+        if (this.canvas) {
+          this.canvas.style.cursor = 'text';
+        }
       }
     }
   };
@@ -1857,17 +1529,8 @@ export class Terminal implements ITerminalCore {
     const link = await this.linkDetector.getLinkAt(x, bufferRow);
 
     if (link) {
-      // Use custom link handler if provided (for webview integration)
-      // If handler returns true, it handled the link; otherwise fall back to default
-      let handled = false;
-      if (this.linkClickHandler) {
-        handled = this.linkClickHandler(link.text, e);
-      }
-
-      if (!handled) {
-        // Default: use link's built-in activate method
-        link.activate(e);
-      }
+      // Activate link
+      link.activate(e);
 
       // Prevent default action if modifier key held
       if (e.ctrlKey || e.metaKey) {
@@ -1886,35 +1549,6 @@ export class Terminal implements ITerminalCore {
 
     // Allow custom handler to override
     if (this.customWheelEventHandler && this.customWheelEventHandler(e)) {
-      return;
-    }
-
-    // Check if mouse tracking is enabled and SGR mode (1006) is active
-    // Only send SGR scroll events if both conditions are met
-    const hasSGRMode = this.wasmTerm?.getMode(1006, false) ?? false;
-    if (this.hasMouseTracking() && hasSGRMode && this.canvas && this.renderer) {
-      const rect = this.canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      const metrics = this.renderer.getMetrics();
-      const col = Math.max(0, Math.min(Math.floor(mouseX / metrics.width), this.cols - 1));
-      const row = Math.max(0, Math.min(Math.floor(mouseY / metrics.height), this.rows - 1));
-
-      // Encode modifier keys: shift=+4, alt/meta=+8, ctrl=+16
-      let modifiers = 0;
-      if (e.shiftKey) modifiers += 4;
-      if (e.altKey || e.metaKey) modifiers += 8;
-      if (e.ctrlKey) modifiers += 16;
-
-      // Send scroll events (64 = up, 65 = down in SGR encoding)
-      const count = Math.min(Math.abs(Math.round(e.deltaY / 33)), 5);
-      const isUp = e.deltaY < 0;
-      const button = (isUp ? 64 : 65) + modifiers;
-
-      for (let i = 0; i < count; i++) {
-        // SGR format: \x1b[<button;col;rowM (1-based coordinates)
-        this.dataEmitter.fire(`\x1b[<${button};${col + 1};${row + 1}M`);
-      }
       return;
     }
 
@@ -2266,104 +1900,5 @@ export class Terminal implements ITerminalCore {
   public hasMouseTracking(): boolean {
     this.assertOpen();
     return this.wasmTerm!.hasMouseTracking();
-  }
-
-  // ============================================================================
-  // Snapshot API (for playback mode)
-  // ============================================================================
-
-  /**
-   * Set a snapshot of terminal state for playback mode.
-   * When a snapshot is set, the renderer will use the snapshot cells instead of
-   * reading from the WASM terminal. This enables direct terminal state injection
-   * for playback without re-parsing VT100 sequences.
-   *
-   * @param cells - Flat array of cells (row-major order: rows * cols cells)
-   * @param cursor - Cursor position {x, y}
-   *
-   * @example
-   * ```typescript
-   * // Set snapshot from a recording frame
-   * const cells: GhosttyCell[] = recordedFrame.cells;
-   * const cursor = { x: 10, y: 5 };
-   * terminal.setSnapshot(cells, cursor);
-   * ```
-   */
-  public setSnapshot(cells: GhosttyCell[], cursor: { x: number; y: number }): void {
-    // Convert flat array to 2D array (row-major)
-    const rows: GhosttyCell[][] = [];
-    for (let y = 0; y < this.rows; y++) {
-      const start = y * this.cols;
-      const end = start + this.cols;
-      rows.push(cells.slice(start, end));
-    }
-
-    this.snapshotCells = rows;
-    this.snapshotCursor = { ...cursor };
-    this.snapshotDirty = true;
-  }
-
-  /**
-   * Clear the snapshot and return to normal WASM terminal rendering.
-   * Call this when exiting playback mode.
-   */
-  public clearSnapshot(): void {
-    this.snapshotCells = null;
-    this.snapshotCursor = null;
-    this.snapshotDirty = true;
-  }
-
-  /**
-   * Check if a snapshot is currently set.
-   * @returns true if in snapshot/playback mode
-   */
-  public hasSnapshot(): boolean {
-    return this.snapshotCells !== null;
-  }
-
-  /**
-   * Arm a blank-cell snapshot so the renderer paints a clean screen
-   * until the first write() arrives.
-   */
-  private armBootstrapBlank(): void {
-    const theme = { ...DEFAULT_THEME, ...this.options.theme };
-    this.snapshotCells = createBlankBootstrapCells(this.cols, this.rows, {
-      foreground: theme.foreground,
-      background: theme.background,
-    });
-    this.snapshotDirty = true;
-  }
-
-  /**
-   * Disarm the bootstrap blank, returning the renderer to live WASM output.
-   * No-op if already disarmed or if a playback snapshot is active.
-   */
-  private disarmBootstrapBlank(): void {
-    // Only clear if we have a snapshot and it looks like our bootstrap
-    // (no cursor set — playback snapshots always set a cursor).
-    if (!this.snapshotCells || this.snapshotCursor) return;
-    this.snapshotCells = null;
-    this.snapshotDirty = true;
-  }
-
-  // Internal accessors for SnapshotBuffer
-  /** @internal */
-  public getSnapshotCells(): GhosttyCell[][] | null {
-    return this.snapshotCells;
-  }
-
-  /** @internal */
-  public getSnapshotCursor(): { x: number; y: number } | null {
-    return this.snapshotCursor;
-  }
-
-  /** @internal */
-  public isSnapshotDirty(): boolean {
-    return this.snapshotDirty;
-  }
-
-  /** @internal */
-  public clearSnapshotDirty(): void {
-    this.snapshotDirty = false;
   }
 }

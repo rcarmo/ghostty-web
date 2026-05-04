@@ -43,11 +43,10 @@ export class SelectionManager {
   private selectionStart: { col: number; absoluteRow: number } | null = null;
   private selectionEnd: { col: number; absoluteRow: number } | null = null;
   private isSelecting: boolean = false;
+  private mouseDownX: number = 0;
+  private mouseDownY: number = 0;
+  private dragThresholdMet: boolean = false;
   private mouseDownTarget: EventTarget | null = null; // Track where mousedown occurred
-
-  // Mouse reporting state - track button state for motion events
-  // Using Set to handle multi-button scenarios (e.g., holding left while pressing right)
-  private mouseButtonsPressed: Set<number> = new Set();
 
   // Track rows that need redraw for clearing old selection
   // Using a Set prevents the overwrite bug where mousemove would clobber
@@ -184,12 +183,7 @@ export class SelectionManager {
           if (char.trim()) {
             lastNonEmpty = lineText.length;
           }
-        } else if (!cell || cell.width !== 0) {
-          // Only add space for truly empty cells, not wide character continuation cells.
-          // Wide characters (like CJK) occupy 2 terminal cells:
-          // - First cell: has codepoint, width=2
-          // - Second cell: codepoint=0, width=0 (continuation marker)
-          // We skip continuation cells to avoid inserting spaces between characters.
+        } else {
           lineText += ' ';
         }
       }
@@ -218,15 +212,8 @@ export class SelectionManager {
   hasSelection(): boolean {
     if (!this.selectionStart || !this.selectionEnd) return false;
 
-    // During live mouse selection, same-cell means "click without drag" and should not render.
-    // Programmatic same-cell selections (isSelecting=false) are still considered valid.
-    if (
-      this.isSelecting &&
-      this.selectionStart.col === this.selectionEnd.col &&
-      this.selectionStart.absoluteRow === this.selectionEnd.absoluteRow
-    ) {
-      return false;
-    }
+    // Don't report selection until drag threshold is met (prevents flash on click)
+    if (this.isSelecting && !this.dragThresholdMet) return false;
 
     return true;
   }
@@ -328,9 +315,8 @@ export class SelectionManager {
     }
 
     // Convert viewport rows to absolute rows
-    const viewportY = this.getViewportY();
-    this.selectionStart = { col: 0, absoluteRow: viewportY + start };
-    this.selectionEnd = { col: dims.cols - 1, absoluteRow: viewportY + end };
+    this.selectionStart = { col: 0, absoluteRow: this.viewportRowToAbsolute(start) };
+    this.selectionEnd = { col: dims.cols - 1, absoluteRow: this.viewportRowToAbsolute(end) };
     this.requestRender();
     this.selectionChangedEmitter.fire();
   }
@@ -439,153 +425,24 @@ export class SelectionManager {
   // Private Methods
   // ==========================================================================
 
-  // ==========================================================================
-  // Mouse Reporting (SGR format)
-  // ==========================================================================
-
-  /**
-   * Check if SGR mouse format (DEC mode 1006) is enabled.
-   * When 1006 is not enabled, applications expect X10 format which we don't yet support.
-   * Returns true if SGR mode is enabled, false otherwise.
-   */
-  private hasSGRMouseMode(): boolean {
-    const wasmTerm = (this.terminal as any).wasmTerm;
-    if (!wasmTerm) return false;
-    return wasmTerm.getMode(1006, false);
-  }
-
-  /**
-   * Check if motion events should be reported based on tracking mode.
-   * - Mode 1000 (NORMAL): Only button press/release, no motion
-   * - Mode 1002 (BUTTON): Motion only while button is held
-   * - Mode 1003 (ANY): All motion events
-   */
-  private shouldReportMotion(buttonHeld: boolean): boolean {
-    const wasmTerm = (this.terminal as any).wasmTerm;
-    if (!wasmTerm) return false;
-
-    // Mode 1003 (any-event tracking) reports all motion
-    if (wasmTerm.getMode(1003, false)) return true;
-
-    // Mode 1002 (button-event tracking) reports motion only with button held
-    if (wasmTerm.getMode(1002, false) && buttonHeld) return true;
-
-    // Mode 1000 (normal tracking) does not report motion
-    return false;
-  }
-
-  /**
-   * Map browser button codes to SGR button codes.
-   * Only buttons 0, 1, 2 are valid; others return null.
-   */
-  private mapButton(browserButton: number): number | null {
-    // Browser: 0=left, 1=middle, 2=right, 3+=auxiliary
-    // SGR: 0=left, 1=middle, 2=right
-    if (browserButton >= 0 && browserButton <= 2) {
-      return browserButton;
-    }
-    return null; // Ignore auxiliary buttons (3+)
-  }
-
-  /**
-   * Encode modifier keys into button code.
-   * Shift: +4, Alt/Meta: +8, Ctrl: +16
-   */
-  private encodeModifiers(e: MouseEvent | WheelEvent): number {
-    let modifiers = 0;
-    if (e.shiftKey) modifiers += 4;
-    if (e.altKey || e.metaKey) modifiers += 8;
-    if (e.ctrlKey) modifiers += 16;
-    return modifiers;
-  }
-
-  /**
-   * Generate SGR mouse sequence and send to terminal.
-   * SGR format: CSI < button ; col ; row M (press) or m (release)
-   * Button code includes: base button (0-2) + motion flag (32) + modifiers (4/8/16) + scroll (64/65)
-   *
-   * Only sends if DEC mode 1006 (SGR) is enabled. Without 1006, applications expect
-   * X10 format which encodes differently and has coordinate limits.
-   */
-  private sendMouseEvent(
-    col: number,
-    row: number,
-    button: number,
-    isRelease: boolean,
-    modifiers: number = 0,
-    isMotion: boolean = false
-  ): void {
-    // Only emit SGR sequences if mode 1006 is enabled
-    // Without 1006, apps expect X10 format (not yet implemented)
-    if (!this.hasSGRMouseMode()) {
-      return;
-    }
-
-    // SGR mouse uses 1-based coordinates
-    const x = col + 1;
-    const y = row + 1;
-
-    // Build button code:
-    // - Base: 0=left, 1=middle, 2=right, 64=scroll-up, 65=scroll-down
-    // - Motion flag: +32 when reporting motion
-    // - Modifiers: +4=shift, +8=alt/meta, +16=ctrl
-    let buttonCode = button;
-    if (isMotion) {
-      buttonCode += 32;
-    }
-    buttonCode += modifiers;
-
-    // SGR format: \x1b[<buttonCode;x;yM (press) or \x1b[<buttonCode;x;ym (release)
-    const suffix = isRelease ? 'm' : 'M';
-    const sequence = `\x1b[<${buttonCode};${x};${y}${suffix}`;
-
-    // Send via terminal's data emitter (goes to PTY)
-    (this.terminal as any).dataEmitter?.fire(sequence);
-  }
-
-  /**
-   * Send scroll wheel event with modifiers.
-   */
-  private sendScrollEvent(col: number, row: number, isUp: boolean, modifiers: number = 0): void {
-    // Scroll wheel: button 64 = up, 65 = down
-    const button = isUp ? 64 : 65;
-    this.sendMouseEvent(col, row, button, false, modifiers, false);
-  }
-
   /**
    * Attach mouse event listeners to canvas
    */
   private attachEventListeners(): void {
     const canvas = this.renderer.getCanvas();
 
-    // Mouse down - start selection or send mouse event to application
+    // Mouse down - start selection or clear existing
     canvas.addEventListener('mousedown', (e: MouseEvent) => {
-      // CRITICAL: Focus the terminal so it can receive keyboard input
-      // The canvas doesn't have tabindex, but the parent container does
-      if (canvas.parentElement) {
-        canvas.parentElement.focus();
-      }
-
-      const cell = this.pixelToCell(e.offsetX, e.offsetY);
-
-      // Check if an application has enabled mouse tracking
-      if (this.terminal.hasMouseTracking()) {
-        // Map browser button to SGR button (ignore auxiliary buttons 3+)
-        const sgrButton = this.mapButton(e.button);
-        if (sgrButton === null) return; // Ignore unsupported buttons
-
-        // Track this button as pressed (supports multi-button scenarios)
-        this.mouseButtonsPressed.add(sgrButton);
-        const modifiers = this.encodeModifiers(e);
-        this.sendMouseEvent(cell.col, cell.row, sgrButton, false, modifiers);
-        e.preventDefault(); // Prevent text selection
-        return;
-      }
-
-      // Normal selection behavior (left click only)
       if (e.button === 0) {
-        // Always mark viewport dirty on new click to clear any stale overlay artifacts.
-        this.markViewportDirty();
+        // Left click only
+
+        // CRITICAL: Focus the terminal so it can receive keyboard input
+        // The canvas doesn't have tabindex, but the parent container does
+        if (canvas.parentElement) {
+          canvas.parentElement.focus();
+        }
+
+        const cell = this.pixelToCell(e.offsetX, e.offsetY);
 
         // Always clear previous selection on new click
         const hadSelection = this.hasSelection();
@@ -598,28 +455,27 @@ export class SelectionManager {
         this.selectionStart = { col: cell.col, absoluteRow };
         this.selectionEnd = { col: cell.col, absoluteRow };
         this.isSelecting = true;
+        this.mouseDownX = e.offsetX;
+        this.mouseDownY = e.offsetY;
+        this.dragThresholdMet = false;
       }
     });
 
-    // Mouse move on canvas - update selection or send motion events
+    // Mouse move on canvas - update selection
     canvas.addEventListener('mousemove', (e: MouseEvent) => {
-      // Check if motion events should be reported based on tracking mode
-      if (this.terminal.hasMouseTracking()) {
-        const buttonHeld = this.mouseButtonsPressed.size > 0;
-        if (this.shouldReportMotion(buttonHeld)) {
-          const cell = this.pixelToCell(e.offsetX, e.offsetY);
-          const modifiers = this.encodeModifiers(e);
-          // Use the first held button for motion, or button 3 (no button) if none held
-          // In SGR, motion with button uses 32 + button, motion without button uses 32 + 3
-          const button = buttonHeld ? [...this.mouseButtonsPressed][0] : 3;
-          this.sendMouseEvent(cell.col, cell.row, button, false, modifiers, true);
-          return;
-        }
-        // If mouse tracking but motion not reported, still prevent selection
-        if (buttonHeld) return;
-      }
-
       if (this.isSelecting) {
+        // Check if drag threshold has been met
+        if (!this.dragThresholdMet) {
+          const dx = e.offsetX - this.mouseDownX;
+          const dy = e.offsetY - this.mouseDownY;
+          // Use 50% of cell width as threshold to scale with font size
+          const threshold = this.renderer.getMetrics().width * 0.5;
+          if (dx * dx + dy * dy < threshold * threshold) {
+            return; // Below threshold, ignore
+          }
+          this.dragThresholdMet = true;
+        }
+
         // Mark current selection rows as dirty before updating
         this.markCurrentSelectionDirty();
 
@@ -656,6 +512,17 @@ export class SelectionManager {
     // Document-level mousemove for tracking mouse position during drag outside canvas
     this.boundDocumentMouseMoveHandler = (e: MouseEvent) => {
       if (this.isSelecting) {
+        // Check drag threshold (same as canvas mousemove)
+        if (!this.dragThresholdMet) {
+          const dx = e.clientX - (canvas.getBoundingClientRect().left + this.mouseDownX);
+          const dy = e.clientY - (canvas.getBoundingClientRect().top + this.mouseDownY);
+          const threshold = this.renderer.getMetrics().width * 0.5;
+          if (dx * dx + dy * dy < threshold * threshold) {
+            return;
+          }
+          this.dragThresholdMet = true;
+        }
+
         const rect = canvas.getBoundingClientRect();
 
         // Update selection based on clamped position
@@ -706,49 +573,13 @@ export class SelectionManager {
     // CRITICAL FIX: Listen for mouseup on DOCUMENT, not just canvas
     // This catches mouseup events that happen outside the canvas (common during drag)
     this.boundMouseUpHandler = (e: MouseEvent) => {
-      // Handle mouse release for mouse tracking
-      // Use e.button directly to handle multi-button scenarios correctly
-      const sgrButton = this.mapButton(e.button);
-      if (
-        sgrButton !== null &&
-        this.mouseButtonsPressed.has(sgrButton) &&
-        this.terminal.hasMouseTracking()
-      ) {
-        const rect = canvas.getBoundingClientRect();
-        // Calculate cell from event position (clamped to canvas bounds)
-        const clampedX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-        const clampedY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
-        const cell = this.pixelToCell(clampedX, clampedY);
-        const modifiers = this.encodeModifiers(e);
-        this.sendMouseEvent(cell.col, cell.row, sgrButton, true, modifiers);
-        this.mouseButtonsPressed.delete(sgrButton);
-        return;
-      }
-      // Clean up button tracking even if mouse tracking is not enabled
-      if (sgrButton !== null) {
-        this.mouseButtonsPressed.delete(sgrButton);
-      }
-
       if (this.isSelecting) {
         this.isSelecting = false;
         this.stopAutoScroll();
 
-        // Check if this was a click without drag (start == end)
-        // If so, clear the selection - a click shouldn't create a selection.
-        // This also avoids overwriting the clipboard on a simple click.
-        if (
-          this.selectionStart &&
-          this.selectionEnd &&
-          this.selectionStart.col === this.selectionEnd.col &&
-          this.selectionStart.absoluteRow === this.selectionEnd.absoluteRow
-        ) {
-          // Clear same-cell selection from click-without-drag.
-          // Mark the full viewport dirty so stale selection overlays are always cleared,
-          // even if the previously painted row can't be reliably re-mapped.
-          this.markViewportDirty();
-          this.selectionStart = null;
-          this.selectionEnd = null;
-          this.requestRender();
+        // Check if this was a click without drag (threshold never met).
+        if (!this.dragThresholdMet) {
+          this.clearSelection();
           return;
         }
 
@@ -831,12 +662,6 @@ export class SelectionManager {
     // Right-click (context menu) - position textarea to show browser's native menu
     // This allows Copy/Paste options to appear in the context menu
     this.boundContextMenuHandler = (e: MouseEvent) => {
-      // When mouse tracking is enabled, suppress context menu - right-click goes to app
-      if (this.terminal.hasMouseTracking()) {
-        e.preventDefault();
-        return;
-      }
-
       // Position textarea at mouse cursor
       const canvas = this.renderer.getCanvas();
       const rect = canvas.getBoundingClientRect();
@@ -935,17 +760,6 @@ export class SelectionManager {
       for (let row = coords.startRow; row <= coords.endRow; row++) {
         this.dirtySelectionRows.add(row);
       }
-    }
-  }
-
-  /**
-   * Mark all visible viewport rows as dirty for redraw.
-   * Used for robust selection-overlay cleanup when exact row mapping is ambiguous.
-   */
-  private markViewportDirty(): void {
-    const dims = this.wasmTerm.getDimensions();
-    for (let row = 0; row < dims.rows; row++) {
-      this.dirtySelectionRows.add(row);
     }
   }
 
@@ -1093,16 +907,24 @@ export class SelectionManager {
    * Get word boundaries at a cell position
    */
   private getWordAtCell(col: number, row: number): { startCol: number; endCol: number } | null {
-    const line = this.wasmTerm.getLine(row);
+    const absoluteRow = this.viewportRowToAbsolute(row);
+    const scrollbackLength = this.wasmTerm.getScrollbackLength();
+    let line: GhosttyCell[] | null;
+    if (absoluteRow < scrollbackLength) {
+      line = this.wasmTerm.getScrollbackLine(absoluteRow);
+    } else {
+      const screenRow = absoluteRow - scrollbackLength;
+      line = this.wasmTerm.getLine(screenRow);
+    }
     if (!line) return null;
 
     // Word characters: letters, numbers, and common path/URL characters
     // Matches native Ghostty behavior where double-click selects entire paths
-    // Includes: / (path sep), . (extensions), ~ (home), : (line numbers), @ (emails)
+    // Includes: / (path sep), . (extensions), ~ (home), @ (emails), + (encodings)
     const isWordChar = (cell: GhosttyCell) => {
       if (!cell || cell.codepoint === 0) return false;
       const char = String.fromCodePoint(cell.codepoint);
-      return /[\w\-./~:@+]/.test(char);
+      return /[\w\-./~@+]/.test(char);
     };
 
     // Only return if we're actually on a word character
@@ -1133,12 +955,6 @@ export class SelectionManager {
    * 3. Fall back to execCommand (legacy, for older browsers)
    */
   private copyToClipboard(text: string): void {
-    // Defensive check: don't copy empty text or if no selection
-    // This prevents accidental clipboard overwrites from single clicks
-    if (!text || !this.hasSelection()) {
-      return;
-    }
-
     // First try: ClipboardItem API (modern, Safari-compatible)
     // Safari allows this because we create the ClipboardItem synchronously
     // within the user gesture, even though the write is async

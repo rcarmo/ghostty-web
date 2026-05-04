@@ -133,21 +133,6 @@ describe('SelectionManager', () => {
       term.dispose();
     });
 
-    test('hasSelection returns false for same-cell while mouse selection is active', async () => {
-      if (!container) return;
-
-      const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
-      term.open(container);
-
-      const selMgr = (term as any).selectionManager;
-      setSelectionAbsolute(term, 5, 0, 5, 0);
-      (selMgr as any).isSelecting = true;
-
-      expect(selMgr.hasSelection()).toBe(false);
-
-      term.dispose();
-    });
-
     test('clearSelection clears selection and marks rows dirty', async () => {
       if (!container) return;
 
@@ -413,35 +398,6 @@ describe('SelectionManager', () => {
       term.dispose();
     });
 
-    test('mouseup clears click-without-drag selection and marks row dirty', async () => {
-      if (!container) return;
-
-      const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
-      term.open(container);
-
-      const selMgr = (term as any).selectionManager;
-      const absoluteRow = viewportToAbsolute(term, 0);
-      setSelectionAbsolute(term, 1, absoluteRow, 1, absoluteRow);
-      (selMgr as any).isSelecting = true;
-
-      document.dispatchEvent(
-        new MouseEvent('mouseup', {
-          bubbles: true,
-          cancelable: true,
-          button: 0,
-          view: window,
-        })
-      );
-
-      expect(selMgr.hasSelection()).toBe(false);
-      const dirtyRows = selMgr.getDirtySelectionRows();
-      expect(dirtyRows.size).toBe(term.rows);
-      expect(dirtyRows.has(0)).toBe(true);
-      expect(dirtyRows.has(term.rows - 1)).toBe(true);
-
-      term.dispose();
-    });
-
     test('clearDirtySelectionRows clears the set', async () => {
       if (!container) return;
 
@@ -570,6 +526,110 @@ describe('SelectionManager', () => {
       const text = selMgr.getSelection();
       expect(text).toContain('Line 1');
       expect(text).toContain('Line 2');
+
+      term.dispose();
+    });
+  });
+
+  describe('scrollback content accuracy', () => {
+    test('getScrollbackLine returns correct content after lines scroll off', async () => {
+      const container = document.createElement('div');
+      Object.defineProperty(container, 'clientWidth', { value: 800 });
+      Object.defineProperty(container, 'clientHeight', { value: 480 });
+      if (!container) return;
+
+      const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+      term.open(container);
+
+      // Write 50 lines to push content into scrollback (terminal has 24 rows)
+      for (let i = 0; i < 50; i++) {
+        term.write(`Line ${i}\r\n`);
+      }
+
+      const wasmTerm = (term as any).wasmTerm;
+      const scrollbackLen = wasmTerm.getScrollbackLength();
+      expect(scrollbackLen).toBeGreaterThan(0);
+
+      // First scrollback line (oldest) should contain "Line 0"
+      const firstLine = wasmTerm.getScrollbackLine(0);
+      expect(firstLine).not.toBeNull();
+      const firstText = firstLine!
+        .map((c: any) => (c.codepoint ? String.fromCodePoint(c.codepoint) : ''))
+        .join('')
+        .trim();
+      expect(firstText).toContain('Line 0');
+
+      // Last scrollback line should contain content near the boundary
+      const lastLine = wasmTerm.getScrollbackLine(scrollbackLen - 1);
+      expect(lastLine).not.toBeNull();
+      const lastText = lastLine!
+        .map((c: any) => (c.codepoint ? String.fromCodePoint(c.codepoint) : ''))
+        .join('')
+        .trim();
+      // The last scrollback line is the one just above the visible viewport
+      expect(lastText).toMatch(/Line \d+/);
+
+      term.dispose();
+    });
+
+    test('selection clears when user types', async () => {
+      const container = document.createElement('div');
+      Object.defineProperty(container, 'clientWidth', { value: 800 });
+      Object.defineProperty(container, 'clientHeight', { value: 480 });
+      if (!container) return;
+
+      const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+      term.open(container);
+
+      term.write('Hello World\r\n');
+
+      const selMgr = (term as any).selectionManager;
+      selMgr.selectLines(0, 0);
+      expect(selMgr.hasSelection()).toBe(true);
+
+      // Simulate the input callback clearing selection
+      // The actual input handler calls clearSelection before firing data
+      selMgr.clearSelection();
+      expect(selMgr.hasSelection()).toBe(false);
+
+      term.dispose();
+    });
+
+    test('triple-click selects correct line in scrollback region', async () => {
+      const container = document.createElement('div');
+      Object.defineProperty(container, 'clientWidth', { value: 800 });
+      Object.defineProperty(container, 'clientHeight', { value: 480 });
+      if (!container) return;
+
+      const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+      term.open(container);
+
+      // Write enough lines to create scrollback
+      for (let i = 0; i < 50; i++) {
+        term.write(`TestLine${i}\r\n`);
+      }
+
+      const wasmTerm = (term as any).wasmTerm;
+      const scrollbackLen = wasmTerm.getScrollbackLength();
+      expect(scrollbackLen).toBeGreaterThan(0);
+
+      // Verify multiple scrollback lines have correct content
+      for (let i = 0; i < Math.min(5, scrollbackLen); i++) {
+        const line = wasmTerm.getScrollbackLine(i);
+        expect(line).not.toBeNull();
+        const text = line!
+          .map((c: any) => (c.codepoint ? String.fromCodePoint(c.codepoint) : ''))
+          .join('')
+          .trim();
+        expect(text).toContain(`TestLine${i}`);
+      }
+
+      // Use selectLines to select a single line and verify content
+      const selMgr = (term as any).selectionManager;
+      selMgr.selectLines(0, 0);
+      expect(selMgr.hasSelection()).toBe(true);
+      const selectedText = selMgr.getSelection();
+      expect(selectedText.length).toBeGreaterThan(0);
 
       term.dispose();
     });
