@@ -139,10 +139,12 @@ export class Terminal implements ITerminalCore {
   private scrollbarHideTimeout?: number;
   private readonly SCROLLBAR_HIDE_DELAY_MS = 1500; // Hide after 1.5 seconds
   private readonly SCROLLBAR_FADE_DURATION_MS = 200; // 200ms fade animation
+  private readonly isAndroidPlatform: boolean;
 
   constructor(options: ITerminalOptions = {}) {
     // Use provided Ghostty instance (for test isolation) or get module-level instance
     this.ghostty = options.ghostty ?? getGhostty();
+    this.isAndroidPlatform = Terminal.detectAndroidPlatform();
 
     // Create base options object with all defaults (excluding ghostty)
     const baseOptions = {
@@ -183,6 +185,21 @@ export class Terminal implements ITerminalCore {
 
     // Initialize buffer API
     this.buffer = new BufferNamespace(this);
+  }
+
+  private static detectAndroidPlatform(): boolean {
+    if (typeof navigator === 'undefined') {
+      return false;
+    }
+
+    const uaData = (navigator as Navigator & {
+      userAgentData?: { platform?: string; mobile?: boolean };
+    }).userAgentData;
+    if (uaData?.platform && /android/i.test(uaData.platform)) {
+      return true;
+    }
+
+    return /android/i.test(navigator.userAgent ?? '');
   }
 
   // ==========================================================================
@@ -568,8 +585,12 @@ export class Terminal implements ITerminalCore {
       this.openEmitter.fire();
       this.openEmitter.dispose();
 
-      // Focus input (auto-focus so user can start typing immediately)
-      this.focus();
+      // Focus input by default, but avoid auto-focusing Android because
+      // focusing the hidden textarea on open can immediately summon the
+      // software keyboard / IME before the user interacts with the terminal.
+      if (!this.isAndroidPlatform) {
+        this.focus();
+      }
     } catch (error) {
       // Clean up on error
       this.isOpen = false;

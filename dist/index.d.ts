@@ -7,8 +7,9 @@ export declare class CanvasRenderer {
     private cursorBlink;
     private theme;
     private devicePixelRatio;
+    private scrollbarWidth;
     private metrics;
-    private palette;
+    private fontStrings;
     private cursorVisible;
     private cursorBlinkInterval?;
     private lastCursorPosition;
@@ -20,24 +21,14 @@ export declare class CanvasRenderer {
     private previousHoveredHyperlinkId;
     private hoveredLinkRange;
     private previousHoveredLinkRange;
+    private overlayCanvas;
+    private overlayCtx;
     constructor(canvas: HTMLCanvasElement, options?: RendererOptions);
-    /**
-     * Build a CSS font string with proper quoting for font families with spaces.
-     * Example: "Fira Code, monospace" -> '"Fira Code", monospace'
-     */
-    private buildFontString;
+    private buildFontStrings;
+    private getFontString;
     private measureFont;
     /**
-     * Remeasure font metrics (call after font loads or changes).
-     * Call this after loading a custom web font to ensure correct measurements.
-     *
-     * Example usage with FontFace API:
-     * ```typescript
-     * const font = new FontFace('Fira Code', 'url(...)');
-     * await font.load();
-     * document.fonts.add(font);
-     * terminal.renderer.remeasureFont();
-     * ```
+     * Remeasure font metrics (call after font loads or changes)
      */
     remeasureFont(): void;
     private rgbToCSS;
@@ -47,18 +38,8 @@ export declare class CanvasRenderer {
     resize(cols: number, rows: number): void;
     /**
      * Render the terminal buffer to canvas
-     * @param selection Optional selection coordinates for testing (bypasses SelectionManager)
      */
-    render(buffer: IRenderable, forceAll?: boolean, viewportY?: number | {
-        start: {
-            x: number;
-            y: number;
-        };
-        end: {
-            x: number;
-            y: number;
-        };
-    }, scrollbackProvider?: IScrollbackProvider, scrollbarOpacity?: number): void;
+    render(buffer: IRenderable, forceAll?: boolean, viewportY?: number, scrollbackProvider?: IScrollbackProvider, scrollbarOpacity?: number): void;
     /**
      * Render a single line using two-pass approach:
      * 1. First pass: Draw all cell backgrounds
@@ -77,6 +58,7 @@ export declare class CanvasRenderer {
      * complex glyphs (like Devanagari) that extend outside their cell bounds.
      */
     private renderCellBackground;
+    private drawHorizontalLine;
     /**
      * Render a cell's text and decorations (Pass 2 of two-pass rendering)
      * Selection foreground color is applied here to match the selection background.
@@ -87,6 +69,7 @@ export declare class CanvasRenderer {
      * Returns true if the character was handled, false if it should be rendered as text.
      */
     private renderBlockChar;
+    private strokeWithFillColor;
     /**
      * Render Powerline glyphs as vector shapes for pixel-perfect cell height.
      * Powerline glyphs (U+E0B0-U+E0BF) are designed to span the full cell height,
@@ -121,9 +104,6 @@ export declare class CanvasRenderer {
      * Enable/disable cursor blinking
      */
     setCursorBlink(enabled: boolean): void;
-    /**
-     * Get current font metrics
-     */
     /**
      * Render scrollbar (Phase 2)
      * Shows scroll position and allows click/drag interaction
@@ -171,6 +151,29 @@ export declare class CanvasRenderer {
      */
     clear(): void;
     /**
+     * Attach (or re-attach) the overlay canvas to a parent element.
+     * Idempotent: if already attached to the same parent, does nothing.
+     * Call this from Terminal.open() after the main canvas is added.
+     */
+    attachOverlayTo(parent: HTMLElement): void;
+    /**
+     * Resize the overlay canvas to match the main canvas dimensions (CSS + physical pixels).
+     * Call whenever the main canvas is resized.
+     */
+    resizeOverlay(): void;
+    /**
+     * Draw preedit (IME active composition) text at the given cell coordinates.
+     * Clears any previous preedit drawing first.
+     * @param text  Active composition string (empty string = clear only)
+     * @param cellX Column index (0-based)
+     * @param cellY Row index (0-based)
+     */
+    drawPreedit(text: string, cellX: number, cellY: number): void;
+    /**
+     * Clear the preedit overlay without drawing new text.
+     */
+    clearPreedit(): void;
+    /**
      * Cleanup resources
      */
     dispose(): void;
@@ -204,7 +207,7 @@ export declare const DEFAULT_THEME: Required<ITheme>;
 /**
  * Dirty state from RenderState
  */
-declare enum DirtyState {
+export declare enum DirtyState {
     NONE = 0,
     PARTIAL = 1,
     FULL = 2
@@ -282,6 +285,36 @@ export declare class Ghostty {
     createTerminal(cols?: number, rows?: number, config?: GhosttyTerminalConfig): GhosttyTerminal;
     static load(wasmPath?: string): Promise<Ghostty>;
     private static loadFromPath;
+    /**
+     * Load and instantiate the Ghostty WASM module from a pre-fetched ArrayBuffer.
+     *
+     * This is the fast path when bytes are already available (e.g. from an
+     * IndexedDB cache). It skips the fetch round-trip but still compiles the
+     * module — use `loadFromResponse` to also overlap compilation with the
+     * download via `instantiateStreaming`.
+     */
+    static loadFromBytes(bytes: ArrayBuffer): Promise<Ghostty>;
+    /**
+     * Load and instantiate the Ghostty WASM module from a fetch `Response`.
+     *
+     * Uses `WebAssembly.instantiateStreaming` when the response carries the
+     * required `Content-Type: application/wasm` header, allowing compilation
+     * to overlap with the download. Falls back to `arrayBuffer()` + `compile`
+     * if streaming is unavailable or the Content-Type is wrong.
+     */
+    static loadFromResponse(response: Response): Promise<Ghostty>;
+    /**
+     * Compile and instantiate a pre-compiled WASM module.
+     * Shared by `loadFromPath`, `loadFromBytes`, and the streaming fallback.
+     */
+    private static _instantiateFromModule;
+    /**
+     * Build the WebAssembly imports object with the WASM-to-host `log` callback.
+     * Returns a `setInstance` setter that must be called after instantiation so
+     * the callback can access the instance's memory buffer.
+     * Safe because WASM only calls `log` after full instantiation.
+     */
+    private static _makeImports;
 }
 
 /**
@@ -328,6 +361,23 @@ export declare class GhosttyTerminal {
     write(data: string | Uint8Array): void;
     resize(cols: number, rows: number): void;
     free(): void;
+    /**
+     * Update terminal colors at runtime. All color values are applied directly
+     * (no sentinel — 0x000000 is valid black). Forces a full redraw on next render.
+     */
+    setColors(config: GhosttyTerminalConfig): void;
+    /**
+     * Write a GhosttyTerminalConfig into WASM memory at configPtr.
+     *
+     * Layout must match GhosttyTerminalConfig in src/terminal/c/terminal.zig:
+     *   scrollback_limit: u32  (+0)
+     *   fg_color:         u32  (+4)
+     *   bg_color:         u32  (+8)
+     *   cursor_color:     u32  (+12)
+     *   palette:          [16]u32 (+16..+79)
+     * Total: 80 bytes. Any struct change in Zig must be mirrored here.
+     */
+    private writeConfigToPtr;
     /**
      * Update render state from terminal.
      *
@@ -405,6 +455,13 @@ export declare class GhosttyTerminal {
      * @returns The URI string, or null if no hyperlink at that position
      */
     getHyperlinkUri(row: number, col: number): string | null;
+    /**
+     * Get the hyperlink URI for a cell in the scrollback buffer.
+     * @param offset Scrollback line offset (0 = oldest, scrollback_len-1 = newest)
+     * @param col Column index (0-based)
+     * @returns The URI string, or null if no hyperlink at that position
+     */
+    getScrollbackHyperlinkUri(offset: number, col: number): string | null;
     /**
      * Check if there are pending responses from the terminal.
      * Responses are generated by escape sequences like DSR (Device Status Report).
@@ -507,6 +564,7 @@ declare interface GhosttyWasmExports extends WebAssembly.Exports {
     ghostty_terminal_free(terminal: TerminalHandle): void;
     ghostty_terminal_resize(terminal: TerminalHandle, cols: number, rows: number): void;
     ghostty_terminal_write(terminal: TerminalHandle, dataPtr: number, dataLen: number): void;
+    ghostty_terminal_set_colors(terminal: TerminalHandle, configPtr: number): void;
     ghostty_render_state_update(terminal: TerminalHandle): number;
     ghostty_render_state_get_cols(terminal: TerminalHandle): number;
     ghostty_render_state_get_rows(terminal: TerminalHandle): number;
@@ -527,6 +585,7 @@ declare interface GhosttyWasmExports extends WebAssembly.Exports {
     ghostty_terminal_get_scrollback_grapheme(terminal: TerminalHandle, offset: number, col: number, bufPtr: number, bufLen: number): number;
     ghostty_terminal_is_row_wrapped(terminal: TerminalHandle, row: number): number;
     ghostty_terminal_get_hyperlink_uri(terminal: TerminalHandle, row: number, col: number, bufPtr: number, bufLen: number): number;
+    ghostty_terminal_get_scrollback_hyperlink_uri(terminal: TerminalHandle, offset: number, col: number, bufPtr: number, bufLen: number): number;
     ghostty_terminal_has_response(terminal: TerminalHandle): boolean;
     ghostty_terminal_read_response(terminal: TerminalHandle, bufPtr: number, bufLen: number): number;
 }
@@ -742,7 +801,30 @@ export declare interface ILinkProvider {
  * term.open(document.getElementById('terminal'));
  * ```
  */
-export declare function init(): Promise<void>;
+export declare function init(wasmPath?: string): Promise<void>;
+
+/**
+ * Initialize ghostty-web from a pre-fetched `ArrayBuffer` (e.g. from an
+ * IndexedDB cache). Skips the fetch but still compiles the module.
+ *
+ * No-op if the singleton is already set, but **deduplication of concurrent
+ * calls is the caller's responsibility** — two overlapping awaits will both
+ * proceed past the guard and the second will overwrite the first. Wrap this
+ * in a shared promise (e.g. `if (!ready) ready = initFromBytes(...)`) to
+ * guarantee at-most-once execution.
+ */
+export declare function initFromBytes(bytes: ArrayBuffer): Promise<void>;
+
+/**
+ * Initialize ghostty-web from a fetch `Response`, using
+ * `WebAssembly.instantiateStreaming` when `Content-Type: application/wasm`
+ * is set so compilation overlaps with the download. Falls back to
+ * `arrayBuffer()` + `compile` if the header is missing.
+ *
+ * Same deduplication contract as `initFromBytes`: concurrent callers must
+ * coordinate externally (e.g. via a shared promise).
+ */
+export declare function initFromResponse(response: Response): Promise<void>;
 
 export declare class InputHandler {
     private encoder;
@@ -984,6 +1066,8 @@ export declare interface ITerminalCore {
     rows: number;
     element?: HTMLElement;
     textarea?: HTMLTextAreaElement;
+    suspend(): void;
+    resume(): void;
 }
 
 export declare interface ITerminalDimensions {
@@ -1025,6 +1109,7 @@ declare interface ITerminalForOSC8Provider {
     };
     wasmTerm?: {
         getHyperlinkUri(row: number, col: number): string | null;
+        getScrollbackHyperlinkUri(offset: number, col: number): string | null;
         getScrollbackLength(): number;
     };
 }
@@ -1053,6 +1138,7 @@ export declare interface ITerminalOptions {
     convertEol?: boolean;
     disableStdin?: boolean;
     smoothScrollDuration?: number;
+    scrollbarWidth?: number;
     onLinkClick?: (url: string, event: MouseEvent) => boolean;
     ghostty?: Ghostty;
 }
@@ -1453,6 +1539,7 @@ export declare interface RendererOptions {
     cursorBlink?: boolean;
     theme?: ITheme;
     devicePixelRatio?: number;
+    scrollbarWidth?: number;
 }
 
 /**
@@ -1475,7 +1562,7 @@ declare interface RenderStateCursor {
     viewportY: number;
     visible: boolean;
     blinking: boolean;
-    style: 'block' | 'underline' | 'bar';
+    style: 'block' | 'underline' | 'bar' | undefined;
 }
 
 /**
@@ -1502,8 +1589,10 @@ export declare class SelectionManager {
     private selectionStart;
     private selectionEnd;
     private isSelecting;
+    private mouseDownX;
+    private mouseDownY;
+    private dragThresholdMet;
     private mouseDownTarget;
-    private mouseButtonsPressed;
     private dirtySelectionRows;
     private selectionChangedEmitter;
     private boundMouseUpHandler;
@@ -1604,42 +1693,6 @@ export declare class SelectionManager {
      */
     dispose(): void;
     /**
-     * Check if SGR mouse format (DEC mode 1006) is enabled.
-     * When 1006 is not enabled, applications expect X10 format which we don't yet support.
-     * Returns true if SGR mode is enabled, false otherwise.
-     */
-    private hasSGRMouseMode;
-    /**
-     * Check if motion events should be reported based on tracking mode.
-     * - Mode 1000 (NORMAL): Only button press/release, no motion
-     * - Mode 1002 (BUTTON): Motion only while button is held
-     * - Mode 1003 (ANY): All motion events
-     */
-    private shouldReportMotion;
-    /**
-     * Map browser button codes to SGR button codes.
-     * Only buttons 0, 1, 2 are valid; others return null.
-     */
-    private mapButton;
-    /**
-     * Encode modifier keys into button code.
-     * Shift: +4, Alt/Meta: +8, Ctrl: +16
-     */
-    private encodeModifiers;
-    /**
-     * Generate SGR mouse sequence and send to terminal.
-     * SGR format: CSI < button ; col ; row M (press) or m (release)
-     * Button code includes: base button (0-2) + motion flag (32) + modifiers (4/8/16) + scroll (64/65)
-     *
-     * Only sends if DEC mode 1006 (SGR) is enabled. Without 1006, applications expect
-     * X10 format which encodes differently and has coordinate limits.
-     */
-    private sendMouseEvent;
-    /**
-     * Send scroll wheel event with modifiers.
-     */
-    private sendScrollEvent;
-    /**
      * Attach mouse event listeners to canvas
      */
     private attachEventListeners;
@@ -1647,11 +1700,6 @@ export declare class SelectionManager {
      * Mark current selection rows as dirty for redraw
      */
     private markCurrentSelectionDirty;
-    /**
-     * Mark all visible viewport rows as dirty for redraw.
-     * Used for robust selection-overlay cleanup when exact row mapping is ambiguous.
-     */
-    private markViewportDirty;
     /**
      * Update auto-scroll based on mouse Y position within canvas
      */
@@ -1715,11 +1763,9 @@ export declare class Terminal implements ITerminalCore {
     private inputHandler?;
     private selectionManager?;
     private canvas?;
-    private compositionPreview?;
     private linkDetector?;
     private currentHoveredLink?;
     private mouseMoveThrottleTimeout?;
-    private readonly isAndroidPlatform;
     private pendingMouseMove?;
     private dataEmitter;
     private resizeEmitter;
@@ -1730,6 +1776,7 @@ export declare class Terminal implements ITerminalCore {
     private scrollEmitter;
     private renderEmitter;
     private cursorMoveEmitter;
+    private openEmitter;
     readonly onData: IEvent<string>;
     readonly onResize: IEvent<{
         cols: number;
@@ -1745,22 +1792,23 @@ export declare class Terminal implements ITerminalCore {
         end: number;
     }>;
     readonly onCursorMove: IEvent<void>;
+    /** Fired once when the terminal is mounted to the DOM and ready to receive input. */
+    readonly onOpen: IEvent<void>;
     private isOpen;
     private isDisposed;
+    private isSuspended;
     private animationFrameId?;
-    private _isResizing;
-    private _writeQueue;
-    private _resizeFlushFrameId?;
+    private writeQueue;
     private addons;
     private customKeyEventHandler?;
     private currentTitle;
+    private currentTheme;
     viewportY: number;
     private targetViewportY;
     private scrollAnimationStartTime?;
     private scrollAnimationStartY?;
     private scrollAnimationFrame?;
     private customWheelEventHandler?;
-    private linkClickHandler?;
     private lastCursorY;
     private isDraggingScrollbar;
     private scrollbarDragStart;
@@ -1770,11 +1818,9 @@ export declare class Terminal implements ITerminalCore {
     private scrollbarHideTimeout?;
     private readonly SCROLLBAR_HIDE_DELAY_MS;
     private readonly SCROLLBAR_FADE_DURATION_MS;
-    private snapshotCells;
-    private snapshotCursor;
-    private snapshotDirty;
-    private snapshotBuffer;
+    private readonly isAndroidPlatform;
     constructor(options?: ITerminalOptions);
+    private static detectAndroidPlatform;
     /**
      * Handle runtime option changes (called when options are modified after terminal is open)
      * This enables xterm.js compatibility where options can be changed at runtime
@@ -1792,10 +1838,14 @@ export declare class Terminal implements ITerminalCore {
     private parseColorToHex;
     /**
      * Convert terminal options to WASM terminal config.
-     * Merges user theme with DEFAULT_THEME to ensure all colors are set,
-     * preventing WASM from falling back to its internal palette.
      */
     private buildWasmConfig;
+    /**
+     * Build a WASM colors config from a fully-resolved theme.
+     * Unlike buildWasmConfig(), all color values are valid (no sentinel).
+     */
+    private buildThemeColorsConfig;
+    private buildThemePalette;
     /**
      * Open terminal in a parent element
      *
@@ -1803,7 +1853,6 @@ export declare class Terminal implements ITerminalCore {
      * Requires a pre-loaded Ghostty instance passed to the constructor.
      */
     open(parent: HTMLElement): void;
-    private static detectAndroidPlatform;
     /**
      * Write data to terminal
      */
@@ -1829,17 +1878,8 @@ export declare class Terminal implements ITerminalCore {
     input(data: string, wasUserInput?: boolean): void;
     /**
      * Resize terminal
-     *
-     * Note: We pause the render loop and queue writes during resize to prevent
-     * race conditions. The WASM terminal reallocates internal buffers during
-     * resize, and if the render loop or writes access those buffers concurrently,
-     * it can cause a crash.
      */
     resize(cols: number, rows: number): void;
-    /**
-     * Flush queued writes that were blocked during resize
-     */
-    private flushWriteQueue;
     /**
      * Clear terminal screen
      */
@@ -1856,6 +1896,22 @@ export declare class Terminal implements ITerminalCore {
      * Blur terminal (remove focus)
      */
     blur(): void;
+    /**
+     * Suspend rendering. Stops the render loop without destroying terminal state.
+     * Writes continue to be processed by the WASM terminal; they will be rendered
+     * on the next frame after resume() is called.
+     *
+     * Also cancels any in-progress smooth-scroll animation — it will resume from
+     * its current position when resume() is called.
+     *
+     * Intended for terminals that are mounted but not visible (e.g. inactive tabs).
+     */
+    suspend(): void;
+    /**
+     * Resume rendering after a suspend() call.
+     * Restarts any scroll animation that was in progress when suspended.
+     */
+    resume(): void;
     /**
      * Load an addon
      */
@@ -1902,41 +1958,14 @@ export declare class Terminal implements ITerminalCore {
     getSelectionPosition(): IBufferRange | undefined;
     /**
      * Attach a custom keyboard event handler
-     * Returns: true = terminal handles it (preventDefault)
-     *          false = let event bubble to host (VS Code)
-     *          undefined = continue with default terminal processing
+     * Returns true to prevent default handling
      */
-    attachCustomKeyEventHandler(customKeyEventHandler: (event: KeyboardEvent) => boolean | undefined): void;
+    attachCustomKeyEventHandler(customKeyEventHandler: (event: KeyboardEvent) => boolean): void;
     /**
      * Attach a custom wheel event handler (Phase 2)
      * Returns true to prevent default handling
      */
     attachCustomWheelEventHandler(customWheelEventHandler?: (event: WheelEvent) => boolean): void;
-    /**
-     * Load custom fonts and update terminal rendering.
-     *
-     * Call this after loading web fonts to ensure the terminal measures and
-     * renders with the correct font metrics. The terminal will re-measure
-     * fonts and trigger a full re-render.
-     *
-     * @example
-     * ```typescript
-     * // Option 1: Wait for specific fonts
-     * await document.fonts.load('16px "Fira Code"');
-     * terminal.loadFonts();
-     *
-     * // Option 2: Wait for all fonts
-     * await document.fonts.ready;
-     * terminal.loadFonts();
-     *
-     * // Option 3: Use FontFace API
-     * const font = new FontFace('Fira Code', 'url(/fonts/FiraCode.woff2)');
-     * await font.load();
-     * document.fonts.add(font);
-     * terminal.loadFonts();
-     * ```
-     */
-    loadFonts(): void;
     /**
      * Register a custom link provider
      * Multiple providers can be registered to detect different types of links
@@ -1989,6 +2018,15 @@ export declare class Terminal implements ITerminalCore {
      * Dispose terminal and clean up resources
      */
     dispose(): void;
+    /**
+     * Cancel the render loop
+     */
+    private cancelRenderLoop;
+    private cancelScrollAnimation;
+    /**
+     * Flush any writes that were queued during resize
+     */
+    private flushWriteQueue;
     /**
      * Start the render loop
      */
@@ -2102,50 +2140,19 @@ export declare class Terminal implements ITerminalCore {
      */
     hasMouseTracking(): boolean;
     /**
-     * Set a snapshot of terminal state for playback mode.
-     * When a snapshot is set, the renderer will use the snapshot cells instead of
-     * reading from the WASM terminal. This enables direct terminal state injection
-     * for playback without re-parsing VT100 sequences.
+     * Draw active IME composition text (preedit) on the overlay canvas at the
+     * current cursor position.  Call from compositionupdate.
      *
-     * @param cells - Flat array of cells (row-major order: rows * cols cells)
-     * @param cursor - Cursor position {x, y}
+     * The overlay canvas is rendered on top of the main cell grid (pointer-events:
+     * none, z-index 1) so incoming VT redraws cannot clobber the preedit text.
      *
-     * @example
-     * ```typescript
-     * // Set snapshot from a recording frame
-     * const cells: GhosttyCell[] = recordedFrame.cells;
-     * const cursor = { x: 10, y: 5 };
-     * terminal.setSnapshot(cells, cursor);
-     * ```
+     * @param text Active composition string from CompositionEvent.data
      */
-    setSnapshot(cells: GhosttyCell[], cursor: {
-        x: number;
-        y: number;
-    }): void;
+    setPreedit(text: string): void;
     /**
-     * Clear the snapshot and return to normal WASM terminal rendering.
-     * Call this when exiting playback mode.
+     * Clear the IME preedit overlay.  Call from compositionend (or on commit).
      */
-    clearSnapshot(): void;
-    /**
-     * Check if a snapshot is currently set.
-     * @returns true if in snapshot/playback mode
-     */
-    hasSnapshot(): boolean;
-    /**
-     * Arm a blank-cell snapshot so the renderer paints a clean screen
-     * until the first write() arrives.
-     */
-    private armBootstrapBlank;
-    /**
-     * Disarm the bootstrap blank, returning the renderer to live WASM output.
-     * No-op if already disarmed or if a playback snapshot is active.
-     */
-    private disarmBootstrapBlank;
-    /* Excluded from this release type: getSnapshotCells */
-    /* Excluded from this release type: getSnapshotCursor */
-    /* Excluded from this release type: isSnapshotDirty */
-    /* Excluded from this release type: clearSnapshotDirty */
+    clearPreedit(): void;
 }
 
 /**

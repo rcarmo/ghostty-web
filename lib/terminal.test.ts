@@ -9,7 +9,7 @@
  * Uses createIsolatedTerminal() to ensure each test gets its own WASM instance.
  */
 
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import type { Terminal } from './terminal';
 import { createIsolatedTerminal } from './test-helpers';
 
@@ -313,6 +313,48 @@ describe('Terminal', () => {
     test('focus() before open does not throw', async () => {
       const term = await createIsolatedTerminal();
       expect(() => term.focus()).not.toThrow();
+    });
+
+    test('open() auto-focuses on non-Android platforms', async () => {
+      const term = await createIsolatedTerminal();
+      const focusSpy = jest.spyOn(term, 'focus');
+
+      try {
+        term.open(container!);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(focusSpy).toHaveBeenCalled();
+      } finally {
+        focusSpy.mockRestore();
+        term.dispose();
+      }
+    });
+
+    test('open() does not auto-focus on Android', async () => {
+      const navigatorProto = Object.getPrototypeOf(navigator);
+      const userAgentDescriptor = Object.getOwnPropertyDescriptor(navigatorProto, 'userAgent');
+
+      Object.defineProperty(navigatorProto, 'userAgent', {
+        configurable: true,
+        get: () =>
+          'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Mobile Safari/537.36',
+      });
+
+      const term = await createIsolatedTerminal();
+      const focusSpy = jest.spyOn(term, 'focus');
+
+      try {
+        term.open(container!);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(focusSpy).not.toHaveBeenCalled();
+      } finally {
+        focusSpy.mockRestore();
+        if (userAgentDescriptor) {
+          Object.defineProperty(navigatorProto, 'userAgent', userAgentDescriptor);
+        } else {
+          delete (navigatorProto as { userAgent?: string }).userAgent;
+        }
+        term.dispose();
+      }
     });
   });
 
