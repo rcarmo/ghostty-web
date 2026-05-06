@@ -1271,6 +1271,13 @@ export class CanvasRenderer {
     const destX = x * this.metrics.width;
     const destY = y * this.metrics.height;
 
+    // Source-rect coords are fractional whenever pixels.{width,height} doesn't
+    // divide evenly by placement.{gridCols,gridRows}. With smoothing on, each
+    // slice is sampled with bilinear interpolation clamped to its own source
+    // rect, producing visible seams between adjacent cells (the classic
+    // tile-edge artifact). Disable smoothing for the slice draw.
+    const prevSmoothing = this.ctx.imageSmoothingEnabled;
+    this.ctx.imageSmoothingEnabled = false;
     this.ctx.drawImage(
       canvas,
       srcX,
@@ -1282,6 +1289,7 @@ export class CanvasRenderer {
       this.metrics.width,
       this.metrics.height,
     );
+    this.ctx.imageSmoothingEnabled = prevSmoothing;
     return true;
   }
 
