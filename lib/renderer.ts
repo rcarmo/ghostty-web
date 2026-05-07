@@ -114,6 +114,13 @@ export class CanvasRenderer {
   private cursorBlinkInterval?: number;
   private lastCursorPosition: { x: number; y: number } = { x: 0, y: 0 };
 
+  // Hook called whenever the renderer's own internal state (today: cursor
+  // blink toggle) changes such that the next frame would look different.
+  // Set by Terminal so it can wake its render scheduler. Without this, an
+  // event-driven Terminal that has gone idle would never repaint the
+  // blinking cursor.
+  private onRequestRender: (() => void) | null = null;
+
   // Viewport tracking (for scrolling)
   private lastViewportY: number = 0;
 
@@ -976,11 +983,23 @@ export class CanvasRenderer {
   // Cursor Blinking
   // ==========================================================================
 
+  /**
+   * Set a callback the renderer invokes when its internal state changes
+   * outside the normal render-driven path (today: cursor-blink toggles).
+   * Lets an event-driven Terminal wake its render scheduler instead of
+   * polling every frame to catch the blink flip.
+   */
+  public setOnRequestRender(fn: (() => void) | null): void {
+    this.onRequestRender = fn;
+  }
+
   private startCursorBlink(): void {
     // xterm.js uses ~530ms blink interval
     this.cursorBlinkInterval = window.setInterval(() => {
       this.cursorVisible = !this.cursorVisible;
-      // Note: Render loop should redraw cursor line automatically
+      // Wake the render scheduler so the cursor cell is actually
+      // repainted with the new visibility state.
+      this.onRequestRender?.();
     }, 530);
   }
 
@@ -1140,7 +1159,9 @@ export class CanvasRenderer {
    * Set the currently hovered hyperlink ID for rendering underlines
    */
   public setHoveredHyperlinkId(hyperlinkId: number): void {
+    if (this.hoveredHyperlinkId === hyperlinkId) return;
     this.hoveredHyperlinkId = hyperlinkId;
+    this.onRequestRender?.();
   }
 
   /**
@@ -1155,7 +1176,12 @@ export class CanvasRenderer {
       endY: number;
     } | null
   ): void {
+    // Coarse change check — link-detection is rate-limited upstream and
+    // these setters are only called on hover transitions, so identity
+    // comparison is enough to dedupe back-to-back clears.
+    if (this.hoveredLinkRange === range) return;
     this.hoveredLinkRange = range;
+    this.onRequestRender?.();
   }
 
   /**
