@@ -6,7 +6,7 @@
  * snapshot of all render data in a single update call.
  */
 
-import { decode as decodePng } from 'fast-png';
+import { decodePngToRgba8 } from './wasm-png-decoder';
 import {
   type DecodePngCallback,
   makeCallbackTrampolines,
@@ -2003,7 +2003,7 @@ export class GhosttyTerminal {
       // PNG decoder dispatcher. Called by ghostty when it needs to
       // decode a kitty graphics PNG payload (kitten icat sends these by
       // default — won't work without a decoder installed). Synchronous;
-      // we lean on fast-png for sync decode since createImageBitmap is
+      // we use a vendored WASM PNG decoder because createImageBitmap is
       // async and unavailable from a sync C callback.
       //
       // Inputs: an allocator pointer (the library's, so the buffer we
@@ -2022,20 +2022,16 @@ export class GhosttyTerminal {
       ) => {
         try {
           const pngBytes = new Uint8Array(memory.buffer, dataPtr, dataLen).slice();
-          const img = decodePng(pngBytes);
-          // fast-png returns 8/16-bit per channel data and various
-          // channel counts (plus an optional palette for indexed PNGs).
-          // The library expects RGBA u8. Normalize.
-          const rgba = pngToRgba8(img);
-          if (!rgba) return 0;
-          const outBuf = exports.ghostty_alloc(allocator, rgba.length);
+          const decoded = decodePngToRgba8(pngBytes);
+          if (!decoded) return 0;
+          const outBuf = exports.ghostty_alloc(allocator, decoded.rgba.length);
           if (outBuf === 0) return 0;
-          new Uint8Array(memory.buffer, outBuf, rgba.length).set(rgba);
+          new Uint8Array(memory.buffer, outBuf, decoded.rgba.length).set(decoded.rgba);
           const view = new DataView(memory.buffer);
-          view.setUint32(outImagePtr + 0, img.width, true);
-          view.setUint32(outImagePtr + 4, img.height, true);
+          view.setUint32(outImagePtr + 0, decoded.width, true);
+          view.setUint32(outImagePtr + 4, decoded.height, true);
           view.setUint32(outImagePtr + 8, outBuf, true);
-          view.setUint32(outImagePtr + 12, rgba.length, true);
+          view.setUint32(outImagePtr + 12, decoded.rgba.length, true);
           return 1;
         } catch {
           return 0;
@@ -2251,108 +2247,4 @@ export class GhosttyTerminal {
     return String.fromCodePoint(...codepoints);
   }
 
-}
-
-/**
- * Normalize a fast-png decode result into a tightly packed 8-bit RGBA
- * buffer (4 bytes/pixel). fast-png returns whichever channel count and
- * bit depth the source PNG used (1/8/16-bit; 1/2/3/4 channels);
- * libghostty wants u8 RGBA.
- *
- * Returns null on any unexpected shape.
- */
-function pngToRgba8(img: {
-  width: number;
-  height: number;
-  channels: number;
-  depth: number;
-  // fast-png types this as PngDataArray (Uint8Array | Uint8ClampedArray |
-  // Uint16Array). All three index numerically — we just need to handle
-  // depth 8 vs 16 since 1/2/4-bit PNGs come back already expanded to 8.
-  data: ArrayLike<number>;
-  /** For indexed (palette) PNGs: array of [r,g,b] triples; data values
-   *  are 1-byte indices into this array. Absent for non-indexed PNGs. */
-  palette?: number[][];
-  /** Per-index alpha for tRNS in indexed PNGs (each value 0-255 in the
-   *  low byte regardless of bit depth). Indices past this array's
-   *  length are fully opaque. */
-  transparency?: ArrayLike<number>;
-}): Uint8Array | null {
-  const { width, height, channels, depth, data, palette, transparency } = img;
-  const px = width * height;
-  const out = new Uint8Array(px * 4);
-
-  // Indexed (palette) PNG. fast-png reports channels=1 with the palette
-  // separate; if we just blitted `data` we'd get black-and-white because
-  // palette indices look like dim grayscale values. Apply the palette
-  // and per-index alpha here.
-  //
-  // Alpha source order — fast-png is inconsistent across PNG layouts:
-  //   1. palette[idx][3]  — fast-png folds tRNS-derived alpha into the
-  //      palette tuples themselves for many indexed-with-transparency
-  //      PNGs (its `IndexedColors` type is documented as RGB triples
-  //      but the runtime values are RGBA quadruples).
-  //   2. transparency[idx] — when fast-png does surface tRNS as its
-  //      own field instead of folding into palette entries.
-  //   3. 255 fallback — fully opaque.
-  if (palette && palette.length > 0) {
-    for (let i = 0, o = 0; i < px; i++, o += 4) {
-      const idx = data[i]! ?? 0;
-      const rgb = palette[idx] ?? palette[0]!;
-      out[o] = rgb[0]!;
-      out[o + 1] = rgb[1]!;
-      out[o + 2] = rgb[2]!;
-      out[o + 3] =
-        rgb.length >= 4
-          ? rgb[3]!
-          : transparency && idx < transparency.length
-            ? transparency[idx]!
-            : 255;
-    }
-    return out;
-  }
-
-  // Bring 16-bit channels down to 8 by dropping the low byte.
-  const get = (i: number): number => {
-    if (depth === 16) return data[i]! >> 8;
-    return data[i]! ?? 0;
-  };
-  switch (channels) {
-    case 4:
-      for (let i = 0, o = 0; i < px * 4; i += 4, o += 4) {
-        out[o] = get(i);
-        out[o + 1] = get(i + 1);
-        out[o + 2] = get(i + 2);
-        out[o + 3] = get(i + 3);
-      }
-      return out;
-    case 3:
-      for (let i = 0, o = 0; i < px * 3; i += 3, o += 4) {
-        out[o] = get(i);
-        out[o + 1] = get(i + 1);
-        out[o + 2] = get(i + 2);
-        out[o + 3] = 255;
-      }
-      return out;
-    case 2:
-      for (let i = 0, o = 0; i < px * 2; i += 2, o += 4) {
-        const v = get(i);
-        out[o] = v;
-        out[o + 1] = v;
-        out[o + 2] = v;
-        out[o + 3] = get(i + 1);
-      }
-      return out;
-    case 1:
-      for (let i = 0, o = 0; i < px; i++, o += 4) {
-        const v = get(i);
-        out[o] = v;
-        out[o + 1] = v;
-        out[o + 2] = v;
-        out[o + 3] = 255;
-      }
-      return out;
-    default:
-      return null;
-  }
 }

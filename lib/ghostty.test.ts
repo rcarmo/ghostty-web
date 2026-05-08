@@ -143,30 +143,41 @@ describe('Ghostty kitty graphics API', () => {
     }
   });
 
-  test('decodes PNG kitty graphics payloads through the installed sys decoder', async () => {
+  test('decodes a real icon PNG kitty graphics payload through the installed sys decoder', async () => {
     const ghostty = await Ghostty.load();
-    const term = ghostty.createTerminal(10, 5);
+    const term = ghostty.createTerminal(80, 24);
 
     try {
-      // 1x1 red RGBA PNG generated with fast-png. f=100 => PNG.
-      const redPng =
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4z8DwHwAFAAH/NQZ7kgAAAABJRU5ErkJggg==';
+      // Real bundled Ghostty icon, 256x256 16-bit/color RGBA PNG. f=100 => PNG.
+      const iconBytes = await Bun.file('ghostty/images/icons/icon_256.png').arrayBuffer();
+      const iconPng = Buffer.from(iconBytes).toString('base64');
       term.setCellPixelSize(8, 16);
-      term.write(`\x1b_Ga=T,f=100,t=d,i=2,s=1,v=1,c=1,r=1;${redPng}\x1b\\`);
+      term.write(`\x1b_Ga=T,f=100,t=d,i=2,s=256,v=256,c=32,r=16;${iconPng}\x1b\\`);
       term.update();
 
       const graphics = term.getKittyGraphics();
       expect(graphics).not.toBeNull();
       const placements = [...term.iterPlacements(graphics!, false)];
       expect(placements).toHaveLength(1);
-      expect(placements[0].imageId).toBe(2);
+      expect(placements[0]).toMatchObject({
+        imageId: 2,
+        pixelWidth: 256,
+        pixelHeight: 256,
+        gridCols: 32,
+        gridRows: 16,
+        viewportCol: 0,
+        viewportRow: 0,
+        viewportVisible: true,
+        isVirtual: false,
+      });
 
       const pixels = term.getKittyImagePixels(graphics!, 2);
       expect(pixels).not.toBeNull();
-      expect(pixels!.width).toBe(1);
-      expect(pixels!.height).toBe(1);
+      expect(pixels!.width).toBe(256);
+      expect(pixels!.height).toBe(256);
       expect(pixels!.format).toBe(KittyImageFormat.RGBA);
-      expect([...pixels!.data]).toEqual([255, 0, 0, 255]);
+      expect(pixels!.data.length).toBe(256 * 256 * 4);
+      expect(pixels!.data.some((value) => value !== 0)).toBe(true);
     } finally {
       term.free();
     }
