@@ -870,19 +870,14 @@ export class CanvasRenderer {
     const codepoint = cell.codepoint || 32;
 
     // Handle special characters that need pixel-perfect rendering:
+    // - Box drawing characters (U+2500-U+257F): geometric lines for connected TUI borders
     // - Block drawing characters (U+2580-U+259F): rectangles for gap-free ASCII art
     // - Powerline glyphs (U+E0B0-U+E0BF): vector shapes to match exact cell height
-    if (
-      codepoint >= 0x2580 &&
-      codepoint <= 0x259f &&
-      this.renderBlockChar(codepoint, cellX, cellY, cellWidth)
-    ) {
+    if (this.renderBlockChar(codepoint, cellX, cellY, cellWidth)) {
       // rendered as rectangle
-    } else if (
-      codepoint >= 0xe0b0 &&
-      codepoint <= 0xe0b7 &&
-      this.renderPowerlineGlyph(codepoint, cellX, cellY, cellWidth)
-    ) {
+    } else if (codepoint >= 0x2500 && codepoint <= 0x257f) {
+      this.renderBoxDrawing(codepoint, cellX, cellY, cellWidth, this.metrics.height);
+    } else if (this.renderPowerlineGlyph(codepoint, cellX, cellY, cellWidth)) {
       // rendered as vector path
     } else {
       // Use grapheme lookup for complex scripts, single codepoint otherwise
@@ -986,11 +981,68 @@ export class CanvasRenderer {
       case 0x2590: // ▐ RIGHT HALF BLOCK
         this.ctx.fillRect(cellX + cellWidth / 2, cellY, cellWidth / 2, height);
         return true;
+      case 0x2591: { // ░ LIGHT SHADE
+        const prev = this.ctx.globalAlpha;
+        this.ctx.globalAlpha = prev * 0.25;
+        this.ctx.fillRect(cellX, cellY, cellWidth, height);
+        this.ctx.globalAlpha = prev;
+        return true;
+      }
+      case 0x2592: { // ▒ MEDIUM SHADE
+        const prev = this.ctx.globalAlpha;
+        this.ctx.globalAlpha = prev * 0.5;
+        this.ctx.fillRect(cellX, cellY, cellWidth, height);
+        this.ctx.globalAlpha = prev;
+        return true;
+      }
+      case 0x2593: { // ▓ DARK SHADE
+        const prev = this.ctx.globalAlpha;
+        this.ctx.globalAlpha = prev * 0.75;
+        this.ctx.fillRect(cellX, cellY, cellWidth, height);
+        this.ctx.globalAlpha = prev;
+        return true;
+      }
       case 0x2594: // ▔ UPPER ONE EIGHTH BLOCK
         this.ctx.fillRect(cellX, cellY, cellWidth, height / 8);
         return true;
       case 0x2595: // ▕ RIGHT ONE EIGHTH BLOCK
         this.ctx.fillRect(cellX + (cellWidth * 7) / 8, cellY, cellWidth / 8, height);
+        return true;
+      case 0x2596: // ▖ QUADRANT LOWER LEFT
+        this.ctx.fillRect(cellX, cellY + height / 2, cellWidth / 2, height / 2);
+        return true;
+      case 0x2597: // ▗ QUADRANT LOWER RIGHT
+        this.ctx.fillRect(cellX + cellWidth / 2, cellY + height / 2, cellWidth / 2, height / 2);
+        return true;
+      case 0x2598: // ▘ QUADRANT UPPER LEFT
+        this.ctx.fillRect(cellX, cellY, cellWidth / 2, height / 2);
+        return true;
+      case 0x2599: // ▙ QUADRANT UPPER LEFT AND LOWER LEFT AND LOWER RIGHT
+        this.ctx.fillRect(cellX, cellY, cellWidth / 2, height);
+        this.ctx.fillRect(cellX + cellWidth / 2, cellY + height / 2, cellWidth / 2, height / 2);
+        return true;
+      case 0x259a: // ▚ QUADRANT UPPER LEFT AND LOWER RIGHT
+        this.ctx.fillRect(cellX, cellY, cellWidth / 2, height / 2);
+        this.ctx.fillRect(cellX + cellWidth / 2, cellY + height / 2, cellWidth / 2, height / 2);
+        return true;
+      case 0x259b: // ▛ QUADRANT UPPER LEFT AND UPPER RIGHT AND LOWER LEFT
+        this.ctx.fillRect(cellX, cellY, cellWidth, height / 2);
+        this.ctx.fillRect(cellX, cellY + height / 2, cellWidth / 2, height / 2);
+        return true;
+      case 0x259c: // ▜ QUADRANT UPPER LEFT AND UPPER RIGHT AND LOWER RIGHT
+        this.ctx.fillRect(cellX, cellY, cellWidth, height / 2);
+        this.ctx.fillRect(cellX + cellWidth / 2, cellY + height / 2, cellWidth / 2, height / 2);
+        return true;
+      case 0x259d: // ▝ QUADRANT UPPER RIGHT
+        this.ctx.fillRect(cellX + cellWidth / 2, cellY, cellWidth / 2, height / 2);
+        return true;
+      case 0x259e: // ▞ QUADRANT UPPER RIGHT AND LOWER LEFT
+        this.ctx.fillRect(cellX + cellWidth / 2, cellY, cellWidth / 2, height / 2);
+        this.ctx.fillRect(cellX, cellY + height / 2, cellWidth / 2, height / 2);
+        return true;
+      case 0x259f: // ▟ QUADRANT UPPER RIGHT AND LOWER LEFT AND LOWER RIGHT
+        this.ctx.fillRect(cellX + cellWidth / 2, cellY, cellWidth / 2, height / 2);
+        this.ctx.fillRect(cellX, cellY + height / 2, cellWidth, height / 2);
         return true;
       default:
         return false;
@@ -1002,6 +1054,229 @@ export class CanvasRenderer {
     this.ctx.strokeStyle = this.ctx.fillStyle;
     this.ctx.lineWidth = 1;
     this.ctx.stroke();
+  }
+
+  /**
+   * Render Unicode box-drawing character (U+2500-U+257F) as geometric lines.
+   * Font glyphs for these often don't connect between adjacent cells.
+   */
+  private renderBoxDrawing(
+    cp: number,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ): void {
+    const ctx = this.ctx;
+    const mx = Math.round(x + w / 2);
+    const my = Math.round(y + h / 2);
+    const thin = 1;
+    const thick = 3;
+
+    // Try double-line rendering first (U+2550-U+256C)
+    if (cp >= 0x2550 && cp <= 0x256c) {
+      if (this.renderDoubleBoxDrawing(cp, x, y, w, h)) return;
+    }
+
+    // Single-line segments
+    const segments = this.getBoxDrawingSegments(cp);
+    if (!segments) {
+      ctx.fillText(String.fromCodePoint(cp), x, y + this.metrics.baseline);
+      return;
+    }
+
+    const x0 = Math.round(x);
+    const y0 = Math.round(y);
+    const x1 = Math.round(x + w);
+    const y1 = Math.round(y + h);
+
+    // Check for straight-through lines to avoid center overlap dots
+    const dirs = new Set(segments.map(s => s.dir));
+    const hasLeft = dirs.has('left'), hasRight = dirs.has('right');
+    const hasUp = dirs.has('up'), hasDown = dirs.has('down');
+    const maxWeight = segments.some(s => s.weight === 'heavy') ? thick : thin;
+
+    // Draw horizontal span as single rect if both left+right present
+    if (hasLeft && hasRight) {
+      const lw = maxWeight;
+      const half = Math.floor(lw / 2);
+      ctx.fillRect(x0, my - half, x1 - x0, lw);
+    } else {
+      for (const seg of segments) {
+        if (seg.dir !== 'left' && seg.dir !== 'right') continue;
+        const lw = seg.weight === 'heavy' ? thick : thin;
+        const half = Math.floor(lw / 2);
+        if (seg.dir === 'right') ctx.fillRect(mx, my - half, x1 - mx, lw);
+        else ctx.fillRect(x0, my - half, mx - x0, lw);
+      }
+    }
+
+    // Draw vertical span as single rect if both up+down present
+    if (hasUp && hasDown) {
+      const lw = maxWeight;
+      const half = Math.floor(lw / 2);
+      ctx.fillRect(mx - half, y0, lw, y1 - y0);
+    } else {
+      for (const seg of segments) {
+        if (seg.dir !== 'up' && seg.dir !== 'down') continue;
+        const lw = seg.weight === 'heavy' ? thick : thin;
+        const half = Math.floor(lw / 2);
+        if (seg.dir === 'down') ctx.fillRect(mx - half, my, lw, y1 - my);
+        else ctx.fillRect(mx - half, y0, lw, my - y0);
+      }
+    }
+  }
+
+  private getBoxDrawingSegments(
+    cp: number
+  ): { dir: 'up' | 'down' | 'left' | 'right'; weight: 'light' | 'heavy' }[] | null {
+    switch (cp) {
+      case 0x2500: return [{dir:'left',weight:'light'},{dir:'right',weight:'light'}]; // ─
+      case 0x2501: return [{dir:'left',weight:'heavy'},{dir:'right',weight:'heavy'}]; // ━
+      case 0x2502: return [{dir:'up',weight:'light'},{dir:'down',weight:'light'}]; // │
+      case 0x2503: return [{dir:'up',weight:'heavy'},{dir:'down',weight:'heavy'}]; // ┃
+      case 0x250c: return [{dir:'right',weight:'light'},{dir:'down',weight:'light'}]; // ┌
+      case 0x250d: return [{dir:'right',weight:'heavy'},{dir:'down',weight:'light'}]; // ┍
+      case 0x250e: return [{dir:'right',weight:'light'},{dir:'down',weight:'heavy'}]; // ┎
+      case 0x250f: return [{dir:'right',weight:'heavy'},{dir:'down',weight:'heavy'}]; // ┏
+      case 0x2510: return [{dir:'left',weight:'light'},{dir:'down',weight:'light'}]; // ┐
+      case 0x2511: return [{dir:'left',weight:'heavy'},{dir:'down',weight:'light'}]; // ┑
+      case 0x2512: return [{dir:'left',weight:'light'},{dir:'down',weight:'heavy'}]; // ┒
+      case 0x2513: return [{dir:'left',weight:'heavy'},{dir:'down',weight:'heavy'}]; // ┓
+      case 0x2514: return [{dir:'right',weight:'light'},{dir:'up',weight:'light'}]; // └
+      case 0x2515: return [{dir:'right',weight:'heavy'},{dir:'up',weight:'light'}]; // ┕
+      case 0x2516: return [{dir:'right',weight:'light'},{dir:'up',weight:'heavy'}]; // ┖
+      case 0x2517: return [{dir:'right',weight:'heavy'},{dir:'up',weight:'heavy'}]; // ┗
+      case 0x2518: return [{dir:'left',weight:'light'},{dir:'up',weight:'light'}]; // ┘
+      case 0x2519: return [{dir:'left',weight:'heavy'},{dir:'up',weight:'light'}]; // ┙
+      case 0x251a: return [{dir:'left',weight:'light'},{dir:'up',weight:'heavy'}]; // ┚
+      case 0x251b: return [{dir:'left',weight:'heavy'},{dir:'up',weight:'heavy'}]; // ┛
+      case 0x251c: return [{dir:'up',weight:'light'},{dir:'down',weight:'light'},{dir:'right',weight:'light'}]; // ├
+      case 0x2524: return [{dir:'up',weight:'light'},{dir:'down',weight:'light'},{dir:'left',weight:'light'}]; // ┤
+      case 0x252c: return [{dir:'left',weight:'light'},{dir:'right',weight:'light'},{dir:'down',weight:'light'}]; // ┬
+      case 0x2534: return [{dir:'left',weight:'light'},{dir:'right',weight:'light'},{dir:'up',weight:'light'}]; // ┴
+      case 0x253c: return [{dir:'up',weight:'light'},{dir:'down',weight:'light'},{dir:'left',weight:'light'},{dir:'right',weight:'light'}]; // ┼
+      case 0x2504: return [{dir:'left',weight:'light'},{dir:'right',weight:'light'}]; // ┄ (dashed, render as solid)
+      case 0x2505: return [{dir:'left',weight:'heavy'},{dir:'right',weight:'heavy'}]; // ┅
+      case 0x2506: return [{dir:'up',weight:'light'},{dir:'down',weight:'light'}]; // ┆
+      case 0x2507: return [{dir:'up',weight:'heavy'},{dir:'down',weight:'heavy'}]; // ┇
+      case 0x2508: return [{dir:'left',weight:'light'},{dir:'right',weight:'light'}]; // ┈
+      case 0x2509: return [{dir:'left',weight:'heavy'},{dir:'right',weight:'heavy'}]; // ┉
+      case 0x250a: return [{dir:'up',weight:'light'},{dir:'down',weight:'light'}]; // ┊
+      case 0x250b: return [{dir:'up',weight:'heavy'},{dir:'down',weight:'heavy'}]; // ┋
+      // Rounded corners (╭╮╯╰)
+      case 0x256d: return [{dir:'right',weight:'light'},{dir:'down',weight:'light'}]; // ╭
+      case 0x256e: return [{dir:'left',weight:'light'},{dir:'down',weight:'light'}]; // ╮
+      case 0x256f: return [{dir:'left',weight:'light'},{dir:'up',weight:'light'}]; // ╯
+      case 0x2570: return [{dir:'right',weight:'light'},{dir:'up',weight:'light'}]; // ╰
+      default: return null;
+    }
+  }
+
+  /**
+   * Render double-line box drawing (U+2550-U+256C) as two parallel lines.
+   * Returns true if rendered, false to fall back to font.
+   */
+  private renderDoubleBoxDrawing(
+    cp: number,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ): boolean {
+    const ctx = this.ctx;
+    const mx = x + w / 2;
+    const my = y + h / 2;
+    const gap = 2; // gap between double lines
+    const lw = 1;
+
+    // Helper to draw segments
+    const horiz = (x0: number, x1: number, cy: number) => ctx.fillRect(x0, cy - lw / 2, x1 - x0, lw);
+    const vert = (y0: number, y1: number, cx: number) => ctx.fillRect(cx - lw / 2, y0, lw, y1 - y0);
+
+    switch (cp) {
+      case 0x2550: // ═
+        horiz(x, x + w, my - gap); horiz(x, x + w, my + gap); break;
+      case 0x2551: // ║
+        vert(y, y + h, mx - gap); vert(y, y + h, mx + gap); break;
+      case 0x2552: // ╒
+        horiz(mx, x + w, my - gap); horiz(mx, x + w, my + gap); vert(my - gap, y + h, mx); break;
+      case 0x2553: // ╓
+        horiz(mx - gap, x + w, my); vert(my, y + h, mx - gap); vert(my, y + h, mx + gap); break;
+      case 0x2554: // ╔
+        horiz(mx + gap, x + w, my - gap); horiz(mx - gap, x + w, my + gap);
+        vert(my - gap, y + h, mx - gap); vert(my + gap, y + h, mx + gap); break;
+      case 0x2555: // ╕
+        horiz(x, mx, my - gap); horiz(x, mx, my + gap); vert(my - gap, y + h, mx); break;
+      case 0x2556: // ╖
+        horiz(x, mx + gap, my); vert(my, y + h, mx - gap); vert(my, y + h, mx + gap); break;
+      case 0x2557: // ╗
+        horiz(x, mx - gap, my - gap); horiz(x, mx + gap, my + gap);
+        vert(my - gap, y + h, mx + gap); vert(my + gap, y + h, mx - gap); break;
+      case 0x2558: // ╘
+        horiz(mx, x + w, my - gap); horiz(mx, x + w, my + gap); vert(y, my + gap, mx); break;
+      case 0x2559: // ╙
+        horiz(mx - gap, x + w, my); vert(y, my, mx - gap); vert(y, my, mx + gap); break;
+      case 0x255a: // ╚
+        horiz(mx + gap, x + w, my - gap); horiz(mx - gap, x + w, my + gap);
+        vert(y, my - gap, mx - gap); vert(y, my + gap, mx + gap); break;
+      case 0x255b: // ╛
+        horiz(x, mx, my - gap); horiz(x, mx, my + gap); vert(y, my + gap, mx); break;
+      case 0x255c: // ╜
+        horiz(x, mx + gap, my); vert(y, my, mx - gap); vert(y, my, mx + gap); break;
+      case 0x255d: // ╝
+        horiz(x, mx - gap, my - gap); horiz(x, mx + gap, my + gap);
+        vert(y, my - gap, mx + gap); vert(y, my + gap, mx - gap); break;
+      case 0x255e: // ╞
+        horiz(mx, x + w, my - gap); horiz(mx, x + w, my + gap);
+        vert(y, y + h, mx); break;
+      case 0x255f: // ╟
+        horiz(mx - gap, x + w, my);
+        vert(y, y + h, mx - gap); vert(y, y + h, mx + gap); break;
+      case 0x2560: // ╠
+        horiz(mx + gap, x + w, my - gap); horiz(mx + gap, x + w, my + gap);
+        vert(y, y + h, mx - gap); vert(y, y + h, mx + gap); break;
+      case 0x2561: // ╡
+        horiz(x, mx, my - gap); horiz(x, mx, my + gap);
+        vert(y, y + h, mx); break;
+      case 0x2562: // ╢
+        horiz(x, mx + gap, my);
+        vert(y, y + h, mx - gap); vert(y, y + h, mx + gap); break;
+      case 0x2563: // ╣
+        horiz(x, mx - gap, my - gap); horiz(x, mx - gap, my + gap);
+        vert(y, y + h, mx - gap); vert(y, y + h, mx + gap); break;
+      case 0x2564: // ╤
+        horiz(x, x + w, my - gap); horiz(x, x + w, my + gap);
+        vert(my + gap, y + h, mx); break;
+      case 0x2565: // ╥
+        horiz(x, x + w, my);
+        vert(my, y + h, mx - gap); vert(my, y + h, mx + gap); break;
+      case 0x2566: // ╦
+        horiz(x, x + w, my - gap); horiz(x, mx - gap, my + gap); horiz(mx + gap, x + w, my + gap);
+        vert(my + gap, y + h, mx - gap); vert(my + gap, y + h, mx + gap); break;
+      case 0x2567: // ╧
+        horiz(x, x + w, my - gap); horiz(x, x + w, my + gap);
+        vert(y, my - gap, mx); break;
+      case 0x2568: // ╨
+        horiz(x, x + w, my);
+        vert(y, my, mx - gap); vert(y, my, mx + gap); break;
+      case 0x2569: // ╩
+        horiz(x, mx - gap, my - gap); horiz(mx + gap, x + w, my - gap); horiz(x, x + w, my + gap);
+        vert(y, my - gap, mx - gap); vert(y, my - gap, mx + gap); break;
+      case 0x256a: // ╪
+        horiz(x, x + w, my - gap); horiz(x, x + w, my + gap);
+        vert(y, y + h, mx); break;
+      case 0x256b: // ╫
+        horiz(x, x + w, my);
+        vert(y, y + h, mx - gap); vert(y, y + h, mx + gap); break;
+      case 0x256c: // ╬
+        horiz(x, mx - gap, my - gap); horiz(mx + gap, x + w, my - gap);
+        horiz(x, mx - gap, my + gap); horiz(mx + gap, x + w, my + gap);
+        vert(y, my - gap, mx - gap); vert(y, my - gap, mx + gap);
+        vert(my + gap, y + h, mx - gap); vert(my + gap, y + h, mx + gap); break;
+      default: return false;
+    }
+    return true;
   }
 
   /**

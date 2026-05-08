@@ -119,6 +119,17 @@ export declare class CanvasRenderer {
     private renderBlockChar;
     private strokeWithFillColor;
     /**
+     * Render Unicode box-drawing character (U+2500-U+257F) as geometric lines.
+     * Font glyphs for these often don't connect between adjacent cells.
+     */
+    private renderBoxDrawing;
+    private getBoxDrawingSegments;
+    /**
+     * Render double-line box drawing (U+2550-U+256C) as two parallel lines.
+     * Returns true if rendered, false to fall back to font.
+     */
+    private renderDoubleBoxDrawing;
+    /**
      * Render Powerline glyphs as vector shapes for pixel-perfect cell height.
      * Powerline glyphs (U+E0B0-U+E0BF) are designed to span the full cell height,
      * but font rendering often makes them slightly taller/shorter than the cell.
