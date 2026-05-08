@@ -354,6 +354,14 @@ export declare class GhosttyTerminal {
     /** Cell pool for zero-allocation rendering */
     private cellPool;
     /**
+     * Cell pixel dimensions last pushed to the WASM terminal via
+     * ghostty_terminal_resize. Zero means "unknown / disabled" — kitty
+     * graphics image sizing and CSI 14/16/18 t in-band size reports will
+     * return zero/no-op until setCellPixelSize() is called with real values.
+     */
+    private cellWidthPx;
+    private cellHeightPx;
+    /**
      * Per-row dirty state for the current render-state snapshot. Cleared on
      * update() and populated lazily by isRowDirty() (or as a side effect of
      * getViewport, which iterates rows anyway).
@@ -364,6 +372,27 @@ export declare class GhosttyTerminal {
      * lifecycle as rowDirtyCache; the two caches are filled in lockstep.
      */
     private rowWrapCache;
+    /**
+     * Bytes the terminal would have written back to a real PTY in response
+     * to query sequences (DSR, XTVERSION, in-band size reports, ...).
+     * Captured by the WRITE_PTY callback installed in the constructor and
+     * drained by readResponse(). Each slot is one callback invocation, so
+     * a single response sequence may span multiple slots.
+     */
+    private pendingResponses;
+    /**
+     * Per-table registry for callback trampolines. Keyed on the WASM
+     * module's __indirect_function_table so that multiple Ghostty.load()
+     * instances each get their own trampoline slots and routing map —
+     * terminal handles are only unique within a single WASM instance, and
+     * indices into one module's table are meaningless in another.
+     */
+    private static callbackRegistries;
+    /**
+     * Cached pointer to this terminal's registry. We only need it to
+     * deregister cleanly in free() / cleanupOnConstructorFailure().
+     */
+    private callbackRegistry?;
     constructor(exports: GhosttyWasmExports, memory: WebAssembly.Memory, cols?: number, rows?: number, config?: GhosttyTerminalConfig);
     /**
      * Allocate an opaque handle through one of the new(allocator, *outHandle)
@@ -403,6 +432,24 @@ export declare class GhosttyTerminal {
     get rows(): number;
     write(data: string | Uint8Array): void;
     resize(cols: number, rows: number): void;
+    /**
+     * Push the renderer's per-cell pixel size into the WASM terminal.
+     *
+     * The new C ABI doesn't expose a separate "set pixel size" call —
+     * dimensions only flow through ghostty_terminal_resize, which takes
+     * (cols, rows, cell_width_px, cell_height_px). We cache the cell pixel
+     * dims on the instance so subsequent resize() calls keep the values
+     * stable, and short-circuit when nothing has changed.
+     *
+     * The width/height arguments are PER-CELL CSS pixels — matches what
+     * the renderer reports via getMetrics(). Coder's old setPixelSize
+     * took TOTAL screen pixels (cell_width * cols, cell_height * rows);
+     * we renamed to avoid silent value mis-passing.
+     *
+     * Affects in-band size reports (CSI 14/16/18 t) and kitty graphics
+     * placement sizing. Until called, those query paths return zero.
+     */
+    setCellPixelSize(cellWidthPx: number, cellHeightPx: number): void;
     free(): void;
     /**
      * Update terminal colors at runtime. All color values are applied directly
@@ -577,6 +624,14 @@ export declare class GhosttyTerminal {
      */
     getScrollbackHyperlinkUri(offset: number, col: number): string | null;
     private readGridLine;
+    /**
+     * Decode a GhosttyStyleColor (16 bytes at colorPtr — tag@0:u32,
+     * value@8:union) and write the resolved RGB into the cell's fg_*
+     * or bg_* triple. Tag values: NONE=0 (leaves zeros so the renderer's
+     * theme fallback kicks in), PALETTE=1 (looks up the terminal's
+     * effective palette), RGB=2 (direct read).
+     */
+    private resolveStyleColor;
     private readHyperlinkUri;
     private allocPoint;
     private makeEmptyCell;
@@ -592,10 +647,13 @@ export declare class GhosttyTerminal {
      */
     hasResponse(): boolean;
     /**
-     * Read pending responses from the terminal. See hasResponse() for the
-     * status of the callback-based replacement.
+     * Read pending responses from the terminal.
      */
     readResponse(): string | null;
+    /**
+     * Install the WRITE_PTY and SIZE trampoline callbacks.
+     */
+    private installCallbacks;
     /**
      * Query arbitrary terminal mode by number.
      * @param mode Mode number (e.g., 25 for cursor visibility, 2004 for bracketed paste)
@@ -2140,6 +2198,18 @@ export declare class Terminal implements ITerminalCore {
      * Dispose terminal and clean up resources
      */
     dispose(): void;
+    /**
+     * Push the renderer's per-cell pixel size into the WASM terminal.
+     *
+     * Called from setup, open(), and resize() — everywhere the renderer
+     * may have rebuilt its FontMetrics. Affects in-band size reports
+     * (CSI 14/16/18 t) and kitty graphics placement sizing; without it
+     * the terminal returns zeros for those queries.
+     *
+     * GhosttyTerminal.setCellPixelSize short-circuits when the values
+     * haven't changed, so this is cheap to call from any of the above.
+     */
+    private updateWasmPixelSize;
     /**
      * Cancel the render loop
      */
