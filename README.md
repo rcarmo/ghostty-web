@@ -5,18 +5,17 @@ A web-based terminal emulator that integrates [Ghostty's](https://github.com/gho
 ## Installation
 
 ```bash
-npm install @coder/ghostty-web
+npm install ghostty-web
 ```
 
 Or install directly from GitHub (includes pre-built dist files):
 
 ```bash
 # Latest from main branch
-npm install github:coder/ghostty-web
+npm install github:rcarmo/ghostty-web
 
 # Specific commit or branch
-npm install github:coder/ghostty-web#commit-sha
-npm install github:rcarmo/ghostty-web  # fork
+npm install github:rcarmo/ghostty-web#commit-sha
 ```
 
 > **Note:** GitHub installs work without requiring Zig because the repository includes pre-built `dist/` files and `ghostty-vt.wasm`.
@@ -24,25 +23,38 @@ npm install github:rcarmo/ghostty-web  # fork
 ## Quick Start
 
 ```typescript
-import { Terminal } from '@coder/ghostty-web';
+import { Terminal } from 'ghostty-web';
 
 const term = new Terminal({ cols: 80, rows: 24 });
-await term.open(document.getElementById('terminal'));
+term.open(document.getElementById('terminal')!);
 term.write('Hello, World!\r\n');
 ```
 
-See [INSTALL.md](./INSTALL.md) for complete usage guide.
+The sections below cover the main integration and development workflows.
 
 ## Features
 
 - ✅ Full xterm.js-compatible API
 - ✅ Production-tested VT100 parser (via Ghostty)
+- ✅ Upstream Ghostty C ABI / render-state integration (no local WASM patch required)
 - ✅ ANSI colors (16, 256, RGB true color)
+- ✅ CJK and wide-emoji cell width handling
+- ✅ Styled scrollback and row-iterator based viewport rendering
+- ✅ CSI `14/16/18 t` size responses and callback-based terminal query handling
 - ✅ Canvas rendering at 60 FPS
 - ✅ Scrollback buffer
 - ✅ Text selection & clipboard
 - ✅ FitAddon for responsive sizing
 - ✅ TypeScript declarations included
+
+## What's New in 0.8.0
+
+Version `0.8.0` folds in the Nimble ABI/render-state migration on top of the earlier upstream/canopy/Yuuji work. In practice that means:
+
+- the WASM build now targets the upstream Ghostty lib-vt ABI directly
+- viewport/render-state access uses the newer key/value and row-iterator APIs
+- wide-cell rendering, scrollback styling, grapheme handling, and wrapped-row state are restored on top of the new ABI
+- terminal query responses such as CSI `14/16/18 t` are wired back through callback-based response handling
 
 ## Development & Demos
 
@@ -173,7 +185,7 @@ term.write('Contact mailto:support@example.com\r\n');
 Register custom providers to detect additional link types:
 
 ```typescript
-import { UrlRegexProvider } from '@coder/ghostty-web';
+import { UrlRegexProvider } from 'ghostty-web';
 
 // Create custom provider
 const myProvider = {
@@ -242,7 +254,7 @@ term.loadFonts();
 The Terminal supports a snapshot API for playback mode, enabling direct terminal state injection without re-parsing VT100 sequences. This is useful for terminal recordings and time-travel debugging.
 
 ```typescript
-import { Terminal, GhosttyCell } from '@coder/ghostty-web';
+import { Terminal, GhosttyCell } from 'ghostty-web';
 
 // Create cells array (flat row-major order: rows * cols cells)
 const cells: GhosttyCell[] = recordedFrame.cells;
