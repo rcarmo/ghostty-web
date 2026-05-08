@@ -142,6 +142,35 @@ describe('Ghostty kitty graphics API', () => {
       term.free();
     }
   });
+
+  test('decodes PNG kitty graphics payloads through the installed sys decoder', async () => {
+    const ghostty = await Ghostty.load();
+    const term = ghostty.createTerminal(10, 5);
+
+    try {
+      // 1x1 red RGBA PNG generated with fast-png. f=100 => PNG.
+      const redPng =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4XmP4z8DwHwAFAAH/NQZ7kgAAAABJRU5ErkJggg==';
+      term.setCellPixelSize(8, 16);
+      term.write(`\x1b_Ga=T,f=100,t=d,i=2,s=1,v=1,c=1,r=1;${redPng}\x1b\\`);
+      term.update();
+
+      const graphics = term.getKittyGraphics();
+      expect(graphics).not.toBeNull();
+      const placements = [...term.iterPlacements(graphics!, false)];
+      expect(placements).toHaveLength(1);
+      expect(placements[0].imageId).toBe(2);
+
+      const pixels = term.getKittyImagePixels(graphics!, 2);
+      expect(pixels).not.toBeNull();
+      expect(pixels!.width).toBe(1);
+      expect(pixels!.height).toBe(1);
+      expect(pixels!.format).toBe(KittyImageFormat.RGBA);
+      expect([...pixels!.data]).toEqual([255, 0, 0, 255]);
+    } finally {
+      term.free();
+    }
+  });
 });
 
 describe('Ghostty.loadFromBytes', () => {
