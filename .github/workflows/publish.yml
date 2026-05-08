@@ -46,13 +46,19 @@ jobs:
         with:
           version: 0.15.2
 
-      - name: Configure npm registry
+      - name: Detect npm token
+        id: npm
         run: |
-          if [[ -z "${NPM_TOKEN}" ]]; then
-            echo "NPM_TOKEN secret is not configured"
-            exit 1
+          if [[ -n "${NPM_TOKEN}" ]]; then
+            echo "has_token=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_token=false" >> $GITHUB_OUTPUT
+            echo "NPM_TOKEN not configured; npm publish step will be skipped."
           fi
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+
+      - name: Configure npm registry
+        if: steps.npm.outputs.has_token == 'true'
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
       - name: Build WASM
         run: ./scripts/build-wasm.sh
@@ -106,6 +112,7 @@ jobs:
           jq --arg v "${NPM_VERSION}" '.version = $v' package.json > /tmp/package.json && mv /tmp/package.json package.json
 
       - name: Publish to npm
+        if: steps.npm.outputs.has_token == 'true'
         run: bun publish --access public --tag ${{ steps.version.outputs.tag }}
 
       - name: Create GitHub Release
