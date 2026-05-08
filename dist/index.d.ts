@@ -16,6 +16,53 @@ export declare class CanvasRenderer {
     private onRequestRender;
     private lastViewportY;
     private currentBuffer;
+    /**
+     * Decoded kitty graphics images, keyed by image id. Each entry caches
+     * a canvas painted from the WASM-side RGBA bytes so per-frame compositing
+     * is just a drawImage call.
+     *
+     * Staleness key combines width/height/format/dataPtr/dataLen — the
+     * kitty protocol allows reusing an id with new bytes, and dataLen alone
+     * is too weak (transposed dims or format change can keep byte count
+     * identical). dataPtr is the WASM byteOffset, which changes whenever
+     * ghostty frees + re-allocates the image bytes (i.e., on retransmit).
+     */
+    private kittyImageCache;
+    /**
+     * Per-frame index of virtual placements keyed by image id. Populated
+     * once at the start of each render() pass (cheap — typically zero or
+     * a handful of entries). Looked up by U+10EEEE placeholder cells in
+     * renderPlaceholderCell to find the placement's grid dimensions.
+     */
+    private kittyVirtualPlacements;
+    /**
+     * Direct (non-virtual) placements that need compositing this frame.
+     * Built once per render() in precomputeKittyState so renderKittyImages
+     * doesn't re-walk the iterator. Empty when no kitty graphics are active.
+     */
+    private currentDirectPlacements;
+    /**
+     * Last frame's direct-placement signatures, keyed by image id. Used to
+     * detect placement add/remove/move/redecode so we can mark the affected
+     * rows for repaint (clearing stale image pixels) and skip the composite
+     * pass entirely when nothing has changed. dataLen is the same staleness
+     * discriminator used by kittyImageCache.
+     */
+    private lastKittyDirectSigs;
+    /**
+     * Rows whose image footprint changed since last frame (placement added,
+     * removed, moved, resized, or re-decoded under the same id). Added to
+     * rowsToRender so the underlying text repaints — which clears stale
+     * image pixels — before we composite the current placements on top.
+     */
+    private kittyDamagedRows;
+    /**
+     * Cached IRenderable on the current render() call so renderCellText
+     * can call into it (e.g. getGrapheme) without us threading the buffer
+     * through every helper. Set at the top of render(), cleared at the end.
+     */
+    private currentRenderBuffer;
+    private currentKittyGraphics;
     private selectionManager?;
     private currentSelectionCoords;
     private hoveredHyperlinkId;
@@ -79,6 +126,47 @@ export declare class CanvasRenderer {
      * Returns true if the character was handled, false if it should be rendered as text.
      */
     private renderPowerlineGlyph;
+    /**
+     * Walk the placement iterator once at frame start, partitioning the
+     * results: virtual placements go into kittyVirtualPlacements (keyed
+     * by image id) for placeholder-cell lookup; direct visible placements
+     * stay implicit and get re-iterated by renderKittyImages later.
+     *
+     * Also caches the storage handle for renderPlaceholderCell so the
+     * per-cell hot path doesn't have to re-resolve it.
+     */
+    private precomputeKittyState;
+    /**
+     * Get (or decode + cache) the canvas-ready bitmap for a kitty image.
+     * Returns null if the image isn't stored or decode fails. Shared by
+     * renderKittyImages (direct placements) and renderPlaceholderCell
+     * (unicode-placeholder cells).
+     */
+    private getOrDecodeKittyImage;
+    /**
+     * Substitute a cell's text rendering with a slice of a kitty graphics
+     * image. Called from renderCellText when the cell's codepoint is
+     * U+10EEEE.
+     *
+     * Decodes the image_id from cell.fg_*  (low 24 bits; high byte from
+     * an optional third combining diacritic) and the row/col-of-image
+     * from the first two combining diacritics on the cell. Looks up the
+     * virtual placement (from precomputeKittyState) for grid dims, then
+     * draws the matching slice scaled to one terminal cell.
+     *
+     * Returns true if the cell was handled as a placeholder; false to
+     * fall through to normal text rendering (e.g., unknown image, no
+     * matching virtual placement, or malformed diacritics).
+     */
+    private renderPlaceholderCell;
+    private renderKittyImages;
+    /**
+     * Decode a kitty graphics image into a canvas suitable for drawImage.
+     * Expands non-RGBA formats into RGBA via putImageData; PNG payloads
+     * (which require a JS-side decoder set up via ghostty_sys_set) are
+     * not supported in this MVP and return null.
+     */
+    private decodeKittyImageToCanvas;
     /**
      * Render cursor
      */
@@ -443,6 +531,46 @@ export declare class GhosttyTerminal {
     write(data: string | Uint8Array): void;
     resize(cols: number, rows: number): void;
     /**
+     * Set the maximum bytes of image data the terminal will retain across
+     * all kitty graphics images. Zero disables kitty graphics entirely
+     * (transmissions will be parsed and dropped). Set this BEFORE any
+     * image-bearing data is written to the terminal — there's no
+     * retroactive recovery of dropped images.
+     *
+     * Input is uint64_t* on the C side, so we use a u32-pair little-endian
+     * write to keep the byte count exact even past 4GB (probably overkill
+     * but free).
+     */
+    setKittyImageStorageLimit(bytes: number): void;
+    /**
+     * Get the kitty graphics storage handle for the active screen, or null
+     * if storage is disabled or no images are stored. Cheap to call; returns
+     * a borrowed pointer.
+     */
+    getKittyGraphics(): number | null;
+    /**
+     * Iterate placements in the active screen, yielding render-ready info
+     * for each. The optional `onlyVisible` flag (default true) drops
+     * placements that don't intersect the viewport — most renderers want
+     * this. Use `false` if you need to track invalidated regions for
+     * partial damage.
+     *
+     * Internally this uses the upstream placement iterator + the one-shot
+     * placement_render_info call (fills 12 fields in one WASM crossing
+     * instead of 5 separate getters).
+     */
+    iterPlacements(graphics: number, onlyVisible?: boolean): Generator<KittyPlacementInfo>;
+    /**
+     * Get the pixel data + metadata for an image by id. Returns null if the
+     * image isn't stored or isn't in a format we can hand the renderer
+     * directly (RGB / RGBA / GRAY / GRAY_ALPHA).
+     *
+     * The returned `data` is a borrowed view into WASM memory — copy before
+     * the next vt_write if you need to retain. Most callers will turn this
+     * into an ImageData / canvas immediately and discard the view.
+     */
+    getKittyImagePixels(graphics: number, imageId: number): KittyImagePixels | null;
+    /**
      * Push the renderer's per-cell pixel size into the WASM terminal.
      *
      * The new C ABI doesn't expose a separate "set pixel size" call —
@@ -773,9 +901,28 @@ declare interface GhosttyWasmExports extends WebAssembly.Exports {
     ghostty_grid_ref_graphemes(refPtr: number, bufPtr: number, bufLen: number, outLenPtr: number): number;
     ghostty_grid_ref_hyperlink_uri(refPtr: number, bufPtr: number, bufLen: number, outLenPtr: number): number;
     ghostty_grid_ref_style(refPtr: number, outStylePtr: number): number;
+    ghostty_kitty_graphics_get(graphics: number, key: number, outPtr: number): number;
+    ghostty_kitty_graphics_image(graphics: number, imageId: number): number;
+    ghostty_kitty_graphics_image_get(image: number, key: number, outPtr: number): number;
+    ghostty_kitty_graphics_image_get_multi(image: number, count: number, keysPtr: number, valuesPtr: number, outWrittenPtr: number): number;
+    ghostty_kitty_graphics_placement_iterator_new(allocatorPtr: number, outIterPtrPtr: number): number;
+    ghostty_kitty_graphics_placement_iterator_free(iter: number): void;
+    ghostty_kitty_graphics_placement_iterator_set(iter: number, option: number, valuePtr: number): number;
+    ghostty_kitty_graphics_placement_next(iter: number): boolean;
+    ghostty_kitty_graphics_placement_get(iter: number, key: number, outPtr: number): number;
+    ghostty_kitty_graphics_placement_get_multi(iter: number, count: number, keysPtr: number, valuesPtr: number, outWrittenPtr: number): number;
+    ghostty_kitty_graphics_placement_rect(iter: number, image: number, terminal: TerminalHandle, outSelectionPtr: number): number;
+    ghostty_kitty_graphics_placement_pixel_size(iter: number, image: number, terminal: TerminalHandle, outWidthPtr: number, outHeightPtr: number): number;
+    ghostty_kitty_graphics_placement_grid_size(iter: number, image: number, terminal: TerminalHandle, outColsPtr: number, outRowsPtr: number): number;
+    ghostty_kitty_graphics_placement_viewport_pos(iter: number, image: number, terminal: TerminalHandle, outColPtr: number, outRowPtr: number): number;
+    ghostty_kitty_graphics_placement_source_rect(iter: number, image: number, outX: number, outY: number, outW: number, outH: number): number;
+    ghostty_kitty_graphics_placement_render_info(iter: number, image: number, terminal: TerminalHandle, outInfoPtr: number): number;
     ghostty_terminal_get(terminal: TerminalHandle, key: number, outPtr: number): number;
     ghostty_terminal_get_multi(terminal: TerminalHandle, count: number, keysPtr: number, valuesPtr: number, outWrittenPtr: number): number;
     ghostty_terminal_set(terminal: TerminalHandle, option: number, valuePtr: number): number;
+    ghostty_sys_set(option: number, valuePtr: number): number;
+    ghostty_alloc(allocatorPtr: number, len: number): number;
+    ghostty_free(allocatorPtr: number, ptr: number, len: number): void;
     ghostty_terminal_mode_get(terminal: TerminalHandle, mode: number, outBoolPtr: number): number;
     ghostty_terminal_mode_set(terminal: TerminalHandle, mode: number, value: boolean): number;
 }
@@ -1239,6 +1386,16 @@ export declare interface IRenderable {
      * For simple cells, returns the single character.
      */
     getGraphemeString?(row: number, col: number): string;
+    getKittyGraphics?(): number | null;
+    iterPlacements?(graphics: number, onlyVisible?: boolean): Iterable<KittyPlacementInfo>;
+    getKittyImagePixels?(graphics: number, imageId: number): KittyImagePixels | null;
+    /**
+     * Returns the full codepoint sequence for the cell at (row, col) in
+     * the active screen — the base codepoint followed by any combining
+     * marks. Used to decode unicode-placeholder cells (U+10EEEE plus
+     * combining diacritics that encode row/column slice positions).
+     */
+    getGrapheme?(row: number, col: number): number[] | null;
 }
 
 declare interface IScrollbackProvider {
@@ -1596,6 +1753,36 @@ export declare interface KeyEvent {
 }
 
 /**
+ * Pixel format of a Kitty graphics image. Mirrors GhosttyKittyImageFormat.
+ *   RGB:        24-bit, 3 bytes/px
+ *   RGBA:       32-bit, 4 bytes/px (the canvas-friendly path)
+ *   PNG:        compressed; needs a JS-side decoder hooked up via
+ *               ghostty_sys_set(DECODE_PNG, fn)
+ *   GRAY_ALPHA: 16-bit, 2 bytes/px
+ *   GRAY:       8-bit, 1 byte/px
+ */
+declare enum KittyImageFormat {
+    RGB = 0,
+    RGBA = 1,
+    PNG = 2,
+    GRAY_ALPHA = 3,
+    GRAY = 4
+}
+
+/**
+ * Image bytes + metadata returned by GhosttyTerminal.getKittyImageRgba.
+ * `data` is a *view* into WASM memory and is invalidated by the next
+ * mutating terminal call — copy out before vt_write if you need to retain.
+ */
+declare interface KittyImagePixels {
+    width: number;
+    height: number;
+    format: KittyImageFormat;
+    /** Borrowed view into WASM memory; copy before vt_write to retain. */
+    data: Uint8Array;
+}
+
+/**
  * Kitty keyboard protocol flags
  * From include/ghostty/vt/key/encoder.h
  */
@@ -1607,6 +1794,51 @@ declare enum KittyKeyFlags {
     REPORT_ALL = 8,// Report all events
     REPORT_ASSOCIATED = 16,// Report associated text
     ALL = 31
+}
+
+/**
+ * Parsed GhosttyKittyGraphicsPlacementRenderInfo — everything the renderer
+ * needs about a single placement to composite it on the canvas.
+ *
+ * Wire layout on wasm32 (48 bytes, extern struct, 4-byte aligned):
+ *   size:               u32 @ 0   (sized-struct discriminator; we just write 48)
+ *   pixel_width:        u32 @ 4
+ *   pixel_height:       u32 @ 8
+ *   grid_cols:          u32 @ 12
+ *   grid_rows:          u32 @ 16
+ *   viewport_col:       i32 @ 20
+ *   viewport_row:       i32 @ 24
+ *   viewport_visible:   bool @ 28 (1 byte + 3 bytes padding to next u32)
+ *   source_x:           u32 @ 32
+ *   source_y:           u32 @ 36
+ *   source_width:       u32 @ 40
+ *   source_height:      u32 @ 44
+ */
+declare interface KittyPlacementInfo {
+    imageId: number;
+    /** Destination size on the canvas, in pixels. */
+    pixelWidth: number;
+    pixelHeight: number;
+    /** Destination size on the grid, in cells. */
+    gridCols: number;
+    gridRows: number;
+    /** Top-left in viewport-relative cells. Negative when scrolled partway off the top. */
+    viewportCol: number;
+    viewportRow: number;
+    /** Whether any part of the placement intersects the visible viewport. */
+    viewportVisible: boolean;
+    /** Source rect within the image, in pixels (already clamped to image bounds). */
+    sourceX: number;
+    sourceY: number;
+    sourceWidth: number;
+    sourceHeight: number;
+    /**
+     * Virtual placements have no fixed viewport position; their image is
+     * drawn into U+10EEEE placeholder cells written to the grid by the
+     * application. The renderer picks them up by image_id rather than
+     * iterating through them for direct compositing.
+     */
+    isVirtual: boolean;
 }
 
 /**
