@@ -426,7 +426,7 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
     dataPtr: number,
     dataLen: number
   ): void;
-  ghostty_terminal_set_colors?: (terminal: TerminalHandle, configPtr: number) => void;
+  ghostty_terminal_set_colors(terminal: TerminalHandle, configPtr: number): void;
 
   // RenderState API — render state is a separate object created from a terminal.
   // Read fields via the generic _get(state, key, *out) interface keyed by

@@ -205,7 +205,7 @@ export declare interface Cursor {
 export declare const DEFAULT_THEME: Required<ITheme>;
 
 /**
- * Dirty state from RenderState
+ * Dirty state from RenderState. Mirrors GhosttyRenderStateDirty.
  */
 export declare enum DirtyState {
     NONE = 0,
@@ -346,16 +346,59 @@ export declare class GhosttyTerminal {
     private exports;
     private memory;
     private handle;
+    private renderHandle;
+    private rowIter;
+    private rowCells;
     private _cols;
     private _rows;
-    /** Size of GhosttyCell in WASM (16 bytes) */
-    private static readonly CELL_SIZE;
-    /** Reusable buffer for viewport operations */
-    private viewportBufferPtr;
-    private viewportBufferSize;
     /** Cell pool for zero-allocation rendering */
     private cellPool;
+    /**
+     * Per-row dirty state for the current render-state snapshot. Cleared on
+     * update() and populated lazily by isRowDirty() (or as a side effect of
+     * getViewport, which iterates rows anyway).
+     */
+    private rowDirtyCache;
+    /**
+     * Per-row soft-wrap state for the current render-state snapshot. Same
+     * lifecycle as rowDirtyCache; the two caches are filled in lockstep.
+     */
+    private rowWrapCache;
     constructor(exports: GhosttyWasmExports, memory: WebAssembly.Memory, cols?: number, rows?: number, config?: GhosttyTerminalConfig);
+    /**
+     * Allocate an opaque handle through one of the new(allocator, *outHandle)
+     * factory functions. Wraps the boilerplate of: alloc out-pointer, call
+     * factory, check Result, read the handle, free out-pointer.
+     *
+     * If the factory call fails, frees any already-acquired terminal/render
+     * resources so the caller-throwing flow doesn't leak across the partially
+     * constructed object.
+     */
+    private allocOpaqueOrFail;
+    /**
+     * Apply user-supplied colors + palette overrides to the freshly-created
+     * terminal via ghostty_terminal_set(COLOR_*).
+     *
+     * For the palette: the new C ABI takes a full 256-entry array, but coder's
+     * config carries only the legacy 16 ANSI entries (each as a 0xRRGGBB int,
+     * 0 meaning "use default"). To preserve indices ≥16 we read the existing
+     * default palette first, overlay the non-zero entries from config, and
+     * write the merged 768-byte buffer back.
+     */
+    private applyConfig;
+    private setColorOption;
+    /**
+     * Release any resources that have been allocated by the constructor up to
+     * this point. Called when a subsequent step fails so we don't leak handles
+     * before the throw propagates.
+     */
+    private cleanupOnConstructorFailure;
+    private rsGetU8;
+    private rsGetU16;
+    private rsGetU32;
+    private rsGetRgb;
+    private tGetU8;
+    private tGetU32;
     get cols(): number;
     get rows(): number;
     write(data: string | Uint8Array): void;
@@ -394,26 +437,96 @@ export declare class GhosttyTerminal {
     update(): DirtyState;
     /**
      * Get cursor state from render state.
-     * Ensures render state is fresh by calling update().
+     * Calls update() first; safe to call repeatedly within a frame.
      */
     getCursor(): RenderStateCursor;
     /**
-     * Get default colors from render state
+     * Get default fg/bg/cursor colors from render state.
      */
     getColors(): RenderStateColors;
     /**
-     * Check if a specific row is dirty
+     * Check if a specific row is dirty.
+     *
+     * Backed by a per-row cache populated lazily — first call after update()
+     * walks the iterator once and reads the dirty flag for each row, then
+     * subsequent calls are O(1). getViewport() also populates the cache as a
+     * side effect so a typical "update → for-each-row isRowDirty → getViewport"
+     * render loop only iterates rows once.
      */
     isRowDirty(y: number): boolean;
     /**
-     * Mark render state as clean (call after rendering)
+     * Check if a row is soft-wrapped (continues onto the next row).
+     *
+     * Same cache discipline as isRowDirty: lazy-populated on first call after
+     * update(), or as a side effect of getViewport.
+     */
+    isRowWrapped(y: number): boolean;
+    /**
+     * Walk the row iterator once and capture per-row dirty + wrap flags.
+     *
+     * Calls update() first since callers (isRowDirty / isRowWrapped) typically
+     * query right after a terminal write, before any explicit render-state
+     * refresh has happened. Same idempotency guarantee as getCursor/getColors:
+     * if no terminal change occurred since the last update, this is cheap.
+     *
+     * Reads ROW_DATA_DIRTY directly from the iterator, then ROW_DATA_RAW to
+     * obtain the GhosttyRow (u64) needed to call ghostty_row_get(WRAP_*). The
+     * row value is only valid for the current iterator position; we read it
+     * inline before advancing.
+     */
+    private refreshRowMetaCache;
+    /**
+     * Mark render state as clean — clears both global and per-row dirty.
+     *
+     * Per the upstream contract, "setting one dirty state doesn't unset the
+     * other." Global dirty is cleared via _set(OPTION_DIRTY, FALSE); per-row
+     * dirty is cleared by walking the row iterator and calling _row_set on
+     * each. Without the per-row pass, the next update() would still report
+     * the old per-row flags as dirty even though the terminal hasn't changed.
      */
     markClean(): void;
     /**
-     * Get ALL viewport cells in ONE WASM call - the key performance optimization!
-     * Returns a reusable cell array (zero allocation after warmup).
+     * Populate the cellPool from the current render state and return it.
+     *
+     * The new C ABI replaces coder's single ghostty_render_state_get_viewport()
+     * buffer-fill with a row iterator + per-row cells iterator. We allocate
+     * both iterators once at construction time and re-populate them per call:
+     *
+     *   _get(state, ROW_ITERATOR, &rowIter)
+     *   while (row_iterator_next(rowIter)) {
+     *     _row_get(rowIter, ROW_DATA_CELLS, &rowCells)
+     *     while (row_cells_next(rowCells)) {
+     *       _row_cells_get(rowCells, GRAPHEMES_LEN, &len)
+     *       _row_cells_get(rowCells, GRAPHEMES_BUF, &codepoint)  // if len > 0
+     *       _row_cells_get(rowCells, FG_COLOR/BG_COLOR, &rgb)    // INVALID_VALUE if unset
+     *     }
+     *   }
+     *
+     * This is intentionally minimal: we capture codepoint + fg/bg only.
+     * Style flags, cell width (double-width), and hyperlink IDs are deferred
+     * — they require parsing the GhosttyStyle sized struct and the per-cell
+     * ghostty_cell_get(WIDE)/HAS_HYPERLINK paths. The cellPool fields keep
+     * placeholder defaults (flags=0, width=1, hyperlink_id=0).
+     *
+     * Performance: ~3-4 WASM crossings per visible cell. For an 80x24 viewport
+     * that's ~6k crossings per frame. Profile before optimizing — likely
+     * candidates are _row_cells_get_multi for batched reads, or RAW + a
+     * cached layout map for direct memory access.
      */
     getViewport(): GhosttyCell[];
+    /**
+     * Helper for the in/out pointer pattern used by ROW_ITERATOR / ROW_DATA_CELLS:
+     * write a handle into a 4-byte slot, hand the slot to a populator, then
+     * free the slot. The handle value itself is unchanged; the populator uses
+     * it to find and rebind the iterator's internal data.
+     */
+    private populateHandle;
+    /**
+     * Reset every cell in the pool to "empty" so cells we don't visit during
+     * iteration (e.g. iterator stopped early, or grid resized down) don't
+     * carry stale values from a previous frame.
+     */
+    private zeroCellPool;
     /**
      * Get line - for compatibility, extracts from viewport.
      * Ensures render state is fresh by calling update().
@@ -442,51 +555,54 @@ export declare class GhosttyTerminal {
     getScrollbackLength(): number;
     /**
      * Get a line from the scrollback buffer.
-     * Ensures render state is fresh by calling update().
-     * @param offset 0 = oldest line, (length-1) = most recent scrollback line
+     * @param offset 0 = oldest scrollback line, (scrollbackLength-1) = most
+     *   recent scrollback line.
+     *
+     * Uses ghostty_terminal_grid_ref with POINT_TAG_HISTORY to address rows
+     * outside the active viewport. The render-state row iterator only walks
+     * the viewport, so scrollback access has to go through grid_ref.
+     *
+     * Cell content is currently codepoint-only; fg/bg colors, style flags,
+     * and hyperlinks are deferred (defaults: 0 colors, flags=0, width=1).
+     * The text-extraction tests that drove this commit only check codepoints.
      */
     getScrollbackLine(offset: number): GhosttyCell[] | null;
-    /** Check if a row in the active screen is wrapped (soft-wrapped to next line) */
-    isRowWrapped(row: number): boolean;
     /**
-     * Get the hyperlink URI for a cell at the given position.
-     * @param row Row index (0-based, in active viewport)
-     * @param col Column index (0-based)
-     * @returns The URI string, or null if no hyperlink at that position
+     * Get the hyperlink URI for a cell at the given position in the active
+     * viewport. Returns null when no hyperlink is attached.
      */
     getHyperlinkUri(row: number, col: number): string | null;
     /**
      * Get the hyperlink URI for a cell in the scrollback buffer.
-     * @param offset Scrollback line offset (0 = oldest, scrollback_len-1 = newest)
-     * @param col Column index (0-based)
-     * @returns The URI string, or null if no hyperlink at that position
      */
     getScrollbackHyperlinkUri(offset: number, col: number): string | null;
+    private readGridLine;
+    private readHyperlinkUri;
+    private allocPoint;
+    private makeEmptyCell;
     /**
      * Check if there are pending responses from the terminal.
-     * Responses are generated by escape sequences like DSR (Device Status Report).
+     *
+     * NOTE: the upstream C ABI replaced the polling has_response/read_response
+     * pair with a callback model: install one via
+     * ghostty_terminal_set(GHOSTTY_TERMINAL_OPT_WRITE_PTY, fn) and the terminal
+     * invokes it synchronously during vt_write() with response bytes. Until the
+     * callback infrastructure is wired up on the JS side, we report "no
+     * responses" so callers (e.g. demo/PTY echo) degrade gracefully.
      */
     hasResponse(): boolean;
     /**
-     * Read pending responses from the terminal.
-     * Returns the response string, or null if no responses pending.
-     *
-     * Responses are generated by escape sequences that require replies:
-     * - DSR 6 (cursor position): Returns \x1b[row;colR
-     * - DSR 5 (operating status): Returns \x1b[0n
+     * Read pending responses from the terminal. See hasResponse() for the
+     * status of the callback-based replacement.
      */
     readResponse(): string | null;
     /**
-     * Query arbitrary terminal mode by number
+     * Query arbitrary terminal mode by number.
      * @param mode Mode number (e.g., 25 for cursor visibility, 2004 for bracketed paste)
      * @param isAnsi True for ANSI modes, false for DEC modes (default: false)
      */
     getMode(mode: number, isAnsi?: boolean): boolean;
     private initCellPool;
-    private parseCellsIntoPool;
-    /** Small buffer for grapheme lookups (reused to avoid allocation) */
-    private graphemeBuffer;
-    private graphemeBufferPtr;
     /**
      * Get all codepoints for a grapheme cluster at the given position.
      * For most cells this returns a single codepoint, but for complex scripts
@@ -510,11 +626,10 @@ export declare class GhosttyTerminal {
      * Get a string representation of a grapheme in the scrollback buffer.
      */
     getScrollbackGraphemeString(offset: number, col: number): string;
-    private invalidateBuffers;
 }
 
 /**
- * Terminal configuration (passed to ghostty_terminal_new_with_config)
+ * Terminal theme/config payload used by the legacy color-configuration helper.
  * All color values use 0xRRGGBB format. A value of 0 means "use default".
  */
 declare interface GhosttyTerminalConfig {
@@ -559,35 +674,42 @@ declare interface GhosttyWasmExports extends WebAssembly.Exports {
     ghostty_key_event_set_key(event: number, key: number): void;
     ghostty_key_event_set_mods(event: number, mods: number): void;
     ghostty_key_event_set_utf8(event: number, ptr: number, len: number): void;
-    ghostty_terminal_new(cols: number, rows: number): TerminalHandle;
-    ghostty_terminal_new_with_config(cols: number, rows: number, configPtr: number): TerminalHandle;
+    ghostty_terminal_new(allocatorPtr: number, terminalPtrPtr: number, optionsPtr: number): number;
     ghostty_terminal_free(terminal: TerminalHandle): void;
-    ghostty_terminal_resize(terminal: TerminalHandle, cols: number, rows: number): void;
-    ghostty_terminal_write(terminal: TerminalHandle, dataPtr: number, dataLen: number): void;
+    ghostty_terminal_resize(terminal: TerminalHandle, cols: number, rows: number, cellWidthPx: number, cellHeightPx: number): number;
+    ghostty_terminal_vt_write(terminal: TerminalHandle, dataPtr: number, dataLen: number): void;
     ghostty_terminal_set_colors(terminal: TerminalHandle, configPtr: number): void;
-    ghostty_render_state_update(terminal: TerminalHandle): number;
-    ghostty_render_state_get_cols(terminal: TerminalHandle): number;
-    ghostty_render_state_get_rows(terminal: TerminalHandle): number;
-    ghostty_render_state_get_cursor_x(terminal: TerminalHandle): number;
-    ghostty_render_state_get_cursor_y(terminal: TerminalHandle): number;
-    ghostty_render_state_get_cursor_visible(terminal: TerminalHandle): boolean;
-    ghostty_render_state_get_bg_color(terminal: TerminalHandle): number;
-    ghostty_render_state_get_fg_color(terminal: TerminalHandle): number;
-    ghostty_render_state_is_row_dirty(terminal: TerminalHandle, row: number): boolean;
-    ghostty_render_state_mark_clean(terminal: TerminalHandle): void;
-    ghostty_render_state_get_viewport(terminal: TerminalHandle, bufPtr: number, bufLen: number): number;
-    ghostty_render_state_get_grapheme(terminal: TerminalHandle, row: number, col: number, bufPtr: number, bufLen: number): number;
-    ghostty_terminal_is_alternate_screen(terminal: TerminalHandle): boolean;
-    ghostty_terminal_has_mouse_tracking(terminal: TerminalHandle): number;
-    ghostty_terminal_get_mode(terminal: TerminalHandle, mode: number, isAnsi: boolean): number;
-    ghostty_terminal_get_scrollback_length(terminal: TerminalHandle): number;
-    ghostty_terminal_get_scrollback_line(terminal: TerminalHandle, offset: number, bufPtr: number, bufLen: number): number;
-    ghostty_terminal_get_scrollback_grapheme(terminal: TerminalHandle, offset: number, col: number, bufPtr: number, bufLen: number): number;
-    ghostty_terminal_is_row_wrapped(terminal: TerminalHandle, row: number): number;
-    ghostty_terminal_get_hyperlink_uri(terminal: TerminalHandle, row: number, col: number, bufPtr: number, bufLen: number): number;
-    ghostty_terminal_get_scrollback_hyperlink_uri(terminal: TerminalHandle, offset: number, col: number, bufPtr: number, bufLen: number): number;
-    ghostty_terminal_has_response(terminal: TerminalHandle): boolean;
-    ghostty_terminal_read_response(terminal: TerminalHandle, bufPtr: number, bufLen: number): number;
+    ghostty_render_state_new(allocatorPtr: number, statePtrPtr: number): number;
+    ghostty_render_state_free(state: number): void;
+    ghostty_render_state_update(state: number, terminal: TerminalHandle): number;
+    ghostty_render_state_get(state: number, key: number, outPtr: number): number;
+    ghostty_render_state_get_multi(state: number, count: number, keysPtr: number, valuesPtr: number, outWrittenPtr: number): number;
+    ghostty_render_state_set(state: number, option: number, valuePtr: number): number;
+    ghostty_render_state_colors_get(state: number, outColorsPtr: number): number;
+    ghostty_render_state_row_iterator_new(allocatorPtr: number, outIterPtrPtr: number): number;
+    ghostty_render_state_row_iterator_free(iter: number): void;
+    ghostty_render_state_row_iterator_next(iter: number): boolean;
+    ghostty_render_state_row_get(iter: number, key: number, outPtr: number): number;
+    ghostty_render_state_row_set(iter: number, option: number, valuePtr: number): number;
+    ghostty_render_state_row_cells_new(allocatorPtr: number, outCellsPtrPtr: number): number;
+    ghostty_render_state_row_cells_free(cells: number): void;
+    ghostty_render_state_row_cells_next(cells: number): boolean;
+    ghostty_render_state_row_cells_select(cells: number, col: number): number;
+    ghostty_render_state_row_cells_get(cells: number, key: number, outPtr: number): number;
+    ghostty_render_state_row_cells_get_multi(cells: number, count: number, keysPtr: number, valuesPtr: number, outWrittenPtr: number): number;
+    ghostty_cell_get(cell: bigint, key: number, outPtr: number): number;
+    ghostty_row_get(row: bigint, key: number, outPtr: number): number;
+    ghostty_terminal_grid_ref(terminal: TerminalHandle, pointPtr: number, outRefPtr: number): number;
+    ghostty_grid_ref_cell(refPtr: number, outCellPtr: number): number;
+    ghostty_grid_ref_row(refPtr: number, outRowPtr: number): number;
+    ghostty_grid_ref_graphemes(refPtr: number, bufPtr: number, bufLen: number, outLenPtr: number): number;
+    ghostty_grid_ref_hyperlink_uri(refPtr: number, bufPtr: number, bufLen: number, outLenPtr: number): number;
+    ghostty_grid_ref_style(refPtr: number, outStylePtr: number): number;
+    ghostty_terminal_get(terminal: TerminalHandle, key: number, outPtr: number): number;
+    ghostty_terminal_get_multi(terminal: TerminalHandle, count: number, keysPtr: number, valuesPtr: number, outWrittenPtr: number): number;
+    ghostty_terminal_set(terminal: TerminalHandle, option: number, valuePtr: number): number;
+    ghostty_terminal_mode_get(terminal: TerminalHandle, mode: number, outBoolPtr: number): number;
+    ghostty_terminal_mode_set(terminal: TerminalHandle, mode: number, value: boolean): number;
 }
 
 /**
