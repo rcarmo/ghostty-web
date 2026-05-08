@@ -38,6 +38,16 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", "dist", "coverage", "*.wasm", ".git", ".vite", ".tools", "bun.lock"]
+    "ignore": [
+      "node_modules",
+      "dist",
+      "coverage",
+      "*.wasm",
+      ".git",
+      ".vite",
+      ".tools",
+      "bun.lock",
+      "lib/vendor/cf-wasm-png"
+    ]
   }
 }

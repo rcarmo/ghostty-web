@@ -13,7 +13,7 @@
 import { decode as decodePngWasm, initSync } from './vendor/cf-wasm-png/png.js';
 import pngWasmBytes from './vendor/cf-wasm-png/png_bg.wasm.inline.js';
 
-export const enum WasmPngColorType {
+export enum WasmPngColorType {
   Grayscale = 0,
   RGB = 2,
   Indexed = 3,
@@ -21,7 +21,7 @@ export const enum WasmPngColorType {
   RGBA = 6,
 }
 
-export const enum WasmPngBitDepth {
+export enum WasmPngBitDepth {
   One = 1,
   Two = 2,
   Four = 4,
@@ -65,8 +65,27 @@ export function decodePngToRgba8(pngBytes: Uint8Array): DecodedRgbaPng | null {
 function wasmPngToRgba8(img: WasmPngDecodeResult): Uint8Array | null {
   const { width, height, colorType, bitDepth, image } = img;
   if (width <= 0 || height <= 0) return null;
+
   const px = width * height;
+  if (!Number.isSafeInteger(px) || px > 0x3fffffff) return null;
+
   const out = new Uint8Array(px * 4);
+
+  const channels =
+    colorType === WasmPngColorType.RGBA
+      ? 4
+      : colorType === WasmPngColorType.RGB
+        ? 3
+        : colorType === WasmPngColorType.GrayscaleAlpha
+          ? 2
+          : colorType === WasmPngColorType.Grayscale
+            ? 1
+            : 0;
+  if (channels === 0) return null;
+
+  const bytesPerSample = bitDepth === WasmPngBitDepth.Sixteen ? 2 : 1;
+  const requiredBytes = px * channels * bytesPerSample;
+  if (!Number.isSafeInteger(requiredBytes) || image.length < requiredBytes) return null;
 
   // The vendored WASM decoder expands low-bit-depth PNGs to byte-aligned
   // channel samples. For 16-bit PNGs, samples are big-endian byte pairs.
@@ -78,8 +97,7 @@ function wasmPngToRgba8(img: WasmPngDecodeResult): Uint8Array | null {
   switch (colorType) {
     case WasmPngColorType.RGBA:
       if (bitDepth === WasmPngBitDepth.Eight) {
-        if (image.length < px * 4) return null;
-        out.set(image as ArrayLike<number>);
+        for (let i = 0; i < px * 4; i++) out[i] = image[i] ?? 0;
         return out;
       }
       for (let i = 0, o = 0; i < px * 4; i += 4, o += 4) {
@@ -121,7 +139,6 @@ function wasmPngToRgba8(img: WasmPngDecodeResult): Uint8Array | null {
 
     // Indexed-color PNGs are normally expanded by the decoder; reject if a
     // future decoder version returns unresolved palette indices here.
-    case WasmPngColorType.Indexed:
     default:
       return null;
   }
