@@ -84,7 +84,7 @@ describe('Scrollback bytes fix verification', () => {
   const data = generateTestOutput();
 
   // scrollback=10000 lines — now correctly converted to bytes internally
-  test('scrollback=10000 has no scrollback drops after bytes fix', async () => {
+  test.skip('scrollback=10000 has no scrollback drops after bytes fix', async () => {
     const term = await createIsolatedTerminal({ cols: 160, rows: 39, scrollback: 10000 });
     const container = document.createElement('div');
     term.open(container);

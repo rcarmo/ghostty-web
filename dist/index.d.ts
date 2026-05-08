@@ -13,6 +13,7 @@ export declare class CanvasRenderer {
     private cursorVisible;
     private cursorBlinkInterval?;
     private lastCursorPosition;
+    private onRequestRender;
     private lastViewportY;
     private currentBuffer;
     private selectionManager?;
@@ -82,6 +83,13 @@ export declare class CanvasRenderer {
      * Render cursor
      */
     private renderCursor;
+    /**
+     * Set a callback the renderer invokes when its internal state changes
+     * outside the normal render-driven path (today: cursor-blink toggles).
+     * Lets an event-driven Terminal wake its render scheduler instead of
+     * polling every frame to catch the blink flip.
+     */
+    setOnRequestRender(fn: (() => void) | null): void;
     private startCursorBlink;
     private stopCursorBlink;
     /**
@@ -328,6 +336,8 @@ export declare interface GhosttyCell {
     bg_r: number;
     bg_g: number;
     bg_b: number;
+    fgIsDefault: boolean;
+    bgIsDefault: boolean;
     flags: number;
     width: number;
     hyperlink_id: number;
@@ -2220,9 +2230,30 @@ export declare class Terminal implements ITerminalCore {
      */
     private flushWriteQueue;
     /**
-     * Start the render loop
+     * Schedule a single render on the next animation frame. No-op if one
+     * is already pending or the terminal is closed/disposed.
+     *
+     * Replaces the previous perpetual rAF chain, which kept a CPU core
+     * hot at ~60Hz even on a static screen because every frame paid for a
+     * render() entry/exit and a getCursor() round-trip into WASM. With
+     * this design, the terminal goes idle (zero JS work, zero WASM calls)
+     * once the last event-driven render is done, until the next event
+     * wakes it via requestRender().
+     *
+     * Wake points are added on every event source that mutates renderable
+     * state: writes from the PTY, scrolls, resizes, mouse motion (link
+     * hover), selection changes, the cursor-blink interval (via the
+     * renderer's onRequestRender callback), and each smooth-scroll tick.
+     *
+     * Alternative design we considered: leave the rAF chain in place but
+     * have it short-circuit when no work is pending and self-cancel after
+     * N idle frames, with the same wake points re-arming it. End-state
+     * CPU is identical; the difference is purely code shape (a perpetual
+     * loop with self-cancel logic vs. ad-hoc rAF scheduling). We picked
+     * this shape for simplicity.
      */
-    private startRenderLoop;
+    private requestRender;
+    private renderTick;
     /**
      * Get a line from native WASM scrollback buffer
      * Implements IScrollbackProvider

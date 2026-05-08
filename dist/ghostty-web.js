@@ -1,4 +1,4 @@
-const sA = new Uint8Array([
+const GA = new Uint8Array([
   0,
   97,
   115,
@@ -123,10 +123,10 @@ const sA = new Uint8Array([
   1,
   11
 ]);
-let u = null;
-function GA(B, A) {
-  u || (u = new WebAssembly.Module(sA));
-  const g = new WebAssembly.Instance(u, {
+let W = null;
+function tA(B, A) {
+  W || (W = new WebAssembly.Module(GA));
+  const g = new WebAssembly.Instance(W, {
     env: { write_pty_cb: B, size_cb: A }
   });
   return {
@@ -134,22 +134,22 @@ function GA(B, A) {
     sizeFwd: g.exports.size_fwd
   };
 }
-var P = /* @__PURE__ */ ((B) => (B[B.CURSOR_KEY_APPLICATION = 0] = "CURSOR_KEY_APPLICATION", B[B.KEYPAD_KEY_APPLICATION = 1] = "KEYPAD_KEY_APPLICATION", B[B.IGNORE_KEYPAD_WITH_NUMLOCK = 2] = "IGNORE_KEYPAD_WITH_NUMLOCK", B[B.ALT_ESC_PREFIX = 3] = "ALT_ESC_PREFIX", B[B.MODIFY_OTHER_KEYS_STATE_2 = 4] = "MODIFY_OTHER_KEYS_STATE_2", B[B.KITTY_KEYBOARD_FLAGS = 5] = "KITTY_KEYBOARD_FLAGS", B))(P || {}), QA = /* @__PURE__ */ ((B) => (B[B.RELEASE = 0] = "RELEASE", B[B.PRESS = 1] = "PRESS", B[B.REPEAT = 2] = "REPEAT", B))(QA || {}), w = /* @__PURE__ */ ((B) => (B[B.UNIDENTIFIED = 0] = "UNIDENTIFIED", B[B.GRAVE = 1] = "GRAVE", B[B.BACKSLASH = 2] = "BACKSLASH", B[B.BRACKET_LEFT = 3] = "BRACKET_LEFT", B[B.BRACKET_RIGHT = 4] = "BRACKET_RIGHT", B[B.COMMA = 5] = "COMMA", B[B.ZERO = 6] = "ZERO", B[B.ONE = 7] = "ONE", B[B.TWO = 8] = "TWO", B[B.THREE = 9] = "THREE", B[B.FOUR = 10] = "FOUR", B[B.FIVE = 11] = "FIVE", B[B.SIX = 12] = "SIX", B[B.SEVEN = 13] = "SEVEN", B[B.EIGHT = 14] = "EIGHT", B[B.NINE = 15] = "NINE", B[B.EQUAL = 16] = "EQUAL", B[B.INTL_BACKSLASH = 17] = "INTL_BACKSLASH", B[B.INTL_RO = 18] = "INTL_RO", B[B.INTL_YEN = 19] = "INTL_YEN", B[B.A = 20] = "A", B[B.B = 21] = "B", B[B.C = 22] = "C", B[B.D = 23] = "D", B[B.E = 24] = "E", B[B.F = 25] = "F", B[B.G = 26] = "G", B[B.H = 27] = "H", B[B.I = 28] = "I", B[B.J = 29] = "J", B[B.K = 30] = "K", B[B.L = 31] = "L", B[B.M = 32] = "M", B[B.N = 33] = "N", B[B.O = 34] = "O", B[B.P = 35] = "P", B[B.Q = 36] = "Q", B[B.R = 37] = "R", B[B.S = 38] = "S", B[B.T = 39] = "T", B[B.U = 40] = "U", B[B.V = 41] = "V", B[B.W = 42] = "W", B[B.X = 43] = "X", B[B.Y = 44] = "Y", B[B.Z = 45] = "Z", B[B.MINUS = 46] = "MINUS", B[B.PERIOD = 47] = "PERIOD", B[B.QUOTE = 48] = "QUOTE", B[B.SEMICOLON = 49] = "SEMICOLON", B[B.SLASH = 50] = "SLASH", B[B.ALT_LEFT = 51] = "ALT_LEFT", B[B.ALT_RIGHT = 52] = "ALT_RIGHT", B[B.BACKSPACE = 53] = "BACKSPACE", B[B.CAPS_LOCK = 54] = "CAPS_LOCK", B[B.CONTEXT_MENU = 55] = "CONTEXT_MENU", B[B.CONTROL_LEFT = 56] = "CONTROL_LEFT", B[B.CONTROL_RIGHT = 57] = "CONTROL_RIGHT", B[B.ENTER = 58] = "ENTER", B[B.META_LEFT = 59] = "META_LEFT", B[B.META_RIGHT = 60] = "META_RIGHT", B[B.SHIFT_LEFT = 61] = "SHIFT_LEFT", B[B.SHIFT_RIGHT = 62] = "SHIFT_RIGHT", B[B.SPACE = 63] = "SPACE", B[B.TAB = 64] = "TAB", B[B.CONVERT = 65] = "CONVERT", B[B.KANA_MODE = 66] = "KANA_MODE", B[B.NON_CONVERT = 67] = "NON_CONVERT", B[B.DELETE = 68] = "DELETE", B[B.END = 69] = "END", B[B.HELP = 70] = "HELP", B[B.HOME = 71] = "HOME", B[B.INSERT = 72] = "INSERT", B[B.PAGE_DOWN = 73] = "PAGE_DOWN", B[B.PAGE_UP = 74] = "PAGE_UP", B[B.DOWN = 75] = "DOWN", B[B.LEFT = 76] = "LEFT", B[B.RIGHT = 77] = "RIGHT", B[B.UP = 78] = "UP", B[B.NUM_LOCK = 79] = "NUM_LOCK", B[B.KP_0 = 80] = "KP_0", B[B.KP_1 = 81] = "KP_1", B[B.KP_2 = 82] = "KP_2", B[B.KP_3 = 83] = "KP_3", B[B.KP_4 = 84] = "KP_4", B[B.KP_5 = 85] = "KP_5", B[B.KP_6 = 86] = "KP_6", B[B.KP_7 = 87] = "KP_7", B[B.KP_8 = 88] = "KP_8", B[B.KP_9 = 89] = "KP_9", B[B.KP_PLUS = 90] = "KP_PLUS", B[B.KP_BACKSPACE = 91] = "KP_BACKSPACE", B[B.KP_CLEAR = 92] = "KP_CLEAR", B[B.KP_CLEAR_ENTRY = 93] = "KP_CLEAR_ENTRY", B[B.KP_COMMA = 94] = "KP_COMMA", B[B.KP_PERIOD = 95] = "KP_PERIOD", B[B.KP_DIVIDE = 96] = "KP_DIVIDE", B[B.KP_ENTER = 97] = "KP_ENTER", B[B.KP_EQUAL = 98] = "KP_EQUAL", B[B.KP_MEMORY_ADD = 99] = "KP_MEMORY_ADD", B[B.KP_MEMORY_CLEAR = 100] = "KP_MEMORY_CLEAR", B[B.KP_MEMORY_RECALL = 101] = "KP_MEMORY_RECALL", B[B.KP_MEMORY_STORE = 102] = "KP_MEMORY_STORE", B[B.KP_MEMORY_SUBTRACT = 103] = "KP_MEMORY_SUBTRACT", B[B.KP_MULTIPLY = 104] = "KP_MULTIPLY", B[B.KP_PAREN_LEFT = 105] = "KP_PAREN_LEFT", B[B.KP_PAREN_RIGHT = 106] = "KP_PAREN_RIGHT", B[B.KP_MINUS = 107] = "KP_MINUS", B[B.KP_SEPARATOR = 108] = "KP_SEPARATOR", B[B.NUMPAD_UP = 109] = "NUMPAD_UP", B[B.NUMPAD_DOWN = 110] = "NUMPAD_DOWN", B[B.NUMPAD_RIGHT = 111] = "NUMPAD_RIGHT", B[B.NUMPAD_LEFT = 112] = "NUMPAD_LEFT", B[B.NUMPAD_BEGIN = 113] = "NUMPAD_BEGIN", B[B.NUMPAD_HOME = 114] = "NUMPAD_HOME", B[B.NUMPAD_END = 115] = "NUMPAD_END", B[B.NUMPAD_INSERT = 116] = "NUMPAD_INSERT", B[B.NUMPAD_DELETE = 117] = "NUMPAD_DELETE", B[B.NUMPAD_PAGE_UP = 118] = "NUMPAD_PAGE_UP", B[B.NUMPAD_PAGE_DOWN = 119] = "NUMPAD_PAGE_DOWN", B[B.ESCAPE = 120] = "ESCAPE", B[B.F1 = 121] = "F1", B[B.F2 = 122] = "F2", B[B.F3 = 123] = "F3", B[B.F4 = 124] = "F4", B[B.F5 = 125] = "F5", B[B.F6 = 126] = "F6", B[B.F7 = 127] = "F7", B[B.F8 = 128] = "F8", B[B.F9 = 129] = "F9", B[B.F10 = 130] = "F10", B[B.F11 = 131] = "F11", B[B.F12 = 132] = "F12", B[B.F13 = 133] = "F13", B[B.F14 = 134] = "F14", B[B.F15 = 135] = "F15", B[B.F16 = 136] = "F16", B[B.F17 = 137] = "F17", B[B.F18 = 138] = "F18", B[B.F19 = 139] = "F19", B[B.F20 = 140] = "F20", B[B.F21 = 141] = "F21", B[B.F22 = 142] = "F22", B[B.F23 = 143] = "F23", B[B.F24 = 144] = "F24", B[B.F25 = 145] = "F25", B[B.FN_LOCK = 146] = "FN_LOCK", B[B.PRINT_SCREEN = 147] = "PRINT_SCREEN", B[B.SCROLL_LOCK = 148] = "SCROLL_LOCK", B[B.PAUSE = 149] = "PAUSE", B[B.BROWSER_BACK = 150] = "BROWSER_BACK", B[B.BROWSER_FAVORITES = 151] = "BROWSER_FAVORITES", B[B.BROWSER_FORWARD = 152] = "BROWSER_FORWARD", B[B.BROWSER_HOME = 153] = "BROWSER_HOME", B[B.BROWSER_REFRESH = 154] = "BROWSER_REFRESH", B[B.BROWSER_SEARCH = 155] = "BROWSER_SEARCH", B[B.BROWSER_STOP = 156] = "BROWSER_STOP", B[B.EJECT = 157] = "EJECT", B[B.LAUNCH_APP_1 = 158] = "LAUNCH_APP_1", B[B.LAUNCH_APP_2 = 159] = "LAUNCH_APP_2", B[B.LAUNCH_MAIL = 160] = "LAUNCH_MAIL", B[B.MEDIA_PLAY_PAUSE = 161] = "MEDIA_PLAY_PAUSE", B[B.MEDIA_SELECT = 162] = "MEDIA_SELECT", B[B.MEDIA_STOP = 163] = "MEDIA_STOP", B[B.MEDIA_TRACK_NEXT = 164] = "MEDIA_TRACK_NEXT", B[B.MEDIA_TRACK_PREVIOUS = 165] = "MEDIA_TRACK_PREVIOUS", B[B.POWER = 166] = "POWER", B[B.SLEEP = 167] = "SLEEP", B[B.AUDIO_VOLUME_DOWN = 168] = "AUDIO_VOLUME_DOWN", B[B.AUDIO_VOLUME_MUTE = 169] = "AUDIO_VOLUME_MUTE", B[B.AUDIO_VOLUME_UP = 170] = "AUDIO_VOLUME_UP", B[B.WAKE_UP = 171] = "WAKE_UP", B[B.COPY = 172] = "COPY", B[B.CUT = 173] = "CUT", B[B.PASTE = 174] = "PASTE", B))(w || {}), q = /* @__PURE__ */ ((B) => (B[B.NONE = 0] = "NONE", B[B.SHIFT = 1] = "SHIFT", B[B.CTRL = 2] = "CTRL", B[B.ALT = 4] = "ALT", B[B.SUPER = 8] = "SUPER", B[B.CAPSLOCK = 16] = "CAPSLOCK", B[B.NUMLOCK = 32] = "NUMLOCK", B))(q || {}), j = /* @__PURE__ */ ((B) => (B[B.NONE = 0] = "NONE", B[B.PARTIAL = 1] = "PARTIAL", B[B.FULL = 2] = "FULL", B))(j || {}), F = /* @__PURE__ */ ((B) => (B[B.COLS = 1] = "COLS", B[B.ROWS = 2] = "ROWS", B[B.DIRTY = 3] = "DIRTY", B[B.ROW_ITERATOR = 4] = "ROW_ITERATOR", B[B.COLOR_BACKGROUND = 5] = "COLOR_BACKGROUND", B[B.COLOR_FOREGROUND = 6] = "COLOR_FOREGROUND", B[B.COLOR_CURSOR = 7] = "COLOR_CURSOR", B[B.COLOR_CURSOR_HAS_VALUE = 8] = "COLOR_CURSOR_HAS_VALUE", B[B.COLOR_PALETTE = 9] = "COLOR_PALETTE", B[B.CURSOR_VISUAL_STYLE = 10] = "CURSOR_VISUAL_STYLE", B[B.CURSOR_VISIBLE = 11] = "CURSOR_VISIBLE", B[B.CURSOR_BLINKING = 12] = "CURSOR_BLINKING", B[B.CURSOR_PASSWORD_INPUT = 13] = "CURSOR_PASSWORD_INPUT", B[B.CURSOR_VIEWPORT_HAS_VALUE = 14] = "CURSOR_VIEWPORT_HAS_VALUE", B[B.CURSOR_VIEWPORT_X = 15] = "CURSOR_VIEWPORT_X", B[B.CURSOR_VIEWPORT_Y = 16] = "CURSOR_VIEWPORT_Y", B[B.CURSOR_VIEWPORT_WIDE_TAIL = 17] = "CURSOR_VIEWPORT_WIDE_TAIL", B))(F || {}), IA = /* @__PURE__ */ ((B) => (B[B.DIRTY = 0] = "DIRTY", B))(IA || {}), W = /* @__PURE__ */ ((B) => (B[B.BAR = 0] = "BAR", B[B.BLOCK = 1] = "BLOCK", B[B.UNDERLINE = 2] = "UNDERLINE", B[B.BLOCK_HOLLOW = 3] = "BLOCK_HOLLOW", B))(W || {}), O = /* @__PURE__ */ ((B) => (B[B.COLS = 1] = "COLS", B[B.ROWS = 2] = "ROWS", B[B.CURSOR_X = 3] = "CURSOR_X", B[B.CURSOR_Y = 4] = "CURSOR_Y", B[B.CURSOR_PENDING_WRAP = 5] = "CURSOR_PENDING_WRAP", B[B.ACTIVE_SCREEN = 6] = "ACTIVE_SCREEN", B[B.CURSOR_VISIBLE = 7] = "CURSOR_VISIBLE", B[B.KITTY_KEYBOARD_FLAGS = 8] = "KITTY_KEYBOARD_FLAGS", B[B.SCROLLBAR = 9] = "SCROLLBAR", B[B.CURSOR_STYLE = 10] = "CURSOR_STYLE", B[B.MOUSE_TRACKING = 11] = "MOUSE_TRACKING", B[B.TITLE = 12] = "TITLE", B[B.PWD = 13] = "PWD", B[B.TOTAL_ROWS = 14] = "TOTAL_ROWS", B[B.SCROLLBACK_ROWS = 15] = "SCROLLBACK_ROWS", B[B.WIDTH_PX = 16] = "WIDTH_PX", B[B.HEIGHT_PX = 17] = "HEIGHT_PX", B[B.COLOR_FOREGROUND = 18] = "COLOR_FOREGROUND", B[B.COLOR_BACKGROUND = 19] = "COLOR_BACKGROUND", B[B.COLOR_CURSOR = 20] = "COLOR_CURSOR", B[B.COLOR_PALETTE = 21] = "COLOR_PALETTE", B[B.COLOR_FOREGROUND_DEFAULT = 22] = "COLOR_FOREGROUND_DEFAULT", B[B.COLOR_BACKGROUND_DEFAULT = 23] = "COLOR_BACKGROUND_DEFAULT", B[B.COLOR_CURSOR_DEFAULT = 24] = "COLOR_CURSOR_DEFAULT", B[B.COLOR_PALETTE_DEFAULT = 25] = "COLOR_PALETTE_DEFAULT", B))(O || {}), l = /* @__PURE__ */ ((B) => (B[B.USERDATA = 0] = "USERDATA", B[B.WRITE_PTY = 1] = "WRITE_PTY", B[B.BELL = 2] = "BELL", B[B.ENQUIRY = 3] = "ENQUIRY", B[B.XTVERSION = 4] = "XTVERSION", B[B.TITLE_CHANGED = 5] = "TITLE_CHANGED", B[B.SIZE = 6] = "SIZE", B[B.COLOR_FOREGROUND = 11] = "COLOR_FOREGROUND", B[B.COLOR_BACKGROUND = 12] = "COLOR_BACKGROUND", B[B.COLOR_CURSOR = 13] = "COLOR_CURSOR", B[B.COLOR_PALETTE = 14] = "COLOR_PALETTE", B))(l || {}), CA = /* @__PURE__ */ ((B) => (B[B.PRIMARY = 0] = "PRIMARY", B[B.ALTERNATE = 1] = "ALTERNATE", B))(CA || {}), n = /* @__PURE__ */ ((B) => (B[B.DIRTY = 1] = "DIRTY", B[B.RAW = 2] = "RAW", B[B.CELLS = 3] = "CELLS", B))(n || {}), EA = /* @__PURE__ */ ((B) => (B[B.DIRTY = 0] = "DIRTY", B))(EA || {}), U = /* @__PURE__ */ ((B) => (B[B.RAW = 1] = "RAW", B[B.STYLE = 2] = "STYLE", B[B.GRAPHEMES_LEN = 3] = "GRAPHEMES_LEN", B[B.GRAPHEMES_BUF = 4] = "GRAPHEMES_BUF", B[B.BG_COLOR = 5] = "BG_COLOR", B[B.FG_COLOR = 6] = "FG_COLOR", B))(U || {}), z = /* @__PURE__ */ ((B) => (B[B.WRAP = 1] = "WRAP", B[B.WRAP_CONTINUATION = 2] = "WRAP_CONTINUATION", B[B.GRAPHEME = 3] = "GRAPHEME", B[B.STYLED = 4] = "STYLED", B[B.HYPERLINK = 5] = "HYPERLINK", B))(z || {}), d = /* @__PURE__ */ ((B) => (B[B.ACTIVE = 0] = "ACTIVE", B[B.VIEWPORT = 1] = "VIEWPORT", B[B.SCREEN = 2] = "SCREEN", B[B.HISTORY = 3] = "HISTORY", B))(d || {}), m = /* @__PURE__ */ ((B) => (B[B.CODEPOINT = 1] = "CODEPOINT", B[B.CONTENT_TAG = 2] = "CONTENT_TAG", B[B.WIDE = 3] = "WIDE", B[B.HAS_TEXT = 4] = "HAS_TEXT", B[B.HAS_STYLING = 5] = "HAS_STYLING", B[B.STYLE_ID = 6] = "STYLE_ID", B[B.HAS_HYPERLINK = 7] = "HAS_HYPERLINK", B[B.PROTECTED = 8] = "PROTECTED", B[B.SEMANTIC_CONTENT = 9] = "SEMANTIC_CONTENT", B[B.COLOR_PALETTE = 10] = "COLOR_PALETTE", B[B.COLOR_RGB = 11] = "COLOR_RGB", B))(m || {}), p = /* @__PURE__ */ ((B) => (B[B.NARROW = 0] = "NARROW", B[B.WIDE = 1] = "WIDE", B[B.SPACER_TAIL = 2] = "SPACER_TAIL", B[B.SPACER_HEAD = 3] = "SPACER_HEAD", B))(p || {});
-function $(B, A) {
+var _ = /* @__PURE__ */ ((B) => (B[B.CURSOR_KEY_APPLICATION = 0] = "CURSOR_KEY_APPLICATION", B[B.KEYPAD_KEY_APPLICATION = 1] = "KEYPAD_KEY_APPLICATION", B[B.IGNORE_KEYPAD_WITH_NUMLOCK = 2] = "IGNORE_KEYPAD_WITH_NUMLOCK", B[B.ALT_ESC_PREFIX = 3] = "ALT_ESC_PREFIX", B[B.MODIFY_OTHER_KEYS_STATE_2 = 4] = "MODIFY_OTHER_KEYS_STATE_2", B[B.KITTY_KEYBOARD_FLAGS = 5] = "KITTY_KEYBOARD_FLAGS", B))(_ || {}), IA = /* @__PURE__ */ ((B) => (B[B.RELEASE = 0] = "RELEASE", B[B.PRESS = 1] = "PRESS", B[B.REPEAT = 2] = "REPEAT", B))(IA || {}), w = /* @__PURE__ */ ((B) => (B[B.UNIDENTIFIED = 0] = "UNIDENTIFIED", B[B.GRAVE = 1] = "GRAVE", B[B.BACKSLASH = 2] = "BACKSLASH", B[B.BRACKET_LEFT = 3] = "BRACKET_LEFT", B[B.BRACKET_RIGHT = 4] = "BRACKET_RIGHT", B[B.COMMA = 5] = "COMMA", B[B.ZERO = 6] = "ZERO", B[B.ONE = 7] = "ONE", B[B.TWO = 8] = "TWO", B[B.THREE = 9] = "THREE", B[B.FOUR = 10] = "FOUR", B[B.FIVE = 11] = "FIVE", B[B.SIX = 12] = "SIX", B[B.SEVEN = 13] = "SEVEN", B[B.EIGHT = 14] = "EIGHT", B[B.NINE = 15] = "NINE", B[B.EQUAL = 16] = "EQUAL", B[B.INTL_BACKSLASH = 17] = "INTL_BACKSLASH", B[B.INTL_RO = 18] = "INTL_RO", B[B.INTL_YEN = 19] = "INTL_YEN", B[B.A = 20] = "A", B[B.B = 21] = "B", B[B.C = 22] = "C", B[B.D = 23] = "D", B[B.E = 24] = "E", B[B.F = 25] = "F", B[B.G = 26] = "G", B[B.H = 27] = "H", B[B.I = 28] = "I", B[B.J = 29] = "J", B[B.K = 30] = "K", B[B.L = 31] = "L", B[B.M = 32] = "M", B[B.N = 33] = "N", B[B.O = 34] = "O", B[B.P = 35] = "P", B[B.Q = 36] = "Q", B[B.R = 37] = "R", B[B.S = 38] = "S", B[B.T = 39] = "T", B[B.U = 40] = "U", B[B.V = 41] = "V", B[B.W = 42] = "W", B[B.X = 43] = "X", B[B.Y = 44] = "Y", B[B.Z = 45] = "Z", B[B.MINUS = 46] = "MINUS", B[B.PERIOD = 47] = "PERIOD", B[B.QUOTE = 48] = "QUOTE", B[B.SEMICOLON = 49] = "SEMICOLON", B[B.SLASH = 50] = "SLASH", B[B.ALT_LEFT = 51] = "ALT_LEFT", B[B.ALT_RIGHT = 52] = "ALT_RIGHT", B[B.BACKSPACE = 53] = "BACKSPACE", B[B.CAPS_LOCK = 54] = "CAPS_LOCK", B[B.CONTEXT_MENU = 55] = "CONTEXT_MENU", B[B.CONTROL_LEFT = 56] = "CONTROL_LEFT", B[B.CONTROL_RIGHT = 57] = "CONTROL_RIGHT", B[B.ENTER = 58] = "ENTER", B[B.META_LEFT = 59] = "META_LEFT", B[B.META_RIGHT = 60] = "META_RIGHT", B[B.SHIFT_LEFT = 61] = "SHIFT_LEFT", B[B.SHIFT_RIGHT = 62] = "SHIFT_RIGHT", B[B.SPACE = 63] = "SPACE", B[B.TAB = 64] = "TAB", B[B.CONVERT = 65] = "CONVERT", B[B.KANA_MODE = 66] = "KANA_MODE", B[B.NON_CONVERT = 67] = "NON_CONVERT", B[B.DELETE = 68] = "DELETE", B[B.END = 69] = "END", B[B.HELP = 70] = "HELP", B[B.HOME = 71] = "HOME", B[B.INSERT = 72] = "INSERT", B[B.PAGE_DOWN = 73] = "PAGE_DOWN", B[B.PAGE_UP = 74] = "PAGE_UP", B[B.DOWN = 75] = "DOWN", B[B.LEFT = 76] = "LEFT", B[B.RIGHT = 77] = "RIGHT", B[B.UP = 78] = "UP", B[B.NUM_LOCK = 79] = "NUM_LOCK", B[B.KP_0 = 80] = "KP_0", B[B.KP_1 = 81] = "KP_1", B[B.KP_2 = 82] = "KP_2", B[B.KP_3 = 83] = "KP_3", B[B.KP_4 = 84] = "KP_4", B[B.KP_5 = 85] = "KP_5", B[B.KP_6 = 86] = "KP_6", B[B.KP_7 = 87] = "KP_7", B[B.KP_8 = 88] = "KP_8", B[B.KP_9 = 89] = "KP_9", B[B.KP_PLUS = 90] = "KP_PLUS", B[B.KP_BACKSPACE = 91] = "KP_BACKSPACE", B[B.KP_CLEAR = 92] = "KP_CLEAR", B[B.KP_CLEAR_ENTRY = 93] = "KP_CLEAR_ENTRY", B[B.KP_COMMA = 94] = "KP_COMMA", B[B.KP_PERIOD = 95] = "KP_PERIOD", B[B.KP_DIVIDE = 96] = "KP_DIVIDE", B[B.KP_ENTER = 97] = "KP_ENTER", B[B.KP_EQUAL = 98] = "KP_EQUAL", B[B.KP_MEMORY_ADD = 99] = "KP_MEMORY_ADD", B[B.KP_MEMORY_CLEAR = 100] = "KP_MEMORY_CLEAR", B[B.KP_MEMORY_RECALL = 101] = "KP_MEMORY_RECALL", B[B.KP_MEMORY_STORE = 102] = "KP_MEMORY_STORE", B[B.KP_MEMORY_SUBTRACT = 103] = "KP_MEMORY_SUBTRACT", B[B.KP_MULTIPLY = 104] = "KP_MULTIPLY", B[B.KP_PAREN_LEFT = 105] = "KP_PAREN_LEFT", B[B.KP_PAREN_RIGHT = 106] = "KP_PAREN_RIGHT", B[B.KP_MINUS = 107] = "KP_MINUS", B[B.KP_SEPARATOR = 108] = "KP_SEPARATOR", B[B.NUMPAD_UP = 109] = "NUMPAD_UP", B[B.NUMPAD_DOWN = 110] = "NUMPAD_DOWN", B[B.NUMPAD_RIGHT = 111] = "NUMPAD_RIGHT", B[B.NUMPAD_LEFT = 112] = "NUMPAD_LEFT", B[B.NUMPAD_BEGIN = 113] = "NUMPAD_BEGIN", B[B.NUMPAD_HOME = 114] = "NUMPAD_HOME", B[B.NUMPAD_END = 115] = "NUMPAD_END", B[B.NUMPAD_INSERT = 116] = "NUMPAD_INSERT", B[B.NUMPAD_DELETE = 117] = "NUMPAD_DELETE", B[B.NUMPAD_PAGE_UP = 118] = "NUMPAD_PAGE_UP", B[B.NUMPAD_PAGE_DOWN = 119] = "NUMPAD_PAGE_DOWN", B[B.ESCAPE = 120] = "ESCAPE", B[B.F1 = 121] = "F1", B[B.F2 = 122] = "F2", B[B.F3 = 123] = "F3", B[B.F4 = 124] = "F4", B[B.F5 = 125] = "F5", B[B.F6 = 126] = "F6", B[B.F7 = 127] = "F7", B[B.F8 = 128] = "F8", B[B.F9 = 129] = "F9", B[B.F10 = 130] = "F10", B[B.F11 = 131] = "F11", B[B.F12 = 132] = "F12", B[B.F13 = 133] = "F13", B[B.F14 = 134] = "F14", B[B.F15 = 135] = "F15", B[B.F16 = 136] = "F16", B[B.F17 = 137] = "F17", B[B.F18 = 138] = "F18", B[B.F19 = 139] = "F19", B[B.F20 = 140] = "F20", B[B.F21 = 141] = "F21", B[B.F22 = 142] = "F22", B[B.F23 = 143] = "F23", B[B.F24 = 144] = "F24", B[B.F25 = 145] = "F25", B[B.FN_LOCK = 146] = "FN_LOCK", B[B.PRINT_SCREEN = 147] = "PRINT_SCREEN", B[B.SCROLL_LOCK = 148] = "SCROLL_LOCK", B[B.PAUSE = 149] = "PAUSE", B[B.BROWSER_BACK = 150] = "BROWSER_BACK", B[B.BROWSER_FAVORITES = 151] = "BROWSER_FAVORITES", B[B.BROWSER_FORWARD = 152] = "BROWSER_FORWARD", B[B.BROWSER_HOME = 153] = "BROWSER_HOME", B[B.BROWSER_REFRESH = 154] = "BROWSER_REFRESH", B[B.BROWSER_SEARCH = 155] = "BROWSER_SEARCH", B[B.BROWSER_STOP = 156] = "BROWSER_STOP", B[B.EJECT = 157] = "EJECT", B[B.LAUNCH_APP_1 = 158] = "LAUNCH_APP_1", B[B.LAUNCH_APP_2 = 159] = "LAUNCH_APP_2", B[B.LAUNCH_MAIL = 160] = "LAUNCH_MAIL", B[B.MEDIA_PLAY_PAUSE = 161] = "MEDIA_PLAY_PAUSE", B[B.MEDIA_SELECT = 162] = "MEDIA_SELECT", B[B.MEDIA_STOP = 163] = "MEDIA_STOP", B[B.MEDIA_TRACK_NEXT = 164] = "MEDIA_TRACK_NEXT", B[B.MEDIA_TRACK_PREVIOUS = 165] = "MEDIA_TRACK_PREVIOUS", B[B.POWER = 166] = "POWER", B[B.SLEEP = 167] = "SLEEP", B[B.AUDIO_VOLUME_DOWN = 168] = "AUDIO_VOLUME_DOWN", B[B.AUDIO_VOLUME_MUTE = 169] = "AUDIO_VOLUME_MUTE", B[B.AUDIO_VOLUME_UP = 170] = "AUDIO_VOLUME_UP", B[B.WAKE_UP = 171] = "WAKE_UP", B[B.COPY = 172] = "COPY", B[B.CUT = 173] = "CUT", B[B.PASTE = 174] = "PASTE", B))(w || {}), U = /* @__PURE__ */ ((B) => (B[B.NONE = 0] = "NONE", B[B.SHIFT = 1] = "SHIFT", B[B.CTRL = 2] = "CTRL", B[B.ALT = 4] = "ALT", B[B.SUPER = 8] = "SUPER", B[B.CAPSLOCK = 16] = "CAPSLOCK", B[B.NUMLOCK = 32] = "NUMLOCK", B))(U || {}), T = /* @__PURE__ */ ((B) => (B[B.NONE = 0] = "NONE", B[B.PARTIAL = 1] = "PARTIAL", B[B.FULL = 2] = "FULL", B))(T || {}), F = /* @__PURE__ */ ((B) => (B[B.COLS = 1] = "COLS", B[B.ROWS = 2] = "ROWS", B[B.DIRTY = 3] = "DIRTY", B[B.ROW_ITERATOR = 4] = "ROW_ITERATOR", B[B.COLOR_BACKGROUND = 5] = "COLOR_BACKGROUND", B[B.COLOR_FOREGROUND = 6] = "COLOR_FOREGROUND", B[B.COLOR_CURSOR = 7] = "COLOR_CURSOR", B[B.COLOR_CURSOR_HAS_VALUE = 8] = "COLOR_CURSOR_HAS_VALUE", B[B.COLOR_PALETTE = 9] = "COLOR_PALETTE", B[B.CURSOR_VISUAL_STYLE = 10] = "CURSOR_VISUAL_STYLE", B[B.CURSOR_VISIBLE = 11] = "CURSOR_VISIBLE", B[B.CURSOR_BLINKING = 12] = "CURSOR_BLINKING", B[B.CURSOR_PASSWORD_INPUT = 13] = "CURSOR_PASSWORD_INPUT", B[B.CURSOR_VIEWPORT_HAS_VALUE = 14] = "CURSOR_VIEWPORT_HAS_VALUE", B[B.CURSOR_VIEWPORT_X = 15] = "CURSOR_VIEWPORT_X", B[B.CURSOR_VIEWPORT_Y = 16] = "CURSOR_VIEWPORT_Y", B[B.CURSOR_VIEWPORT_WIDE_TAIL = 17] = "CURSOR_VIEWPORT_WIDE_TAIL", B))(F || {}), CA = /* @__PURE__ */ ((B) => (B[B.DIRTY = 0] = "DIRTY", B))(CA || {}), z = /* @__PURE__ */ ((B) => (B[B.BAR = 0] = "BAR", B[B.BLOCK = 1] = "BLOCK", B[B.UNDERLINE = 2] = "UNDERLINE", B[B.BLOCK_HOLLOW = 3] = "BLOCK_HOLLOW", B))(z || {}), d = /* @__PURE__ */ ((B) => (B[B.COLS = 1] = "COLS", B[B.ROWS = 2] = "ROWS", B[B.CURSOR_X = 3] = "CURSOR_X", B[B.CURSOR_Y = 4] = "CURSOR_Y", B[B.CURSOR_PENDING_WRAP = 5] = "CURSOR_PENDING_WRAP", B[B.ACTIVE_SCREEN = 6] = "ACTIVE_SCREEN", B[B.CURSOR_VISIBLE = 7] = "CURSOR_VISIBLE", B[B.KITTY_KEYBOARD_FLAGS = 8] = "KITTY_KEYBOARD_FLAGS", B[B.SCROLLBAR = 9] = "SCROLLBAR", B[B.CURSOR_STYLE = 10] = "CURSOR_STYLE", B[B.MOUSE_TRACKING = 11] = "MOUSE_TRACKING", B[B.TITLE = 12] = "TITLE", B[B.PWD = 13] = "PWD", B[B.TOTAL_ROWS = 14] = "TOTAL_ROWS", B[B.SCROLLBACK_ROWS = 15] = "SCROLLBACK_ROWS", B[B.WIDTH_PX = 16] = "WIDTH_PX", B[B.HEIGHT_PX = 17] = "HEIGHT_PX", B[B.COLOR_FOREGROUND = 18] = "COLOR_FOREGROUND", B[B.COLOR_BACKGROUND = 19] = "COLOR_BACKGROUND", B[B.COLOR_CURSOR = 20] = "COLOR_CURSOR", B[B.COLOR_PALETTE = 21] = "COLOR_PALETTE", B[B.COLOR_FOREGROUND_DEFAULT = 22] = "COLOR_FOREGROUND_DEFAULT", B[B.COLOR_BACKGROUND_DEFAULT = 23] = "COLOR_BACKGROUND_DEFAULT", B[B.COLOR_CURSOR_DEFAULT = 24] = "COLOR_CURSOR_DEFAULT", B[B.COLOR_PALETTE_DEFAULT = 25] = "COLOR_PALETTE_DEFAULT", B))(d || {}), n = /* @__PURE__ */ ((B) => (B[B.USERDATA = 0] = "USERDATA", B[B.WRITE_PTY = 1] = "WRITE_PTY", B[B.BELL = 2] = "BELL", B[B.ENQUIRY = 3] = "ENQUIRY", B[B.XTVERSION = 4] = "XTVERSION", B[B.TITLE_CHANGED = 5] = "TITLE_CHANGED", B[B.SIZE = 6] = "SIZE", B[B.COLOR_FOREGROUND = 11] = "COLOR_FOREGROUND", B[B.COLOR_BACKGROUND = 12] = "COLOR_BACKGROUND", B[B.COLOR_CURSOR = 13] = "COLOR_CURSOR", B[B.COLOR_PALETTE = 14] = "COLOR_PALETTE", B))(n || {}), EA = /* @__PURE__ */ ((B) => (B[B.PRIMARY = 0] = "PRIMARY", B[B.ALTERNATE = 1] = "ALTERNATE", B))(EA || {}), p = /* @__PURE__ */ ((B) => (B[B.DIRTY = 1] = "DIRTY", B[B.RAW = 2] = "RAW", B[B.CELLS = 3] = "CELLS", B))(p || {}), DA = /* @__PURE__ */ ((B) => (B[B.DIRTY = 0] = "DIRTY", B))(DA || {}), R = /* @__PURE__ */ ((B) => (B[B.RAW = 1] = "RAW", B[B.STYLE = 2] = "STYLE", B[B.GRAPHEMES_LEN = 3] = "GRAPHEMES_LEN", B[B.GRAPHEMES_BUF = 4] = "GRAPHEMES_BUF", B[B.BG_COLOR = 5] = "BG_COLOR", B[B.FG_COLOR = 6] = "FG_COLOR", B))(R || {}), v = /* @__PURE__ */ ((B) => (B[B.WRAP = 1] = "WRAP", B[B.WRAP_CONTINUATION = 2] = "WRAP_CONTINUATION", B[B.GRAPHEME = 3] = "GRAPHEME", B[B.STYLED = 4] = "STYLED", B[B.HYPERLINK = 5] = "HYPERLINK", B))(v || {}), f = /* @__PURE__ */ ((B) => (B[B.ACTIVE = 0] = "ACTIVE", B[B.VIEWPORT = 1] = "VIEWPORT", B[B.SCREEN = 2] = "SCREEN", B[B.HISTORY = 3] = "HISTORY", B))(f || {}), x = /* @__PURE__ */ ((B) => (B[B.CODEPOINT = 1] = "CODEPOINT", B[B.CONTENT_TAG = 2] = "CONTENT_TAG", B[B.WIDE = 3] = "WIDE", B[B.HAS_TEXT = 4] = "HAS_TEXT", B[B.HAS_STYLING = 5] = "HAS_STYLING", B[B.STYLE_ID = 6] = "STYLE_ID", B[B.HAS_HYPERLINK = 7] = "HAS_HYPERLINK", B[B.PROTECTED = 8] = "PROTECTED", B[B.SEMANTIC_CONTENT = 9] = "SEMANTIC_CONTENT", B[B.COLOR_PALETTE = 10] = "COLOR_PALETTE", B[B.COLOR_RGB = 11] = "COLOR_RGB", B))(x || {}), O = /* @__PURE__ */ ((B) => (B[B.NARROW = 0] = "NARROW", B[B.WIDE = 1] = "WIDE", B[B.SPACER_TAIL = 2] = "SPACER_TAIL", B[B.SPACER_HEAD = 3] = "SPACER_HEAD", B))(O || {});
+function AA(B, A) {
   return B & 32767 | (A ? 32768 : 0);
 }
-const AA = 80;
-var M = /* @__PURE__ */ ((B) => (B[B.BOLD = 1] = "BOLD", B[B.ITALIC = 2] = "ITALIC", B[B.UNDERLINE = 4] = "UNDERLINE", B[B.STRIKETHROUGH = 8] = "STRIKETHROUGH", B[B.INVERSE = 16] = "INVERSE", B[B.INVISIBLE = 32] = "INVISIBLE", B[B.BLINK = 64] = "BLINK", B[B.FAINT = 128] = "FAINT", B))(M || {});
-const tA = new TextDecoder();
+const BA = 80;
+var a = /* @__PURE__ */ ((B) => (B[B.BOLD = 1] = "BOLD", B[B.ITALIC = 2] = "ITALIC", B[B.UNDERLINE = 4] = "UNDERLINE", B[B.STRIKETHROUGH = 8] = "STRIKETHROUGH", B[B.INVERSE = 16] = "INVERSE", B[B.INVISIBLE = 32] = "INVISIBLE", B[B.BLINK = 64] = "BLINK", B[B.FAINT = 128] = "FAINT", B))(a || {});
+const eA = new TextDecoder();
 class S {
   constructor(A) {
     this.exports = A.exports, this.memory = this.exports.memory;
   }
   createKeyEncoder() {
-    return new eA(this.exports);
+    return new kA(this.exports);
   }
   createTerminal(A = 80, g = 24, Q) {
-    return new kA(this.exports, this.memory, A, g, Q);
+    return new cA(this.exports, this.memory, A, g, Q);
   }
   static async load(A) {
     if (A)
@@ -256,7 +256,7 @@ class S {
               g,
               Q
             );
-            console.log("[ghostty-vt]", tA.decode(I));
+            console.log("[ghostty-vt]", eA.decode(I));
           }
         }
       },
@@ -266,7 +266,7 @@ class S {
     };
   }
 }
-class eA {
+class kA {
   constructor(A) {
     this.encoder = 0, this.exports = A;
     const g = this.exports.ghostty_wasm_alloc_opaque(), Q = this.exports.ghostty_key_encoder_new(0, g);
@@ -280,7 +280,7 @@ class eA {
     new DataView(this.exports.memory.buffer).setUint8(Q, typeof g == "boolean" ? g ? 1 : 0 : g), this.exports.ghostty_key_encoder_setopt(this.encoder, A, Q), this.exports.ghostty_wasm_free_u8(Q);
   }
   setKittyFlags(A) {
-    this.setOption(P.KITTY_KEYBOARD_FLAGS, A);
+    this.setOption(_.KITTY_KEYBOARD_FLAGS, A);
   }
   encode(A) {
     const g = this.exports.ghostty_wasm_alloc_opaque(), Q = this.exports.ghostty_key_event_new(0, g);
@@ -288,8 +288,8 @@ class eA {
       throw new Error(`Failed to create key event: ${Q}`);
     const I = new DataView(this.exports.memory.buffer), C = I.getUint32(g, !0);
     if (this.exports.ghostty_wasm_free_opaque(g), this.exports.ghostty_key_event_set_action(C, A.action), this.exports.ghostty_key_event_set_key(C, A.key), this.exports.ghostty_key_event_set_mods(C, A.mods), A.utf8) {
-      const c = new TextEncoder().encode(A.utf8), e = this.exports.ghostty_wasm_alloc_u8_array(c.length);
-      new Uint8Array(this.exports.memory.buffer).set(c, e), this.exports.ghostty_key_event_set_utf8(C, e, c.length), this.exports.ghostty_wasm_free_u8_array(e, c.length);
+      const h = new TextEncoder().encode(A.utf8), k = this.exports.ghostty_wasm_alloc_u8_array(h.length);
+      new Uint8Array(this.exports.memory.buffer).set(h, k), this.exports.ghostty_key_event_set_utf8(C, k, h.length), this.exports.ghostty_wasm_free_u8_array(k, h.length);
     }
     const E = 32, D = this.exports.ghostty_wasm_alloc_u8_array(E), i = this.exports.ghostty_wasm_alloc_usize(), o = this.exports.ghostty_key_encoder_encode(
       this.encoder,
@@ -300,14 +300,14 @@ class eA {
     );
     if (o !== 0)
       throw this.exports.ghostty_wasm_free_u8_array(D, E), this.exports.ghostty_wasm_free_usize(i), this.exports.ghostty_key_event_free(C), new Error(`Failed to encode key: ${o}`);
-    const s = I.getUint32(i, !0), a = new Uint8Array(this.exports.memory.buffer, D, s).slice();
-    return this.exports.ghostty_wasm_free_u8_array(D, E), this.exports.ghostty_wasm_free_usize(i), this.exports.ghostty_key_event_free(C), a;
+    const G = I.getUint32(i, !0), c = new Uint8Array(this.exports.memory.buffer, D, G).slice();
+    return this.exports.ghostty_wasm_free_u8_array(D, E), this.exports.ghostty_wasm_free_usize(i), this.exports.ghostty_key_event_free(C), c;
   }
   dispose() {
     this.encoder && (this.exports.ghostty_key_encoder_free(this.encoder), this.encoder = 0);
   }
 }
-const DA = class v {
+const iA = class V {
   constructor(A, g, Q = 80, I = 24, C) {
     this.renderHandle = 0, this.rowIter = 0, this.rowCells = 0, this.cellPool = [], this.cellWidthPx = 0, this.cellHeightPx = 0, this.rowDirtyCache = null, this.rowWrapCache = null, this.pendingResponses = [], this.exports = A, this.memory = g, this._cols = Q, this._rows = I;
     const E = 8, D = this.exports.ghostty_wasm_alloc_u8_array(E);
@@ -319,9 +319,9 @@ const DA = class v {
     try {
       const o = new DataView(this.memory.buffer, D, E);
       o.setUint16(0, Q, !0), o.setUint16(2, I, !0), o.setUint32(4, (C == null ? void 0 : C.scrollbackLimit) ?? 1e4, !0);
-      const s = this.exports.ghostty_terminal_new(0, i, D);
-      if (s !== 0)
-        throw new Error(`ghostty_terminal_new failed: ${s}`);
+      const G = this.exports.ghostty_terminal_new(0, i, D);
+      if (G !== 0)
+        throw new Error(`ghostty_terminal_new failed: ${G}`);
       this.handle = new DataView(this.memory.buffer).getUint32(i, !0);
     } finally {
       this.exports.ghostty_wasm_free_u8_array(D, E), this.exports.ghostty_wasm_free_opaque(i);
@@ -329,7 +329,7 @@ const DA = class v {
     if (!this.handle)
       throw new Error("Failed to create terminal");
     try {
-      this.installCallbacks(), C && this.applyConfig(C), this.exports.ghostty_terminal_mode_set(this.handle, $(2027, !1), !0), this.renderHandle = this.allocOpaqueOrFail(
+      this.installCallbacks(), C && this.applyConfig(C), this.exports.ghostty_terminal_mode_set(this.handle, AA(2027, !1), !0), this.renderHandle = this.allocOpaqueOrFail(
         "ghostty_render_state_new",
         (o) => this.exports.ghostty_render_state_new(0, o)
       ), this.rowIter = this.allocOpaqueOrFail(
@@ -376,12 +376,12 @@ const DA = class v {
    * write the merged 768-byte buffer back.
    */
   applyConfig(A) {
-    if (A.fgColor && this.setColorOption(l.COLOR_FOREGROUND, A.fgColor), A.bgColor && this.setColorOption(l.COLOR_BACKGROUND, A.bgColor), A.cursorColor && this.setColorOption(l.COLOR_CURSOR, A.cursorColor), A.palette && A.palette.some((g) => g !== 0)) {
+    if (A.fgColor && this.setColorOption(n.COLOR_FOREGROUND, A.fgColor), A.bgColor && this.setColorOption(n.COLOR_BACKGROUND, A.bgColor), A.cursorColor && this.setColorOption(n.COLOR_CURSOR, A.cursorColor), A.palette && A.palette.some((g) => g !== 0)) {
       const Q = this.exports.ghostty_wasm_alloc_u8_array(768);
       try {
         this.exports.ghostty_terminal_get(
           this.handle,
-          O.COLOR_PALETTE_DEFAULT,
+          d.COLOR_PALETTE_DEFAULT,
           Q
         ) !== 0 && new Uint8Array(this.memory.buffer, Q, 768).fill(0);
         const C = new Uint8Array(this.memory.buffer, Q, 768), E = Math.min(A.palette.length, 16);
@@ -389,7 +389,7 @@ const DA = class v {
           const i = A.palette[D];
           i !== 0 && (C[D * 3 + 0] = i >> 16 & 255, C[D * 3 + 1] = i >> 8 & 255, C[D * 3 + 2] = i & 255);
         }
-        this.exports.ghostty_terminal_set(this.handle, l.COLOR_PALETTE, Q);
+        this.exports.ghostty_terminal_set(this.handle, n.COLOR_PALETTE, Q);
       } finally {
         this.exports.ghostty_wasm_free_u8_array(Q, 768);
       }
@@ -520,12 +520,12 @@ const DA = class v {
     const g = this.exports.ghostty_terminal_set_colors;
     if (!g)
       return;
-    const Q = this.exports.ghostty_wasm_alloc_u8_array(AA);
+    const Q = this.exports.ghostty_wasm_alloc_u8_array(BA);
     if (Q !== 0)
       try {
         this.writeConfigToPtr(Q, A), g(this.handle, Q);
       } finally {
-        this.exports.ghostty_wasm_free_u8_array(Q, AA);
+        this.exports.ghostty_wasm_free_u8_array(Q, BA);
       }
   }
   /**
@@ -575,7 +575,7 @@ const DA = class v {
    */
   getCursor() {
     this.update();
-    const A = this.rsGetU8(F.CURSOR_VIEWPORT_HAS_VALUE) !== 0, g = this.rsGetU8(F.CURSOR_VISIBLE) !== 0, Q = this.rsGetU8(F.CURSOR_BLINKING) !== 0, I = this.rsGetU32(F.CURSOR_VISUAL_STYLE), C = A ? this.rsGetU16(F.CURSOR_VIEWPORT_X) : -1, E = A ? this.rsGetU16(F.CURSOR_VIEWPORT_Y) : -1, D = I === W.BAR ? "bar" : I === W.UNDERLINE ? "underline" : "block";
+    const A = this.rsGetU8(F.CURSOR_VIEWPORT_HAS_VALUE) !== 0, g = this.rsGetU8(F.CURSOR_VISIBLE) !== 0, Q = this.rsGetU8(F.CURSOR_BLINKING) !== 0, I = this.rsGetU32(F.CURSOR_VISUAL_STYLE), C = A ? this.rsGetU16(F.CURSOR_VIEWPORT_X) : -1, E = A ? this.rsGetU16(F.CURSOR_VIEWPORT_Y) : -1, D = I === z.BAR ? "bar" : I === z.UNDERLINE ? "underline" : "block";
     return {
       x: Math.max(0, C),
       y: Math.max(0, E),
@@ -646,15 +646,15 @@ const DA = class v {
         const D = new DataView(this.memory.buffer);
         this.exports.ghostty_render_state_row_get(
           this.rowIter,
-          n.DIRTY,
+          p.DIRTY,
           Q
         ), A[E] = D.getUint8(Q) !== 0, this.exports.ghostty_render_state_row_get(
           this.rowIter,
-          n.RAW,
+          p.RAW,
           I
         );
         const i = new DataView(this.memory.buffer).getBigUint64(I, !0);
-        this.exports.ghostty_row_get(i, z.WRAP_CONTINUATION, C), g[E] = new DataView(this.memory.buffer).getUint8(C) !== 0, E++;
+        this.exports.ghostty_row_get(i, v.WRAP_CONTINUATION, C), g[E] = new DataView(this.memory.buffer).getUint8(C) !== 0, E++;
       }
     } finally {
       this.exports.ghostty_wasm_free_u8(Q), this.exports.ghostty_wasm_free_u8_array(I, 8), this.exports.ghostty_wasm_free_u8(C);
@@ -672,7 +672,7 @@ const DA = class v {
    */
   markClean() {
     const A = this.exports.ghostty_wasm_alloc_u8_array(4);
-    new DataView(this.memory.buffer).setUint32(A, j.NONE, !0), this.exports.ghostty_render_state_set(this.renderHandle, IA.DIRTY, A), this.exports.ghostty_wasm_free_u8_array(A, 4), this.populateHandle(
+    new DataView(this.memory.buffer).setUint32(A, T.NONE, !0), this.exports.ghostty_render_state_set(this.renderHandle, CA.DIRTY, A), this.exports.ghostty_wasm_free_u8_array(A, 4), this.populateHandle(
       (Q) => this.exports.ghostty_render_state_get(
         this.renderHandle,
         F.ROW_ITERATOR,
@@ -684,7 +684,7 @@ const DA = class v {
     for (new DataView(this.memory.buffer).setUint8(g, 0); this.exports.ghostty_render_state_row_iterator_next(this.rowIter); )
       this.exports.ghostty_render_state_row_set(
         this.rowIter,
-        EA.DIRTY,
+        DA.DIRTY,
         g
       );
     this.exports.ghostty_wasm_free_u8(g), this.rowDirtyCache = null;
@@ -719,91 +719,91 @@ const DA = class v {
    */
   getViewport() {
     this.update(), this.zeroCellPool(), this.populateHandle(
-      (k) => this.exports.ghostty_render_state_get(this.renderHandle, F.ROW_ITERATOR, k),
+      (t) => this.exports.ghostty_render_state_get(this.renderHandle, F.ROW_ITERATOR, t),
       this.rowIter
     );
     const A = 72, g = this.exports.ghostty_wasm_alloc_u8_array(4), Q = this.exports.ghostty_wasm_alloc_u8_array(3), I = this.exports.ghostty_wasm_alloc_u8(), C = this.exports.ghostty_wasm_alloc_u8_array(8), E = this.exports.ghostty_wasm_alloc_u8(), D = this.exports.ghostty_wasm_alloc_u8_array(A);
     new DataView(this.memory.buffer).setUint32(D, A, !0);
-    const i = this.exports.ghostty_wasm_alloc_u8_array(8), o = this.exports.ghostty_wasm_alloc_u8_array(4), s = new Array(this._rows).fill(!1), a = new Array(this._rows).fill(!1);
+    const i = this.exports.ghostty_wasm_alloc_u8_array(8), o = this.exports.ghostty_wasm_alloc_u8_array(4), G = new Array(this._rows).fill(!1), c = new Array(this._rows).fill(!1);
     try {
-      let k = 0;
-      for (; k < this._rows && this.exports.ghostty_render_state_row_iterator_next(this.rowIter); ) {
+      let t = 0;
+      for (; t < this._rows && this.exports.ghostty_render_state_row_iterator_next(this.rowIter); ) {
         this.exports.ghostty_render_state_row_get(
           this.rowIter,
-          n.DIRTY,
+          p.DIRTY,
           I
-        ), s[k] = new DataView(this.memory.buffer).getUint8(I) !== 0, this.exports.ghostty_render_state_row_get(
+        ), G[t] = new DataView(this.memory.buffer).getUint8(I) !== 0, this.exports.ghostty_render_state_row_get(
           this.rowIter,
-          n.RAW,
+          p.RAW,
           C
         );
-        const c = new DataView(this.memory.buffer).getBigUint64(C, !0);
-        this.exports.ghostty_row_get(c, z.WRAP_CONTINUATION, E), a[k] = new DataView(this.memory.buffer).getUint8(E) !== 0, this.populateHandle(
-          (G) => this.exports.ghostty_render_state_row_get(
+        const h = new DataView(this.memory.buffer).getBigUint64(C, !0);
+        this.exports.ghostty_row_get(h, v.WRAP_CONTINUATION, E), c[t] = new DataView(this.memory.buffer).getUint8(E) !== 0, this.populateHandle(
+          (s) => this.exports.ghostty_render_state_row_get(
             this.rowIter,
-            n.CELLS,
-            G
+            p.CELLS,
+            s
           ),
           this.rowCells
         );
-        let e = 0;
-        for (; e < this._cols && this.exports.ghostty_render_state_row_cells_next(this.rowCells); ) {
-          const G = this.cellPool[k * this._cols + e];
+        let k = 0;
+        for (; k < this._cols && this.exports.ghostty_render_state_row_cells_next(this.rowCells); ) {
+          const s = this.cellPool[t * this._cols + k];
           this.exports.ghostty_render_state_row_cells_get(
             this.rowCells,
-            U.GRAPHEMES_LEN,
+            R.GRAPHEMES_LEN,
             g
           );
-          const y = new DataView(this.memory.buffer).getUint32(g, !0);
-          if (G.grapheme_len = y > 0 ? y - 1 : 0, y > 0 ? (this.exports.ghostty_render_state_row_cells_get(
+          const J = new DataView(this.memory.buffer).getUint32(g, !0);
+          if (s.grapheme_len = J > 0 ? J - 1 : 0, J > 0 ? (this.exports.ghostty_render_state_row_cells_get(
             this.rowCells,
-            U.GRAPHEMES_BUF,
+            R.GRAPHEMES_BUF,
             g
-          ), G.codepoint = new DataView(this.memory.buffer).getUint32(g, !0)) : G.codepoint = 0, G.fg_r = G.fg_g = G.fg_b = 0, G.bg_r = G.bg_g = G.bg_b = 0, this.exports.ghostty_render_state_row_cells_get(
+          ), s.codepoint = new DataView(this.memory.buffer).getUint32(g, !0)) : s.codepoint = 0, s.fg_r = s.fg_g = s.fg_b = 0, s.bg_r = s.bg_g = s.bg_b = 0, s.fgIsDefault = !0, s.bgIsDefault = !0, this.exports.ghostty_render_state_row_cells_get(
             this.rowCells,
-            U.FG_COLOR,
+            R.FG_COLOR,
             Q
           ) === 0) {
-            const t = new Uint8Array(this.memory.buffer, Q, 3);
-            G.fg_r = t[0], G.fg_g = t[1], G.fg_b = t[2];
+            const e = new Uint8Array(this.memory.buffer, Q, 3);
+            s.fg_r = e[0], s.fg_g = e[1], s.fg_b = e[2], s.fgIsDefault = !1;
           }
           if (this.exports.ghostty_render_state_row_cells_get(
             this.rowCells,
-            U.BG_COLOR,
+            R.BG_COLOR,
             Q
           ) === 0) {
-            const t = new Uint8Array(this.memory.buffer, Q, 3);
-            G.bg_r = t[0], G.bg_g = t[1], G.bg_b = t[2];
+            const e = new Uint8Array(this.memory.buffer, Q, 3);
+            s.bg_r = e[0], s.bg_g = e[1], s.bg_b = e[2], s.bgIsDefault = !1;
           }
           this.exports.ghostty_render_state_row_cells_get(
             this.rowCells,
-            U.STYLE,
+            R.STYLE,
             D
           );
           {
-            const t = new Uint8Array(this.memory.buffer, D, A);
-            let h = 0;
-            t[56] && (h |= M.BOLD), t[57] && (h |= M.ITALIC), t[58] && (h |= M.FAINT), t[59] && (h |= M.BLINK), t[60] && (h |= M.INVERSE), t[61] && (h |= M.INVISIBLE), t[62] && (h |= M.STRIKETHROUGH), new DataView(this.memory.buffer).getInt32(D + 64, !0) !== 0 && (h |= M.UNDERLINE), G.flags = h;
+            const e = new Uint8Array(this.memory.buffer, D, A);
+            let M = 0;
+            e[56] && (M |= a.BOLD), e[57] && (M |= a.ITALIC), e[58] && (M |= a.FAINT), e[59] && (M |= a.BLINK), e[60] && (M |= a.INVERSE), e[61] && (M |= a.INVISIBLE), e[62] && (M |= a.STRIKETHROUGH), new DataView(this.memory.buffer).getInt32(D + 64, !0) !== 0 && (M |= a.UNDERLINE), s.flags = M;
           }
           this.exports.ghostty_render_state_row_cells_get(
             this.rowCells,
-            U.RAW,
+            R.RAW,
             i
           );
-          const H = new DataView(this.memory.buffer).getBigUint64(
+          const y = new DataView(this.memory.buffer).getBigUint64(
             i,
             !0
           );
-          this.exports.ghostty_cell_get(H, m.WIDE, o);
-          const Y = new DataView(this.memory.buffer).getUint32(o, !0);
-          G.width = Y === p.WIDE ? 2 : Y === p.SPACER_TAIL || Y === p.SPACER_HEAD ? 0 : 1, G.hyperlink_id = 0, e++;
+          this.exports.ghostty_cell_get(y, x.WIDE, o);
+          const H = new DataView(this.memory.buffer).getUint32(o, !0);
+          s.width = H === O.WIDE ? 2 : H === O.SPACER_TAIL || H === O.SPACER_HEAD ? 0 : 1, this.exports.ghostty_cell_get(y, x.HAS_HYPERLINK, o), s.hyperlink_id = new DataView(this.memory.buffer).getUint8(o) !== 0 ? 1 : 0, k++;
         }
-        k++;
+        t++;
       }
     } finally {
       this.exports.ghostty_wasm_free_u8_array(g, 4), this.exports.ghostty_wasm_free_u8_array(Q, 3), this.exports.ghostty_wasm_free_u8(I), this.exports.ghostty_wasm_free_u8_array(C, 8), this.exports.ghostty_wasm_free_u8(E), this.exports.ghostty_wasm_free_u8_array(D, A), this.exports.ghostty_wasm_free_u8_array(i, 8), this.exports.ghostty_wasm_free_u8_array(o, 4);
     }
-    return this.rowDirtyCache = s, this.rowWrapCache = a, this.cellPool;
+    return this.rowDirtyCache = G, this.rowWrapCache = c, this.cellPool;
   }
   /**
    * Helper for the in/out pointer pattern used by ROW_ITERATOR / ROW_DATA_CELLS:
@@ -823,7 +823,7 @@ const DA = class v {
   zeroCellPool() {
     for (let A = 0; A < this.cellPool.length; A++) {
       const g = this.cellPool[A];
-      g.codepoint = 0, g.fg_r = g.fg_g = g.fg_b = 0, g.bg_r = g.bg_g = g.bg_b = 0, g.flags = 0, g.width = 1, g.hyperlink_id = 0, g.grapheme_len = 0;
+      g.codepoint = 0, g.fg_r = g.fg_g = g.fg_b = 0, g.bg_r = g.bg_g = g.bg_b = 0, g.fgIsDefault = !0, g.bgIsDefault = !0, g.flags = 0, g.width = 1, g.hyperlink_id = 0, g.grapheme_len = 0;
     }
   }
   // ==========================================================================
@@ -843,14 +843,14 @@ const DA = class v {
   }
   /** For compatibility with old API */
   isDirty() {
-    return this.update() !== j.NONE;
+    return this.update() !== T.NONE;
   }
   /**
    * Check if a full redraw is needed (screen change, resize, etc.)
    * Note: This calls update() to ensure fresh state. Safe to call multiple times.
    */
   needsFullRedraw() {
-    return this.update() === j.FULL;
+    return this.update() === T.FULL;
   }
   /** Mark render state as clean after rendering */
   clearDirty() {
@@ -860,7 +860,7 @@ const DA = class v {
   // Terminal modes
   // ==========================================================================
   isAlternateScreen() {
-    return this.tGetU32(O.ACTIVE_SCREEN) === CA.ALTERNATE;
+    return this.tGetU32(d.ACTIVE_SCREEN) === EA.ALTERNATE;
   }
   hasBracketedPaste() {
     return this.getMode(2004, !1);
@@ -869,7 +869,7 @@ const DA = class v {
     return this.getMode(1004, !1);
   }
   hasMouseTracking() {
-    return this.tGetU8(O.MOUSE_TRACKING) !== 0;
+    return this.tGetU8(d.MOUSE_TRACKING) !== 0;
   }
   // ==========================================================================
   // Extended API (scrollback, modes, etc.)
@@ -880,7 +880,7 @@ const DA = class v {
   }
   /** Get number of scrollback lines (history, not including active screen) */
   getScrollbackLength() {
-    return this.tGetU32(O.SCROLLBACK_ROWS);
+    return this.tGetU32(d.SCROLLBACK_ROWS);
   }
   /**
    * Get a line from the scrollback buffer.
@@ -896,20 +896,20 @@ const DA = class v {
    * The text-extraction tests that drove this commit only check codepoints.
    */
   getScrollbackLine(A) {
-    return this.readGridLine(d.HISTORY, A);
+    return this.readGridLine(f.HISTORY, A);
   }
   /**
    * Get the hyperlink URI for a cell at the given position in the active
    * viewport. Returns null when no hyperlink is attached.
    */
   getHyperlinkUri(A, g) {
-    return A < 0 || A >= this._rows || g < 0 || g >= this._cols ? null : this.readHyperlinkUri(d.ACTIVE, A, g);
+    return A < 0 || A >= this._rows || g < 0 || g >= this._cols ? null : this.readHyperlinkUri(f.ACTIVE, A, g);
   }
   /**
    * Get the hyperlink URI for a cell in the scrollback buffer.
    */
   getScrollbackHyperlinkUri(A, g) {
-    return g < 0 || g >= this._cols ? null : this.readHyperlinkUri(d.HISTORY, A, g);
+    return g < 0 || g >= this._cols ? null : this.readHyperlinkUri(f.HISTORY, A, g);
   }
   // ==========================================================================
   // grid_ref helpers
@@ -934,48 +934,50 @@ const DA = class v {
         return null;
       const C = 768, E = this.exports.ghostty_wasm_alloc_u8_array(C), i = this.exports.ghostty_terminal_get(
         this.handle,
-        O.COLOR_PALETTE,
+        d.COLOR_PALETTE,
         E
-      ) === 0 ? new Uint8Array(this.memory.buffer, E, C).slice() : null, o = new Array(this._cols), s = this.exports.ghostty_wasm_alloc_u8_array(8), a = this.exports.ghostty_wasm_alloc_u8_array(4), k = this.exports.ghostty_wasm_alloc_u8_array(4), c = 72, e = this.exports.ghostty_wasm_alloc_u8_array(c);
-      new DataView(this.memory.buffer).setUint32(e, c, !0);
+      ) === 0 ? new Uint8Array(this.memory.buffer, E, C).slice() : null, o = new Array(this._cols), G = this.exports.ghostty_wasm_alloc_u8_array(8), c = this.exports.ghostty_wasm_alloc_u8_array(4), t = this.exports.ghostty_wasm_alloc_u8_array(4), h = 72, k = this.exports.ghostty_wasm_alloc_u8_array(h);
+      new DataView(this.memory.buffer).setUint32(k, h, !0);
       try {
-        for (let G = 0; G < this._cols; G++) {
-          if (new DataView(this.memory.buffer).setUint16(I + 8, G, !0), this.exports.ghostty_grid_ref_cell(I, s) !== 0) {
-            o[G] = this.makeEmptyCell();
+        for (let s = 0; s < this._cols; s++) {
+          if (new DataView(this.memory.buffer).setUint16(I + 8, s, !0), this.exports.ghostty_grid_ref_cell(I, G) !== 0) {
+            o[s] = this.makeEmptyCell();
             continue;
           }
-          const y = new DataView(this.memory.buffer).getBigUint64(s, !0);
-          this.exports.ghostty_cell_get(y, m.CODEPOINT, a);
-          const H = new DataView(this.memory.buffer).getUint32(a, !0);
-          this.exports.ghostty_cell_get(y, m.WIDE, k);
-          const Y = new DataView(this.memory.buffer).getUint32(k, !0), t = Y === p.WIDE ? 2 : Y === p.SPACER_TAIL || Y === p.SPACER_HEAD ? 0 : 1;
+          const J = new DataView(this.memory.buffer).getBigUint64(G, !0);
+          this.exports.ghostty_cell_get(J, x.CODEPOINT, c);
+          const y = new DataView(this.memory.buffer).getUint32(c, !0);
+          this.exports.ghostty_cell_get(J, x.WIDE, t);
+          const H = new DataView(this.memory.buffer).getUint32(t, !0), e = H === O.WIDE ? 2 : H === O.SPACER_TAIL || H === O.SPACER_HEAD ? 0 : 1;
+          this.exports.ghostty_cell_get(J, x.HAS_HYPERLINK, t);
+          const M = new DataView(this.memory.buffer).getUint8(t) !== 0;
           new DataView(this.memory.buffer).setUint32(
-            e,
-            c,
+            k,
+            h,
             !0
           );
-          const h = this.exports.ghostty_grid_ref_style(I, e) === 0, J = this.makeEmptyCell();
-          if (J.codepoint = H, J.width = t, h) {
-            const L = new Uint8Array(this.memory.buffer, e, c), b = new DataView(this.memory.buffer);
-            let r = 0;
-            L[56] && (r |= M.BOLD), L[57] && (r |= M.ITALIC), L[58] && (r |= M.FAINT), L[59] && (r |= M.BLINK), L[60] && (r |= M.INVERSE), L[61] && (r |= M.INVISIBLE), L[62] && (r |= M.STRIKETHROUGH), b.getInt32(e + 64, !0) !== 0 && (r |= M.UNDERLINE), J.flags = r, this.resolveStyleColor(
-              e + 8,
+          const Y = this.exports.ghostty_grid_ref_style(I, k) === 0, K = this.makeEmptyCell();
+          if (K.codepoint = y, K.width = e, K.hyperlink_id = M ? 1 : 0, Y) {
+            const L = new Uint8Array(this.memory.buffer, k, h), m = new DataView(this.memory.buffer);
+            let q = 0;
+            L[56] && (q |= a.BOLD), L[57] && (q |= a.ITALIC), L[58] && (q |= a.FAINT), L[59] && (q |= a.BLINK), L[60] && (q |= a.INVERSE), L[61] && (q |= a.INVISIBLE), L[62] && (q |= a.STRIKETHROUGH), m.getInt32(k + 64, !0) !== 0 && (q |= a.UNDERLINE), K.flags = q, this.resolveStyleColor(
+              k + 8,
               i,
-              J,
+              K,
               /*isFg=*/
               !0
             ), this.resolveStyleColor(
-              e + 24,
+              k + 24,
               i,
-              J,
+              K,
               /*isFg=*/
               !1
             );
           }
-          o[G] = J;
+          o[s] = K;
         }
       } finally {
-        this.exports.ghostty_wasm_free_u8_array(s, 8), this.exports.ghostty_wasm_free_u8_array(a, 4), this.exports.ghostty_wasm_free_u8_array(k, 4), this.exports.ghostty_wasm_free_u8_array(e, c), this.exports.ghostty_wasm_free_u8_array(E, C);
+        this.exports.ghostty_wasm_free_u8_array(G, 8), this.exports.ghostty_wasm_free_u8_array(c, 4), this.exports.ghostty_wasm_free_u8_array(t, 4), this.exports.ghostty_wasm_free_u8_array(k, h), this.exports.ghostty_wasm_free_u8_array(E, C);
       }
       return o;
     } finally {
@@ -992,12 +994,13 @@ const DA = class v {
   resolveStyleColor(A, g, Q, I) {
     const C = new DataView(this.memory.buffer), E = C.getUint32(A + 0, !0);
     let D = 0, i = 0, o = 0;
+    const G = E === 0;
     if (E === 1 && g) {
-      const s = C.getUint8(A + 8);
-      D = g[s * 3 + 0], i = g[s * 3 + 1], o = g[s * 3 + 2];
+      const c = C.getUint8(A + 8);
+      D = g[c * 3 + 0], i = g[c * 3 + 1], o = g[c * 3 + 2];
     } else
       E === 2 && (D = C.getUint8(A + 8), i = C.getUint8(A + 9), o = C.getUint8(A + 10));
-    I ? (Q.fg_r = D, Q.fg_g = i, Q.fg_b = o) : (Q.bg_r = D, Q.bg_g = i, Q.bg_b = o);
+    I ? (Q.fg_r = D, Q.fg_g = i, Q.fg_b = o, Q.fgIsDefault = G) : (Q.bg_r = D, Q.bg_g = i, Q.bg_b = o, Q.bgIsDefault = G);
   }
   readHyperlinkUri(A, g, Q) {
     const I = this.allocPoint(A, Q, g), C = this.exports.ghostty_wasm_alloc_u8_array(12);
@@ -1020,8 +1023,8 @@ const DA = class v {
             E
           ) !== 0)
             return null;
-          const s = new DataView(this.memory.buffer).getUint32(E, !0), a = new Uint8Array(this.memory.buffer, i, s);
-          return new TextDecoder().decode(a.slice());
+          const G = new DataView(this.memory.buffer).getUint32(E, !0), c = new Uint8Array(this.memory.buffer, i, G);
+          return new TextDecoder().decode(c.slice());
         } finally {
           this.exports.ghostty_wasm_free_u8_array(i, D);
         }
@@ -1045,6 +1048,8 @@ const DA = class v {
       bg_r: 0,
       bg_g: 0,
       bg_b: 0,
+      fgIsDefault: !0,
+      bgIsDefault: !0,
       flags: 0,
       width: 1,
       hyperlink_id: 0,
@@ -1084,26 +1089,26 @@ const DA = class v {
    */
   installCallbacks() {
     const A = this.exports.__indirect_function_table;
-    let g = v.callbackRegistries.get(A);
+    let g = V.callbackRegistries.get(A);
     if (!g) {
-      const Q = /* @__PURE__ */ new Map(), I = (s, a, k, c) => {
-        const e = Q.get(s);
-        e && e.pendingResponses.push(new Uint8Array(e.memory.buffer, k, c).slice());
-      }, C = (s, a, k) => {
-        const c = Q.get(s);
-        if (!c || c.cellWidthPx === 0 || c.cellHeightPx === 0)
+      const Q = /* @__PURE__ */ new Map(), I = (G, c, t, h) => {
+        const k = Q.get(G);
+        k && k.pendingResponses.push(new Uint8Array(k.memory.buffer, t, h).slice());
+      }, C = (G, c, t) => {
+        const h = Q.get(G);
+        if (!h || h.cellWidthPx === 0 || h.cellHeightPx === 0)
           return 0;
-        const e = new DataView(c.memory.buffer);
-        return e.setUint16(k + 0, c._rows, !0), e.setUint16(k + 2, c._cols, !0), e.setUint32(k + 4, c.cellWidthPx, !0), e.setUint32(k + 8, c.cellHeightPx, !0), 1;
-      }, { writePtyFwd: E, sizeFwd: D } = GA(
+        const k = new DataView(h.memory.buffer);
+        return k.setUint16(t + 0, h._rows, !0), k.setUint16(t + 2, h._cols, !0), k.setUint32(t + 4, h.cellWidthPx, !0), k.setUint32(t + 8, h.cellHeightPx, !0), 1;
+      }, { writePtyFwd: E, sizeFwd: D } = tA(
         I,
         C
       ), i = A.grow(1);
       A.set(i, E);
       const o = A.grow(1);
-      A.set(o, D), g = { writePtyIndex: i, sizeIndex: o, instancesByHandle: Q }, v.callbackRegistries.set(A, g);
+      A.set(o, D), g = { writePtyIndex: i, sizeIndex: o, instancesByHandle: Q }, V.callbackRegistries.set(A, g);
     }
-    g.instancesByHandle.set(this.handle, this), this.callbackRegistry = g, this.exports.ghostty_terminal_set(this.handle, l.WRITE_PTY, g.writePtyIndex), this.exports.ghostty_terminal_set(this.handle, l.SIZE, g.sizeIndex);
+    g.instancesByHandle.set(this.handle, this), this.callbackRegistry = g, this.exports.ghostty_terminal_set(this.handle, n.WRITE_PTY, g.writePtyIndex), this.exports.ghostty_terminal_set(this.handle, n.SIZE, g.sizeIndex);
   }
   /**
    * Query arbitrary terminal mode by number.
@@ -1111,7 +1116,7 @@ const DA = class v {
    * @param isAnsi True for ANSI modes, false for DEC modes (default: false)
    */
   getMode(A, g = !1) {
-    const Q = $(A, g), I = this.exports.ghostty_wasm_alloc_u8();
+    const Q = AA(A, g), I = this.exports.ghostty_wasm_alloc_u8();
     this.exports.ghostty_terminal_mode_get(this.handle, Q, I);
     const C = new DataView(this.memory.buffer).getUint8(I);
     return this.exports.ghostty_wasm_free_u8(I), C !== 0;
@@ -1125,12 +1130,14 @@ const DA = class v {
       for (let g = this.cellPool.length; g < A; g++)
         this.cellPool.push({
           codepoint: 0,
-          fg_r: 204,
-          fg_g: 204,
-          fg_b: 204,
+          fg_r: 0,
+          fg_g: 0,
+          fg_b: 0,
           bg_r: 0,
           bg_g: 0,
           bg_b: 0,
+          fgIsDefault: !0,
+          bgIsDefault: !0,
           flags: 0,
           width: 1,
           hyperlink_id: 0,
@@ -1160,7 +1167,7 @@ const DA = class v {
     if (this.populateHandle(
       (D) => this.exports.ghostty_render_state_row_get(
         this.rowIter,
-        n.CELLS,
+        p.CELLS,
         D
       ),
       this.rowCells
@@ -1171,7 +1178,7 @@ const DA = class v {
     try {
       this.exports.ghostty_render_state_row_cells_get(
         this.rowCells,
-        U.GRAPHEMES_LEN,
+        R.GRAPHEMES_LEN,
         Q
       ), I = new DataView(this.memory.buffer).getUint32(Q, !0);
     } finally {
@@ -1183,7 +1190,7 @@ const DA = class v {
     try {
       return this.exports.ghostty_render_state_row_cells_get(
         this.rowCells,
-        U.GRAPHEMES_BUF,
+        R.GRAPHEMES_BUF,
         E
       ), Array.from(new Uint32Array(this.memory.buffer, E, I));
     } finally {
@@ -1207,7 +1214,7 @@ const DA = class v {
   getScrollbackGrapheme(A, g) {
     if (g < 0 || g >= this._cols)
       return null;
-    const Q = this.allocPoint(d.HISTORY, g, A), I = this.exports.ghostty_wasm_alloc_u8_array(12);
+    const Q = this.allocPoint(f.HISTORY, g, A), I = this.exports.ghostty_wasm_alloc_u8_array(12);
     new DataView(this.memory.buffer).setUint32(I, 12, !0);
     try {
       if (this.exports.ghostty_terminal_grid_ref(this.handle, Q, I) !== 0)
@@ -1227,8 +1234,8 @@ const DA = class v {
             C
           ) !== 0)
             return null;
-          const s = new DataView(this.memory.buffer).getUint32(C, !0);
-          return Array.from(new Uint32Array(this.memory.buffer, i, s));
+          const G = new DataView(this.memory.buffer).getUint32(C, !0);
+          return Array.from(new Uint32Array(this.memory.buffer, i, G));
         } finally {
           this.exports.ghostty_wasm_free_u8_array(i, D);
         }
@@ -1247,9 +1254,9 @@ const DA = class v {
     return !Q || Q.length === 0 ? " " : String.fromCodePoint(...Q);
   }
 };
-DA.callbackRegistries = /* @__PURE__ */ new WeakMap();
-let kA = DA;
-class K {
+iA.callbackRegistries = /* @__PURE__ */ new WeakMap();
+let cA = iA;
+class r {
   constructor() {
     this.listeners = [], this.event = (A) => (this.listeners.push(A), {
       dispose: () => {
@@ -1266,19 +1273,19 @@ class K {
     this.listeners = [];
   }
 }
-class cA {
+class hA {
   constructor(A) {
-    this.bufferChangeEmitter = new K(), this.terminal = A;
+    this.bufferChangeEmitter = new r(), this.terminal = A;
   }
   get active() {
     const A = this.terminal.wasmTerm;
     return A ? A.isAlternateScreen() ? this.alternate : this.normal : this.normal;
   }
   get normal() {
-    return this._normalBuffer || (this._normalBuffer = new BA(this.terminal, "normal")), this._normalBuffer;
+    return this._normalBuffer || (this._normalBuffer = new gA(this.terminal, "normal")), this._normalBuffer;
   }
   get alternate() {
-    return this._alternateBuffer || (this._alternateBuffer = new BA(this.terminal, "alternate")), this._alternateBuffer;
+    return this._alternateBuffer || (this._alternateBuffer = new gA(this.terminal, "alternate")), this._alternateBuffer;
   }
   get onBufferChange() {
     return this.bufferChangeEmitter.event;
@@ -1291,23 +1298,25 @@ class cA {
     this.bufferChangeEmitter.fire(A);
   }
 }
-class BA {
+class gA {
   constructor(A, g) {
     this.terminal = A, this.bufferType = g;
     const Q = {
       codepoint: 0,
-      fg_r: 204,
-      fg_g: 204,
-      fg_b: 204,
+      fg_r: 0,
+      fg_g: 0,
+      fg_b: 0,
       bg_r: 0,
       bg_g: 0,
       bg_b: 0,
+      fgIsDefault: !0,
+      bgIsDefault: !0,
       flags: 0,
       width: 1,
       hyperlink_id: 0,
       grapheme_len: 0
     };
-    this.nullCell = new V(Q, 0);
+    this.nullCell = new P(Q, 0);
   }
   get type() {
     return this.bufferType;
@@ -1363,22 +1372,24 @@ class aA {
   }
   getCell(A) {
     if (!(A < 0 || A >= this._length))
-      return A >= this.cells.length ? new V(
+      return A >= this.cells.length ? new P(
         {
           codepoint: 0,
-          fg_r: 204,
-          fg_g: 204,
-          fg_b: 204,
+          fg_r: 0,
+          fg_g: 0,
+          fg_b: 0,
           bg_r: 0,
           bg_g: 0,
           bg_b: 0,
+          fgIsDefault: !0,
+          bgIsDefault: !0,
           flags: 0,
           width: 1,
           hyperlink_id: 0,
           grapheme_len: 0
         },
         A
-      ) : new V(this.cells[A], A);
+      ) : new P(this.cells[A], A);
   }
   translateToString(A = !1, g = 0, Q = this._length) {
     const I = Math.max(0, Math.min(g, this._length)), C = Math.max(I, Math.min(Q, this._length));
@@ -1393,7 +1404,7 @@ class aA {
     return A && (E = E.trimEnd()), E;
   }
 }
-class V {
+class P {
   constructor(A, g) {
     this.cell = A, this.x = g;
   }
@@ -1420,28 +1431,28 @@ class V {
     return this.cell.bg_r << 16 | this.cell.bg_g << 8 | this.cell.bg_b;
   }
   isBold() {
-    return this.cell.flags & M.BOLD ? 1 : 0;
+    return this.cell.flags & a.BOLD ? 1 : 0;
   }
   isItalic() {
-    return this.cell.flags & M.ITALIC ? 1 : 0;
+    return this.cell.flags & a.ITALIC ? 1 : 0;
   }
   isUnderline() {
-    return this.cell.flags & M.UNDERLINE ? 1 : 0;
+    return this.cell.flags & a.UNDERLINE ? 1 : 0;
   }
   isStrikethrough() {
-    return this.cell.flags & M.STRIKETHROUGH ? 1 : 0;
+    return this.cell.flags & a.STRIKETHROUGH ? 1 : 0;
   }
   isBlink() {
-    return this.cell.flags & M.BLINK ? 1 : 0;
+    return this.cell.flags & a.BLINK ? 1 : 0;
   }
   isInverse() {
-    return this.cell.flags & M.INVERSE ? 1 : 0;
+    return this.cell.flags & a.INVERSE ? 1 : 0;
   }
   isInvisible() {
-    return this.cell.flags & M.INVISIBLE ? 1 : 0;
+    return this.cell.flags & a.INVISIBLE ? 1 : 0;
   }
   isFaint() {
-    return this.cell.flags & M.FAINT ? 1 : 0;
+    return this.cell.flags & a.FAINT ? 1 : 0;
   }
   /**
    * Get hyperlink ID for this cell (0 = no link)
@@ -1462,10 +1473,10 @@ class V {
    * Added for IBufferCell compatibility
    */
   isDim() {
-    return (this.cell.flags & M.FAINT) !== 0;
+    return (this.cell.flags & a.FAINT) !== 0;
   }
 }
-const hA = {
+const MA = {
   // Letters
   KeyA: w.A,
   KeyB: w.B,
@@ -1585,7 +1596,7 @@ const hA = {
   F22: w.F22,
   F23: w.F23,
   F24: w.F24
-}, iA = class x {
+}, wA = class b {
   /**
    * Create a new InputHandler
    * @param ghostty - Ghostty instance (for creating KeyEncoder)
@@ -1599,8 +1610,8 @@ const hA = {
    * @param inputElement - Optional input element for beforeinput events
    * @param mouseConfig - Optional mouse tracking configuration
    */
-  constructor(A, g, Q, I, C, E, D, i, o, s) {
-    this.keydownListener = null, this.keypressListener = null, this.pasteListener = null, this.beforeInputListener = null, this.compositionStartListener = null, this.compositionUpdateListener = null, this.compositionEndListener = null, this.mousedownListener = null, this.mouseupListener = null, this.mousemoveListener = null, this.wheelListener = null, this.isComposing = !1, this.compositionJustEnded = !1, this.pendingKeyAfterComposition = null, this.isDisposed = !1, this.mouseButtonsPressed = 0, this.lastKeyDownData = null, this.lastKeyDownTime = 0, this.lastPasteData = null, this.lastPasteTime = 0, this.lastPasteSource = null, this.lastCompositionData = null, this.lastCompositionTime = 0, this.lastBeforeInputData = null, this.lastBeforeInputTime = 0, this.encoder = A.createKeyEncoder(), this.container = g, this.inputElement = o, this.onDataCallback = Q, this.onBellCallback = I, this.onKeyCallback = C, this.customKeyEventHandler = E, this.getModeCallback = D, this.onCopyCallback = i, this.mouseConfig = s, this.attach();
+  constructor(A, g, Q, I, C, E, D, i, o, G) {
+    this.keydownListener = null, this.keypressListener = null, this.pasteListener = null, this.beforeInputListener = null, this.compositionStartListener = null, this.compositionUpdateListener = null, this.compositionEndListener = null, this.mousedownListener = null, this.mouseupListener = null, this.mousemoveListener = null, this.wheelListener = null, this.isComposing = !1, this.compositionJustEnded = !1, this.pendingKeyAfterComposition = null, this.isDisposed = !1, this.mouseButtonsPressed = 0, this.lastKeyDownData = null, this.lastKeyDownTime = 0, this.lastPasteData = null, this.lastPasteTime = 0, this.lastPasteSource = null, this.lastCompositionData = null, this.lastCompositionTime = 0, this.lastBeforeInputData = null, this.lastBeforeInputTime = 0, this.encoder = A.createKeyEncoder(), this.container = g, this.inputElement = o, this.onDataCallback = Q, this.onBellCallback = I, this.onKeyCallback = C, this.customKeyEventHandler = E, this.getModeCallback = D, this.onCopyCallback = i, this.mouseConfig = G, this.attach();
   }
   /**
    * Set custom key event handler (for runtime updates)
@@ -1623,7 +1634,7 @@ const hA = {
    * @returns Key enum value or null if unmapped
    */
   mapKeyCode(A) {
-    return hA[A] ?? null;
+    return MA[A] ?? null;
   }
   /**
    * Extract modifier flags from KeyboardEvent
@@ -1631,8 +1642,8 @@ const hA = {
    * @returns Mods flags
    */
   extractModifiers(A) {
-    let g = q.NONE;
-    return A.shiftKey && (g |= q.SHIFT), A.ctrlKey && (g |= q.CTRL), A.altKey && (g |= q.ALT), A.metaKey && (g |= q.SUPER), g;
+    let g = U.NONE;
+    return A.shiftKey && (g |= U.SHIFT), A.ctrlKey && (g |= U.CTRL), A.altKey && (g |= U.ALT), A.metaKey && (g |= U.SUPER), g;
   }
   /**
    * Check if this is a printable character with no special modifiers
@@ -1682,14 +1693,14 @@ const hA = {
     if (g === null)
       return;
     const Q = this.extractModifiers(A);
-    if (Q === q.NONE || Q === q.SHIFT) {
+    if (Q === U.NONE || Q === U.SHIFT) {
       let C = null;
       switch (g) {
         case w.ENTER:
           C = "\r";
           break;
         case w.TAB:
-          Q === q.SHIFT ? C = "\x1B[Z" : C = "	";
+          Q === U.SHIFT ? C = "\x1B[Z" : C = "	";
           break;
         case w.BACKSPACE:
           C = "";
@@ -1757,11 +1768,11 @@ const hA = {
         return;
       }
     }
-    const I = QA.PRESS;
+    const I = IA.PRESS;
     try {
       if (this.getModeCallback) {
         const o = this.getModeCallback(1);
-        this.encoder.setOption(P.CURSOR_KEY_APPLICATION, o);
+        this.encoder.setOption(_.CURSOR_KEY_APPLICATION, o);
       }
       const C = A.key.length === 1 && A.key.charCodeAt(0) < 128 ? A.key.toLowerCase() : void 0, E = this.encoder.encode({
         action: I,
@@ -1934,14 +1945,14 @@ const hA = {
    * Send mouse event to terminal
    */
   sendMouseEvent(A, g, Q, I, C) {
-    var o, s;
-    const E = this.getMouseModifiers(C), D = ((s = (o = this.mouseConfig) == null ? void 0 : o.hasSgrMouseMode) == null ? void 0 : s.call(o)) ?? !0;
+    var o, G;
+    const E = this.getMouseModifiers(C), D = ((G = (o = this.mouseConfig) == null ? void 0 : o.hasSgrMouseMode) == null ? void 0 : G.call(o)) ?? !0;
     let i;
     if (D)
       i = this.encodeMouseSGR(A, g, Q, I, E);
     else {
-      const a = I ? 3 : A;
-      i = this.encodeMouseX10(a, g, Q, E);
+      const c = I ? 3 : A;
+      i = this.encodeMouseX10(c, g, Q, E);
     }
     this.onDataCallback(i);
   }
@@ -2025,7 +2036,7 @@ const hA = {
   shouldIgnoreBeforeInput(A) {
     if (!this.lastKeyDownData)
       return !1;
-    const Q = this.getNow() - this.lastKeyDownTime < x.BEFORE_INPUT_IGNORE_MS && this.lastKeyDownData === A;
+    const Q = this.getNow() - this.lastKeyDownTime < b.BEFORE_INPUT_IGNORE_MS && this.lastKeyDownData === A;
     return this.lastKeyDownData = null, Q;
   }
   /**
@@ -2034,7 +2045,7 @@ const hA = {
   shouldIgnoreBeforeInputFromComposition(A) {
     if (!this.lastCompositionData)
       return !1;
-    const Q = this.getNow() - this.lastCompositionTime < x.BEFORE_INPUT_IGNORE_MS && this.lastCompositionData === A;
+    const Q = this.getNow() - this.lastCompositionTime < b.BEFORE_INPUT_IGNORE_MS && this.lastCompositionData === A;
     return Q && (this.lastCompositionData = null), Q;
   }
   /**
@@ -2043,7 +2054,7 @@ const hA = {
   shouldIgnoreCompositionEnd(A) {
     if (!this.lastBeforeInputData)
       return !1;
-    const Q = this.getNow() - this.lastBeforeInputTime < x.BEFORE_INPUT_IGNORE_MS && this.lastBeforeInputData === A;
+    const Q = this.getNow() - this.lastBeforeInputTime < b.BEFORE_INPUT_IGNORE_MS && this.lastBeforeInputData === A;
     return Q && (this.lastBeforeInputData = null), Q;
   }
   /**
@@ -2064,7 +2075,7 @@ const hA = {
   shouldIgnorePasteEvent(A, g) {
     if (!this.lastPasteData || this.lastPasteSource === g)
       return !1;
-    const I = this.getNow() - this.lastPasteTime < x.BEFORE_INPUT_IGNORE_MS && this.lastPasteData === A;
+    const I = this.getNow() - this.lastPasteTime < b.BEFORE_INPUT_IGNORE_MS && this.lastPasteData === A;
     return I && (this.lastPasteData = null, this.lastPasteSource = null), I;
   }
   /**
@@ -2090,9 +2101,9 @@ const hA = {
     return !this.isDisposed;
   }
 };
-iA.BEFORE_INPUT_IGNORE_MS = 100;
-let MA = iA;
-class NA {
+wA.BEFORE_INPUT_IGNORE_MS = 100;
+let NA = wA;
+class JA {
   // Terminal instance for buffer access
   constructor(A) {
     this.terminal = A, this.providers = [], this.linkCache = /* @__PURE__ */ new Map(), this.scannedRows = /* @__PURE__ */ new Set();
@@ -2187,7 +2198,7 @@ class NA {
     this.providers = [];
   }
 }
-class JA {
+class yA {
   constructor(A) {
     this.terminal = A;
   }
@@ -2207,27 +2218,27 @@ class JA {
       const D = C.getCell(E);
       if (!D || D.getHyperlinkId() === 0 || !this.terminal.wasmTerm)
         continue;
-      const o = this.terminal.wasmTerm.getScrollbackLength(), s = A - o;
-      let a;
-      if (s < 0 ? a = this.terminal.wasmTerm.getScrollbackHyperlinkUri(A, E) : a = this.terminal.wasmTerm.getHyperlinkUri(s, E), a) {
-        let k = E;
-        for (let e = E + 1; e < C.length; e++) {
-          const G = C.getCell(e);
-          if (!G || G.getHyperlinkId() === 0 || (s < 0 ? this.terminal.wasmTerm.getScrollbackHyperlinkUri(A, e) : this.terminal.wasmTerm.getHyperlinkUri(s, e)) !== a)
+      const o = this.terminal.wasmTerm.getScrollbackLength(), G = A - o;
+      let c;
+      if (G < 0 ? c = this.terminal.wasmTerm.getScrollbackHyperlinkUri(A, E) : c = this.terminal.wasmTerm.getHyperlinkUri(G, E), c) {
+        let t = E;
+        for (let k = E + 1; k < C.length; k++) {
+          const s = C.getCell(k);
+          if (!s || s.getHyperlinkId() === 0 || (G < 0 ? this.terminal.wasmTerm.getScrollbackHyperlinkUri(A, k) : this.terminal.wasmTerm.getHyperlinkUri(G, k)) !== c)
             break;
-          k = e;
+          t = k;
         }
-        for (let e = E; e <= k; e++)
-          I.add(e);
-        const c = {
+        for (let k = E; k <= t; k++)
+          I.add(k);
+        const h = {
           start: { x: E, y: A },
-          end: { x: k, y: A }
+          end: { x: t, y: A }
         };
         Q.push({
-          text: a,
-          range: c,
-          activate: (e) => {
-            (e.ctrlKey || e.metaKey) && window.open(a, "_blank", "noopener,noreferrer");
+          text: c,
+          range: h,
+          activate: (k) => {
+            (k.ctrlKey || k.metaKey) && window.open(c, "_blank", "noopener,noreferrer");
           }
         });
       }
@@ -2242,33 +2253,33 @@ class JA {
     const I = this.terminal.buffer.active;
     let C = g, E = Q;
     for (; E > 0; ) {
-      const s = I.getLine(C);
-      if (!s)
+      const G = I.getLine(C);
+      if (!G)
         break;
-      const a = s.getCell(E - 1);
-      if (!a || a.getHyperlinkId() !== A)
+      const c = G.getCell(E - 1);
+      if (!c || c.getHyperlinkId() !== A)
         break;
       E--;
     }
     if (E === 0 && C > 0) {
-      let s = C - 1;
-      for (; s >= 0; ) {
-        const a = I.getLine(s);
-        if (!a || a.length === 0)
+      let G = C - 1;
+      for (; G >= 0; ) {
+        const c = I.getLine(G);
+        if (!c || c.length === 0)
           break;
-        const k = a.getCell(a.length - 1);
-        if (!k || k.getHyperlinkId() !== A)
+        const t = c.getCell(c.length - 1);
+        if (!t || t.getHyperlinkId() !== A)
           break;
-        C = s, E = 0;
-        for (let c = a.length - 1; c >= 0; c--) {
-          const e = a.getCell(c);
-          if (!e || e.getHyperlinkId() !== A) {
-            E = c + 1;
+        C = G, E = 0;
+        for (let h = c.length - 1; h >= 0; h--) {
+          const k = c.getCell(h);
+          if (!k || k.getHyperlinkId() !== A) {
+            E = h + 1;
             break;
           }
         }
         if (E === 0)
-          s--;
+          G--;
         else
           break;
       }
@@ -2277,34 +2288,34 @@ class JA {
     const o = I.getLine(D);
     if (o) {
       for (; i < o.length - 1; ) {
-        const s = o.getCell(i + 1);
-        if (!s || s.getHyperlinkId() !== A)
+        const G = o.getCell(i + 1);
+        if (!G || G.getHyperlinkId() !== A)
           break;
         i++;
       }
       if (i === o.length - 1) {
-        let s = D + 1;
-        const a = I.length;
-        for (; s < a; ) {
-          const k = I.getLine(s);
-          if (!k || k.length === 0)
+        let G = D + 1;
+        const c = I.length;
+        for (; G < c; ) {
+          const t = I.getLine(G);
+          if (!t || t.length === 0)
             break;
-          const c = k.getCell(0);
-          if (!c || c.getHyperlinkId() !== A)
+          const h = t.getCell(0);
+          if (!h || h.getHyperlinkId() !== A)
             break;
-          D = s, i = 0;
-          for (let e = 0; e < k.length; e++) {
-            const G = k.getCell(e);
-            if (!G)
+          D = G, i = 0;
+          for (let k = 0; k < t.length; k++) {
+            const s = t.getCell(k);
+            if (!s)
               break;
-            if (G.getHyperlinkId() !== A) {
-              i = e - 1;
+            if (s.getHyperlinkId() !== A) {
+              i = k - 1;
               break;
             }
-            i = e;
+            i = k;
           }
-          if (i === k.length - 1)
-            s++;
+          if (i === t.length - 1)
+            G++;
           else
             break;
         }
@@ -2318,7 +2329,7 @@ class JA {
   dispose() {
   }
 }
-const _ = class f {
+const $ = class j {
   constructor(A) {
     this.terminal = A;
   }
@@ -2332,23 +2343,23 @@ const _ = class f {
       return;
     }
     const C = this.lineToText(I);
-    f.URL_REGEX.lastIndex = 0;
-    let E = f.URL_REGEX.exec(C);
+    j.URL_REGEX.lastIndex = 0;
+    let E = j.URL_REGEX.exec(C);
     for (; E !== null; ) {
       let D = E[0];
       const i = E.index;
       let o = E.index + D.length - 1;
-      const s = D.replace(f.TRAILING_PUNCTUATION, "");
-      s.length < D.length && (D = s, o = i + D.length - 1), D.length > 8 && Q.push({
+      const G = D.replace(j.TRAILING_PUNCTUATION, "");
+      G.length < D.length && (D = G, o = i + D.length - 1), D.length > 8 && Q.push({
         text: D,
         range: {
           start: { x: i, y: A },
           end: { x: o, y: A }
         },
-        activate: (a) => {
-          (a.ctrlKey || a.metaKey) && window.open(D, "_blank", "noopener,noreferrer");
+        activate: (c) => {
+          (c.ctrlKey || c.metaKey) && window.open(D, "_blank", "noopener,noreferrer");
         }
-      }), E = f.URL_REGEX.exec(C);
+      }), E = j.URL_REGEX.exec(C);
     }
     g(Q.length > 0 ? Q : void 0);
   }
@@ -2371,10 +2382,10 @@ const _ = class f {
   dispose() {
   }
 };
-_.URL_REGEX = /(?:https?:\/\/|mailto:|ftp:\/\/|ssh:\/\/|git:\/\/|tel:|magnet:|gemini:\/\/|gopher:\/\/|news:)[\w\-.~:\/?#@!$&*+,;=%]+/gi;
-_.TRAILING_PUNCTUATION = /[.,;!?)\]]+$/;
-let yA = _;
-const wA = 8, gA = "#4A90E2", Z = {
+$.URL_REGEX = /(?:https?:\/\/|mailto:|ftp:\/\/|ssh:\/\/|git:\/\/|tel:|magnet:|gemini:\/\/|gopher:\/\/|news:)[\w\-.~:\/?#@!$&*+,;=%]+/gi;
+$.TRAILING_PUNCTUATION = /[.,;!?)\]]+$/;
+let FA = $;
+const oA = 8, QA = "#4A90E2", X = {
   foreground: "#d4d4d4",
   background: "#1e1e1e",
   cursor: "#ffffff",
@@ -2400,13 +2411,13 @@ const wA = 8, gA = "#4A90E2", Z = {
   brightCyan: "#29b8db",
   brightWhite: "#ffffff"
 };
-class FA {
+class HA {
   constructor(A, g = {}) {
-    this.cursorVisible = !0, this.lastCursorPosition = { x: 0, y: 0 }, this.lastViewportY = 0, this.currentBuffer = null, this.currentSelectionCoords = null, this.hoveredHyperlinkId = 0, this.previousHoveredHyperlinkId = 0, this.hoveredLinkRange = null, this.previousHoveredLinkRange = null, this.overlayCanvas = null, this.overlayCtx = null, this.canvas = A;
+    this.cursorVisible = !0, this.lastCursorPosition = { x: 0, y: 0 }, this.onRequestRender = null, this.lastViewportY = 0, this.currentBuffer = null, this.currentSelectionCoords = null, this.hoveredHyperlinkId = 0, this.previousHoveredHyperlinkId = 0, this.hoveredLinkRange = null, this.previousHoveredLinkRange = null, this.overlayCanvas = null, this.overlayCtx = null, this.canvas = A;
     const Q = A.getContext("2d", { alpha: !0 });
     if (!Q)
       throw new Error("Failed to get 2D rendering context");
-    this.ctx = Q, this.fontSize = g.fontSize ?? 15, this.fontFamily = g.fontFamily ?? "monospace", this.cursorStyle = g.cursorStyle ?? "block", this.cursorBlink = g.cursorBlink ?? !1, this.theme = { ...Z, ...g.theme }, this.devicePixelRatio = g.devicePixelRatio ?? window.devicePixelRatio ?? 1, this.scrollbarWidth = g.scrollbarWidth ?? wA, this.fontStrings = this.buildFontStrings(), this.metrics = this.measureFont(), this.cursorBlink && this.startCursorBlink();
+    this.ctx = Q, this.fontSize = g.fontSize ?? 15, this.fontFamily = g.fontFamily ?? "monospace", this.cursorStyle = g.cursorStyle ?? "block", this.cursorBlink = g.cursorBlink ?? !1, this.theme = { ...X, ...g.theme }, this.devicePixelRatio = g.devicePixelRatio ?? window.devicePixelRatio ?? 1, this.scrollbarWidth = g.scrollbarWidth ?? oA, this.fontStrings = this.buildFontStrings(), this.metrics = this.measureFont(), this.cursorBlink && this.startCursorBlink();
   }
   // ==========================================================================
   // Font Metrics Measurement
@@ -2461,90 +2472,90 @@ class FA {
    * Render the terminal buffer to canvas
    */
   render(A, g = !1, Q = 0, I, C = 1) {
-    var Y;
+    var H;
     this.currentBuffer = A;
     const E = A.getCursor(), D = A.getDimensions(), i = I ? I.getScrollbackLength() : 0;
-    (Y = A.needsFullRedraw) != null && Y.call(A) && (g = !0), (this.canvas.width !== D.cols * this.metrics.width * this.devicePixelRatio || this.canvas.height !== D.rows * this.metrics.height * this.devicePixelRatio) && (this.resize(D.cols, D.rows), g = !0), Q !== this.lastViewportY && (g = !0, this.lastViewportY = Q);
-    const s = E.x !== this.lastCursorPosition.x || E.y !== this.lastCursorPosition.y;
-    if (s || this.cursorBlink) {
+    (H = A.needsFullRedraw) != null && H.call(A) && (g = !0), (this.canvas.width !== D.cols * this.metrics.width * this.devicePixelRatio || this.canvas.height !== D.rows * this.metrics.height * this.devicePixelRatio) && (this.resize(D.cols, D.rows), g = !0), Q !== this.lastViewportY && (g = !0, this.lastViewportY = Q);
+    const G = E.x !== this.lastCursorPosition.x || E.y !== this.lastCursorPosition.y;
+    if (G || this.cursorBlink) {
       if (!g && !A.isRowDirty(E.y)) {
-        const t = A.getLine(E.y);
-        t && this.renderLine(t, E.y, D.cols);
+        const e = A.getLine(E.y);
+        e && this.renderLine(e, E.y, D.cols);
       }
-      if (s && this.lastCursorPosition.y !== E.y && !g && !A.isRowDirty(this.lastCursorPosition.y)) {
-        const t = A.getLine(this.lastCursorPosition.y);
-        t && this.renderLine(t, this.lastCursorPosition.y, D.cols);
+      if (G && this.lastCursorPosition.y !== E.y && !g && !A.isRowDirty(this.lastCursorPosition.y)) {
+        const e = A.getLine(this.lastCursorPosition.y);
+        e && this.renderLine(e, this.lastCursorPosition.y, D.cols);
       }
     }
-    const a = this.selectionManager && this.selectionManager.hasSelection(), k = /* @__PURE__ */ new Set();
-    if (this.currentSelectionCoords = a ? this.selectionManager.getSelectionCoords() : null, this.currentSelectionCoords) {
-      const t = this.currentSelectionCoords;
-      for (let h = t.startRow; h <= t.endRow; h++)
-        k.add(h);
+    const c = this.selectionManager && this.selectionManager.hasSelection(), t = /* @__PURE__ */ new Set();
+    if (this.currentSelectionCoords = c ? this.selectionManager.getSelectionCoords() : null, this.currentSelectionCoords) {
+      const e = this.currentSelectionCoords;
+      for (let M = e.startRow; M <= e.endRow; M++)
+        t.add(M);
     }
     if (this.selectionManager) {
-      const t = this.selectionManager.getDirtySelectionRows();
-      if (t.size > 0) {
-        for (const h of t)
-          k.add(h);
+      const e = this.selectionManager.getDirtySelectionRows();
+      if (e.size > 0) {
+        for (const M of e)
+          t.add(M);
         this.selectionManager.clearDirtySelectionRows();
       }
     }
-    const c = /* @__PURE__ */ new Set(), e = this.hoveredHyperlinkId !== this.previousHoveredHyperlinkId, G = this.hoveredLinkRange, N = this.previousHoveredLinkRange, y = G !== N && (!G || !N || G.startX !== N.startX || G.startY !== N.startY || G.endX !== N.endX || G.endY !== N.endY);
-    if (e) {
-      for (let t = 0; t < D.rows; t++) {
-        let h = null;
+    const h = /* @__PURE__ */ new Set(), k = this.hoveredHyperlinkId !== this.previousHoveredHyperlinkId, s = this.hoveredLinkRange, N = this.previousHoveredLinkRange, J = s !== N && (!s || !N || s.startX !== N.startX || s.startY !== N.startY || s.endX !== N.endX || s.endY !== N.endY);
+    if (k) {
+      for (let e = 0; e < D.rows; e++) {
+        let M = null;
         if (Q > 0)
-          if (t < Q && I) {
-            const J = i - Math.floor(Q) + t;
-            h = I.getScrollbackLine(J);
+          if (e < Q && I) {
+            const Y = i - Math.floor(Q) + e;
+            M = I.getScrollbackLine(Y);
           } else {
-            const J = t - Math.floor(Q);
-            h = A.getLine(J);
+            const Y = e - Math.floor(Q);
+            M = A.getLine(Y);
           }
         else
-          h = A.getLine(t);
-        if (h) {
-          for (const J of h)
-            if (J.hyperlink_id === this.hoveredHyperlinkId || J.hyperlink_id === this.previousHoveredHyperlinkId) {
-              c.add(t);
+          M = A.getLine(e);
+        if (M) {
+          for (const Y of M)
+            if (Y.hyperlink_id === this.hoveredHyperlinkId || Y.hyperlink_id === this.previousHoveredHyperlinkId) {
+              h.add(e);
               break;
             }
         }
       }
       this.previousHoveredHyperlinkId = this.hoveredHyperlinkId;
     }
-    if (y) {
+    if (J) {
       if (this.previousHoveredLinkRange)
-        for (let t = this.previousHoveredLinkRange.startY; t <= this.previousHoveredLinkRange.endY; t++)
-          c.add(t);
+        for (let e = this.previousHoveredLinkRange.startY; e <= this.previousHoveredLinkRange.endY; e++)
+          h.add(e);
       if (this.hoveredLinkRange)
-        for (let t = this.hoveredLinkRange.startY; t <= this.hoveredLinkRange.endY; t++)
-          c.add(t);
+        for (let e = this.hoveredLinkRange.startY; e <= this.hoveredLinkRange.endY; e++)
+          h.add(e);
       this.previousHoveredLinkRange = this.hoveredLinkRange;
     }
-    const H = /* @__PURE__ */ new Set();
-    for (let t = 0; t < D.rows; t++)
-      (Q > 0 ? !0 : g || A.isRowDirty(t) || k.has(t) || c.has(t)) && (H.add(t), t > 0 && H.add(t - 1), t < D.rows - 1 && H.add(t + 1));
-    for (let t = 0; t < D.rows; t++) {
-      if (!H.has(t))
+    const y = /* @__PURE__ */ new Set();
+    for (let e = 0; e < D.rows; e++)
+      (Q > 0 ? !0 : g || A.isRowDirty(e) || t.has(e) || h.has(e)) && (y.add(e), e > 0 && y.add(e - 1), e < D.rows - 1 && y.add(e + 1));
+    for (let e = 0; e < D.rows; e++) {
+      if (!y.has(e))
         continue;
-      let h = null;
+      let M = null;
       if (Q > 0)
-        if (t < Q && I) {
-          const J = i - Math.floor(Q) + t;
-          h = I.getScrollbackLine(J);
+        if (e < Q && I) {
+          const Y = i - Math.floor(Q) + e;
+          M = I.getScrollbackLine(Y);
         } else {
-          const J = Q > 0 ? t - Math.floor(Q) : t;
-          h = A.getLine(J);
+          const Y = Q > 0 ? e - Math.floor(Q) : e;
+          M = A.getLine(Y);
         }
       else
-        h = A.getLine(t);
-      h && this.renderLine(h, t, D.cols);
+        M = A.getLine(e);
+      M && this.renderLine(M, e, D.cols);
     }
     if (Q === 0 && E.visible && this.cursorVisible) {
-      const t = E.style ?? this.cursorStyle;
-      this.renderCursor(E.x, E.y, t);
+      const e = E.style ?? this.cursorStyle;
+      this.renderCursor(E.x, E.y, e);
     }
     I && C > 0 && this.scrollbarWidth > 0 && this.renderScrollbar(Q, i, D.rows, C), this.lastCursorPosition = { x: E.x, y: E.y }, A.clearDirty();
   }
@@ -2582,8 +2593,8 @@ class FA {
       this.ctx.fillStyle = this.theme.selectionBackground, this.ctx.fillRect(I, C, E, this.metrics.height);
       return;
     }
-    let i = A.bg_r, o = A.bg_g, s = A.bg_b;
-    A.flags & M.INVERSE && (i = A.fg_r, o = A.fg_g, s = A.fg_b), i === 0 && o === 0 && s === 0 || (this.ctx.fillStyle = this.rgbToCSS(i, o, s), this.ctx.fillRect(I, C, E, this.metrics.height));
+    let i = A.bg_r, o = A.bg_g, G = A.bg_b;
+    A.flags & a.INVERSE && (i = A.fg_r, o = A.fg_g, G = A.fg_b), (A.flags & a.INVERSE ? A.fgIsDefault : A.bgIsDefault) || (this.ctx.fillStyle = this.rgbToCSS(i, o, G), this.ctx.fillRect(I, C, E, this.metrics.height));
   }
   drawHorizontalLine(A, g, Q, I) {
     this.ctx.strokeStyle = I, this.ctx.lineWidth = 1, this.ctx.beginPath(), this.ctx.moveTo(A, g), this.ctx.lineTo(A + Q, g), this.ctx.stroke();
@@ -2593,14 +2604,14 @@ class FA {
    * Selection foreground color is applied here to match the selection background.
    */
   renderCellText(A, g, Q, I) {
-    var e;
+    var k;
     const C = g * this.metrics.width, E = Q * this.metrics.height, D = this.metrics.width * A.width;
-    if (A.flags & M.INVISIBLE)
+    if (A.flags & a.INVISIBLE)
       return;
     const i = this.isInSelection(g, Q);
     this.ctx.font = this.getFontString(
-      !!(A.flags & M.BOLD),
-      !!(A.flags & M.ITALIC)
+      !!(A.flags & a.BOLD),
+      !!(A.flags & a.ITALIC)
     );
     let o;
     if (I)
@@ -2608,22 +2619,22 @@ class FA {
     else if (i)
       o = this.theme.selectionForeground;
     else {
-      let G = A.fg_r, N = A.fg_g, y = A.fg_b;
-      A.flags & M.INVERSE && (G = A.bg_r, N = A.bg_g, y = A.bg_b), o = this.rgbToCSS(G, N, y);
+      let s = A.fg_r, N = A.fg_g, J = A.fg_b;
+      A.flags & a.INVERSE && (s = A.bg_r, N = A.bg_g, J = A.bg_b), o = (A.flags & a.INVERSE ? A.bgIsDefault : A.fgIsDefault) ? this.theme.foreground : this.rgbToCSS(s, N, J);
     }
-    this.ctx.fillStyle = o, A.flags & M.FAINT && (this.ctx.globalAlpha = 0.5);
-    const s = C, a = E + this.metrics.baseline, k = A.codepoint || 32;
-    if (!(k >= 9600 && k <= 9631 && this.renderBlockChar(k, C, E, D))) {
-      if (!(k >= 57520 && k <= 57527 && this.renderPowerlineGlyph(k, C, E, D))) {
-        const G = A.grapheme_len > 0 && ((e = this.currentBuffer) != null && e.getGraphemeString) ? this.currentBuffer.getGraphemeString(Q, g) : String.fromCodePoint(k);
-        this.ctx.fillText(G, s, a);
+    this.ctx.fillStyle = o, A.flags & a.FAINT && (this.ctx.globalAlpha = 0.5);
+    const G = C, c = E + this.metrics.baseline, t = A.codepoint || 32;
+    if (!(t >= 9600 && t <= 9631 && this.renderBlockChar(t, C, E, D))) {
+      if (!(t >= 57520 && t <= 57527 && this.renderPowerlineGlyph(t, C, E, D))) {
+        const s = A.grapheme_len > 0 && ((k = this.currentBuffer) != null && k.getGraphemeString) ? this.currentBuffer.getGraphemeString(Q, g) : String.fromCodePoint(t);
+        this.ctx.fillText(s, G, c);
       }
     }
-    A.flags & M.FAINT && (this.ctx.globalAlpha = 1);
-    const c = E + this.metrics.baseline + 2;
-    if (A.flags & M.UNDERLINE && this.drawHorizontalLine(C, c, D, o), A.flags & M.STRIKETHROUGH && this.drawHorizontalLine(C, E + this.metrics.height / 2, D, o), A.hyperlink_id > 0 && A.hyperlink_id === this.hoveredHyperlinkId && this.drawHorizontalLine(C, c, D, gA), this.hoveredLinkRange) {
-      const G = this.hoveredLinkRange;
-      (Q === G.startY && g >= G.startX && (Q < G.endY || g <= G.endX) || Q > G.startY && Q < G.endY || Q === G.endY && g <= G.endX && (Q > G.startY || g >= G.startX)) && this.drawHorizontalLine(C, c, D, gA);
+    A.flags & a.FAINT && (this.ctx.globalAlpha = 1);
+    const h = E + this.metrics.baseline + 2;
+    if (A.flags & a.UNDERLINE && this.drawHorizontalLine(C, h, D, o), A.flags & a.STRIKETHROUGH && this.drawHorizontalLine(C, E + this.metrics.height / 2, D, o), A.hyperlink_id > 0 && A.hyperlink_id === this.hoveredHyperlinkId && this.drawHorizontalLine(C, h, D, QA), this.hoveredLinkRange) {
+      const s = this.hoveredLinkRange;
+      (Q === s.startY && g >= s.startX && (Q < s.endY || g <= s.endX) || Q > s.startY && Q < s.endY || Q === s.endY && g <= s.endX && (Q > s.startY || g >= s.startX)) && this.drawHorizontalLine(C, h, D, QA);
     }
   }
   /**
@@ -2733,8 +2744,8 @@ class FA {
       case "block":
         this.ctx.fillRect(I, C, this.metrics.width, this.metrics.height);
         {
-          const s = (D = this.currentBuffer) == null ? void 0 : D.getLine(g);
-          s != null && s[A] && (this.ctx.save(), this.ctx.beginPath(), this.ctx.rect(I, C, this.metrics.width, this.metrics.height), this.ctx.clip(), this.renderCellText(s[A], A, g, this.theme.cursorAccent), this.ctx.restore());
+          const G = (D = this.currentBuffer) == null ? void 0 : D.getLine(g);
+          G != null && G[A] && (this.ctx.save(), this.ctx.beginPath(), this.ctx.rect(I, C, this.metrics.width, this.metrics.height), this.ctx.clip(), this.renderCellText(G[A], A, g, this.theme.cursorAccent), this.ctx.restore());
         }
         break;
       case "underline":
@@ -2755,9 +2766,19 @@ class FA {
   // ==========================================================================
   // Cursor Blinking
   // ==========================================================================
+  /**
+   * Set a callback the renderer invokes when its internal state changes
+   * outside the normal render-driven path (today: cursor-blink toggles).
+   * Lets an event-driven Terminal wake its render scheduler instead of
+   * polling every frame to catch the blink flip.
+   */
+  setOnRequestRender(A) {
+    this.onRequestRender = A;
+  }
   startCursorBlink() {
     this.cursorBlinkInterval = window.setInterval(() => {
-      this.cursorVisible = !this.cursorVisible;
+      var A;
+      this.cursorVisible = !this.cursorVisible, (A = this.onRequestRender) == null || A.call(this);
     }, 530);
   }
   stopCursorBlink() {
@@ -2770,7 +2791,7 @@ class FA {
    * Update theme colors
    */
   setTheme(A) {
-    this.theme = { ...Z, ...A };
+    this.theme = { ...X, ...A };
   }
   /**
    * Update font size
@@ -2802,13 +2823,13 @@ class FA {
    * @param opacity Opacity level (0-1) for fade in/out effect
    */
   renderScrollbar(A, g, Q, I = 1) {
-    const C = this.ctx, E = this.canvas.height / this.devicePixelRatio, D = this.canvas.width / this.devicePixelRatio, i = this.scrollbarWidth, o = D - i - 4, s = 4, a = E - s * 2;
+    const C = this.ctx, E = this.canvas.height / this.devicePixelRatio, D = this.canvas.width / this.devicePixelRatio, i = this.scrollbarWidth, o = D - i - 4, G = 4, c = E - G * 2;
     if (C.clearRect(o - 2, 0, i + 6, E), C.fillStyle = this.theme.background, C.fillRect(o - 2, 0, i + 6, E), I <= 0 || g === 0)
       return;
-    const k = g + Q, c = Math.max(20, Q / k * a), e = A / g, G = s + (a - c) * (1 - e);
-    C.fillStyle = `rgba(128, 128, 128, ${0.1 * I})`, C.fillRect(o, s, i, a);
-    const y = A > 0 ? 0.5 : 0.3;
-    C.fillStyle = `rgba(128, 128, 128, ${y * I})`, C.fillRect(o, G, i, c);
+    const t = g + Q, h = Math.max(20, Q / t * c), k = A / g, s = G + (c - h) * (1 - k);
+    C.fillStyle = `rgba(128, 128, 128, ${0.1 * I})`, C.fillRect(o, G, i, c);
+    const J = A > 0 ? 0.5 : 0.3;
+    C.fillStyle = `rgba(128, 128, 128, ${J * I})`, C.fillRect(o, s, i, h);
   }
   getMetrics() {
     return { ...this.metrics };
@@ -2840,14 +2861,16 @@ class FA {
    * Set the currently hovered hyperlink ID for rendering underlines
    */
   setHoveredHyperlinkId(A) {
-    this.hoveredHyperlinkId = A;
+    var g;
+    this.hoveredHyperlinkId !== A && (this.hoveredHyperlinkId = A, (g = this.onRequestRender) == null || g.call(this));
   }
   /**
    * Set the currently hovered link range for rendering underlines (for regex-detected URLs)
    * Pass null to clear the hover state
    */
   setHoveredLinkRange(A) {
-    this.hoveredLinkRange = A;
+    var g;
+    this.hoveredLinkRange !== A && (this.hoveredLinkRange = A, (g = this.onRequestRender) == null || g.call(this));
   }
   /**
    * Get character cell width (for coordinate conversion)
@@ -2926,10 +2949,10 @@ class FA {
     this.stopCursorBlink(), this.overlayCanvas && this.overlayCanvas.parentElement && this.overlayCanvas.parentElement.removeChild(this.overlayCanvas), this.overlayCanvas = null, this.overlayCtx = null;
   }
 }
-const X = class T {
+const u = class Z {
   // ms between scroll steps
   constructor(A, g, Q, I) {
-    this.selectionStart = null, this.selectionEnd = null, this.isSelecting = !1, this.mouseDownX = 0, this.mouseDownY = 0, this.dragThresholdMet = !1, this.mouseDownTarget = null, this.dirtySelectionRows = /* @__PURE__ */ new Set(), this.selectionChangedEmitter = new K(), this.boundMouseUpHandler = null, this.boundContextMenuHandler = null, this.boundClickHandler = null, this.boundDocumentMouseMoveHandler = null, this.autoScrollInterval = null, this.autoScrollDirection = 0, this.terminal = A, this.renderer = g, this.wasmTerm = Q, this.textarea = I, this.attachEventListeners();
+    this.selectionStart = null, this.selectionEnd = null, this.isSelecting = !1, this.mouseDownX = 0, this.mouseDownY = 0, this.dragThresholdMet = !1, this.mouseDownTarget = null, this.dirtySelectionRows = /* @__PURE__ */ new Set(), this.selectionChangedEmitter = new r(), this.boundMouseUpHandler = null, this.boundContextMenuHandler = null, this.boundClickHandler = null, this.boundDocumentMouseMoveHandler = null, this.autoScrollInterval = null, this.autoScrollDirection = 0, this.terminal = A, this.renderer = g, this.wasmTerm = Q, this.textarea = I, this.attachEventListeners();
   }
   // pixels from edge to trigger scroll
   /**
@@ -2972,32 +2995,32 @@ const X = class T {
       if (D < C)
         i = this.wasmTerm.getScrollbackLine(D);
       else {
-        const c = D - C;
-        i = this.wasmTerm.getLine(c);
+        const h = D - C;
+        i = this.wasmTerm.getLine(h);
       }
       if (!i)
         continue;
       let o = -1;
-      const s = D === g ? A : 0, a = D === I ? Q : i.length - 1;
-      let k = "";
-      for (let c = s; c <= a; c++) {
-        const e = i[c];
-        if (e && e.codepoint !== 0) {
-          let G;
-          if (e.grapheme_len > 0)
+      const G = D === g ? A : 0, c = D === I ? Q : i.length - 1;
+      let t = "";
+      for (let h = G; h <= c; h++) {
+        const k = i[h];
+        if (k && k.codepoint !== 0) {
+          let s;
+          if (k.grapheme_len > 0)
             if (D < C)
-              G = this.wasmTerm.getScrollbackGraphemeString(D, c);
+              s = this.wasmTerm.getScrollbackGraphemeString(D, h);
             else {
               const N = D - C;
-              G = this.wasmTerm.getGraphemeString(N, c);
+              s = this.wasmTerm.getGraphemeString(N, h);
             }
           else
-            G = String.fromCodePoint(e.codepoint);
-          k += G, G.trim() && (o = k.length);
+            s = String.fromCodePoint(k.codepoint);
+          t += s, s.trim() && (o = t.length);
         } else
-          k += " ";
+          t += " ";
       }
-      o >= 0 ? k = k.substring(0, o) : k = "", E += k, D < I && (E += `
+      o >= 0 ? t = t.substring(0, o) : t = "", E += t, D < I && (E += `
 `);
     }
     return E;
@@ -3153,8 +3176,8 @@ const X = class T {
     }), this.boundDocumentMouseMoveHandler = (g) => {
       if (this.isSelecting) {
         if (!this.dragThresholdMet) {
-          const i = g.clientX - (A.getBoundingClientRect().left + this.mouseDownX), o = g.clientY - (A.getBoundingClientRect().top + this.mouseDownY), s = this.renderer.getMetrics().width * 0.5;
-          if (i * i + o * o < s * s)
+          const i = g.clientX - (A.getBoundingClientRect().left + this.mouseDownX), o = g.clientY - (A.getBoundingClientRect().top + this.mouseDownY), G = this.renderer.getMetrics().width * 0.5;
+          if (i * i + o * o < G * G)
             return;
           this.dragThresholdMet = !0;
         }
@@ -3242,7 +3265,7 @@ const X = class T {
    * Update auto-scroll based on mouse Y position within canvas
    */
   updateAutoScroll(A, g) {
-    const Q = T.AUTO_SCROLL_EDGE_SIZE;
+    const Q = Z.AUTO_SCROLL_EDGE_SIZE;
     A < Q ? this.startAutoScroll(-1) : A > g - Q ? this.startAutoScroll(1) : this.stopAutoScroll();
   }
   /**
@@ -3254,7 +3277,7 @@ const X = class T {
         this.stopAutoScroll();
         return;
       }
-      const g = T.AUTO_SCROLL_SPEED * this.autoScrollDirection;
+      const g = Z.AUTO_SCROLL_SPEED * this.autoScrollDirection;
       if (this.terminal.scrollLines(g), this.selectionEnd) {
         const Q = this.wasmTerm.getDimensions();
         if (this.autoScrollDirection < 0) {
@@ -3266,7 +3289,7 @@ const X = class T {
         }
       }
       this.requestRender();
-    }, T.AUTO_SCROLL_INTERVAL));
+    }, Z.AUTO_SCROLL_INTERVAL));
   }
   /**
    * Stop auto-scrolling
@@ -3314,8 +3337,8 @@ const X = class T {
     const E = (o) => {
       if (!o || o.codepoint === 0)
         return !1;
-      const s = String.fromCodePoint(o.codepoint);
-      return /[\w\-./~@+]/.test(s);
+      const G = String.fromCodePoint(o.codepoint);
+      return /[\w\-./~@+]/.test(G);
     };
     if (!E(C[A]))
       return null;
@@ -3384,28 +3407,34 @@ const X = class T {
   requestRender() {
   }
 };
-X.AUTO_SCROLL_EDGE_SIZE = 30;
-X.AUTO_SCROLL_SPEED = 3;
-X.AUTO_SCROLL_INTERVAL = 50;
-let HA = X;
-class oA {
+u.AUTO_SCROLL_EDGE_SIZE = 30;
+u.AUTO_SCROLL_SPEED = 3;
+u.AUTO_SCROLL_INTERVAL = 50;
+let YA = u;
+class sA {
   constructor(A = {}) {
     this.unicode = {
       get activeVersion() {
         return "15.1";
       }
-    }, this.dataEmitter = new K(), this.resizeEmitter = new K(), this.bellEmitter = new K(), this.selectionChangeEmitter = new K(), this.keyEmitter = new K(), this.titleChangeEmitter = new K(), this.scrollEmitter = new K(), this.renderEmitter = new K(), this.cursorMoveEmitter = new K(), this.openEmitter = new K(), this.onData = this.dataEmitter.event, this.onResize = this.resizeEmitter.event, this.onBell = this.bellEmitter.event, this.onSelectionChange = this.selectionChangeEmitter.event, this.onKey = this.keyEmitter.event, this.onTitleChange = this.titleChangeEmitter.event, this.onScroll = this.scrollEmitter.event, this.onRender = this.renderEmitter.event, this.onCursorMove = this.cursorMoveEmitter.event, this.onOpen = this.openEmitter.event, this.isOpen = !1, this.isDisposed = !1, this.isSuspended = !1, this.writeQueue = [], this.addons = [], this.currentTitle = "", this.viewportY = 0, this.targetViewportY = 0, this.lastCursorY = 0, this.isDraggingScrollbar = !1, this.scrollbarDragStart = null, this.scrollbarDragStartViewportY = 0, this.scrollbarVisible = !1, this.scrollbarOpacity = 0, this.SCROLLBAR_HIDE_DELAY_MS = 1500, this.SCROLLBAR_FADE_DURATION_MS = 200, this.animateScroll = () => {
+    }, this.dataEmitter = new r(), this.resizeEmitter = new r(), this.bellEmitter = new r(), this.selectionChangeEmitter = new r(), this.keyEmitter = new r(), this.titleChangeEmitter = new r(), this.scrollEmitter = new r(), this.renderEmitter = new r(), this.cursorMoveEmitter = new r(), this.openEmitter = new r(), this.onData = this.dataEmitter.event, this.onResize = this.resizeEmitter.event, this.onBell = this.bellEmitter.event, this.onSelectionChange = this.selectionChangeEmitter.event, this.onKey = this.keyEmitter.event, this.onTitleChange = this.titleChangeEmitter.event, this.onScroll = this.scrollEmitter.event, this.onRender = this.renderEmitter.event, this.onCursorMove = this.cursorMoveEmitter.event, this.onOpen = this.openEmitter.event, this.isOpen = !1, this.isDisposed = !1, this.isSuspended = !1, this.writeQueue = [], this.addons = [], this.currentTitle = "", this.viewportY = 0, this.targetViewportY = 0, this.lastCursorY = 0, this.isDraggingScrollbar = !1, this.scrollbarDragStart = null, this.scrollbarDragStartViewportY = 0, this.scrollbarVisible = !1, this.scrollbarOpacity = 0, this.SCROLLBAR_HIDE_DELAY_MS = 1500, this.SCROLLBAR_FADE_DURATION_MS = 200, this.animateScroll = () => {
       if (!this.wasmTerm || this.scrollAnimationStartTime === void 0)
         return;
       const Q = this.options.smoothScrollDuration ?? 100, I = this.targetViewportY - this.viewportY;
       if (Math.abs(I) < 0.01) {
-        this.viewportY = this.targetViewportY, this.scrollEmitter.fire(Math.floor(this.viewportY)), this.getScrollbackLength() > 0 && this.showScrollbar(), this.scrollAnimationFrame = void 0, this.scrollAnimationStartTime = void 0, this.scrollAnimationStartY = void 0;
+        this.viewportY = this.targetViewportY, this.scrollEmitter.fire(Math.floor(this.viewportY)), this.getScrollbackLength() > 0 && this.showScrollbar(), this.scrollAnimationFrame = void 0, this.scrollAnimationStartTime = void 0, this.scrollAnimationStartY = void 0, this.requestRender();
         return;
       }
       const D = 1 - (1 / (Q / 1e3 * 60)) ** 2;
       this.viewportY += I * D;
       const i = Math.floor(this.viewportY);
-      this.scrollEmitter.fire(i), this.getScrollbackLength() > 0 && this.showScrollbar(), this.scrollAnimationFrame = requestAnimationFrame(this.animateScroll);
+      this.scrollEmitter.fire(i), this.getScrollbackLength() > 0 && this.showScrollbar(), this.requestRender(), this.scrollAnimationFrame = requestAnimationFrame(this.animateScroll);
+    }, this.renderTick = () => {
+      if (this.animationFrameId = void 0, this.isDisposed || !this.isOpen)
+        return;
+      this.renderer.render(this.wasmTerm, !1, this.viewportY, this, this.scrollbarOpacity);
+      const Q = this.wasmTerm.getCursor();
+      Q.y !== this.lastCursorY && (this.lastCursorY = Q.y, this.cursorMoveEmitter.fire());
     }, this.handleMouseMove = (Q) => {
       if (!(!this.canvas || !this.renderer || !this.wasmTerm)) {
         if (this.isDraggingScrollbar) {
@@ -3433,25 +3462,25 @@ class oA {
         return;
       const I = this.canvas.getBoundingClientRect(), C = Math.floor((Q.clientX - I.left) / this.renderer.charWidth), D = Math.floor((Q.clientY - I.top) / this.renderer.charHeight), i = this.wasmTerm.getScrollbackLength();
       let o;
-      const s = this.getViewportY(), a = Math.max(0, Math.floor(s));
-      if (a > 0)
-        if (D < a)
-          o = i - a + D;
+      const G = this.getViewportY(), c = Math.max(0, Math.floor(G));
+      if (c > 0)
+        if (D < c)
+          o = i - c + D;
         else {
-          const c = D - a;
-          o = i + c;
+          const h = D - c;
+          o = i + h;
         }
       else
         o = i + D;
-      const k = await this.linkDetector.getLinkAt(C, o);
-      k && (k.activate(Q), (Q.ctrlKey || Q.metaKey) && Q.preventDefault());
+      const t = await this.linkDetector.getLinkAt(C, o);
+      t && (t.activate(Q), (Q.ctrlKey || Q.metaKey) && Q.preventDefault());
     }, this.handleWheel = (Q) => {
       var C, E, D;
       if (Q.preventDefault(), Q.stopPropagation(), this.customWheelEventHandler && this.customWheelEventHandler(Q))
         return;
       if (((C = this.wasmTerm) == null ? void 0 : C.isAlternateScreen()) ?? !1) {
         const i = Q.deltaY > 0 ? "down" : "up", o = Math.min(Math.abs(Math.round(Q.deltaY / 33)), 5);
-        for (let s = 0; s < o; s++)
+        for (let G = 0; G < o; G++)
           i === "up" ? this.dataEmitter.fire("\x1B[A") : this.dataEmitter.fire("\x1B[B");
       } else {
         let i;
@@ -3468,26 +3497,26 @@ class oA {
     }, this.handleMouseDown = (Q) => {
       if (!this.canvas || !this.renderer || !this.wasmTerm)
         return;
-      const I = this.options.scrollbarWidth ?? wA;
+      const I = this.options.scrollbarWidth ?? oA;
       if (I === 0)
         return;
       const C = this.wasmTerm.getScrollbackLength();
       if (C === 0)
         return;
-      const E = this.canvas.getBoundingClientRect(), D = Q.clientX - E.left, i = Q.clientY - E.top, o = E.width, s = E.height, a = o - I - 4, k = 4;
-      if (D >= a && D <= a + I) {
+      const E = this.canvas.getBoundingClientRect(), D = Q.clientX - E.left, i = Q.clientY - E.top, o = E.width, G = E.height, c = o - I - 4, t = 4;
+      if (D >= c && D <= c + I) {
         Q.preventDefault(), Q.stopPropagation(), Q.stopImmediatePropagation();
-        const c = s - k * 2, e = this.rows, G = C + e, N = Math.max(20, e / G * c), y = this.viewportY / C, H = k + (c - N) * (1 - y);
-        if (i >= H && i <= H + N)
+        const h = G - t * 2, k = this.rows, s = C + k, N = Math.max(20, k / s * h), J = this.viewportY / C, y = t + (h - N) * (1 - J);
+        if (i >= y && i <= y + N)
           this.isDraggingScrollbar = !0, this.scrollbarDragStart = i, this.scrollbarDragStartViewportY = this.viewportY, this.canvas && (this.canvas.style.userSelect = "none", this.canvas.style.webkitUserSelect = "none");
         else {
-          const t = 1 - (i - k) / c, h = Math.round(t * C);
-          this.scrollToLine(Math.max(0, Math.min(C, h)));
+          const e = 1 - (i - t) / h, M = Math.round(e * C);
+          this.scrollToLine(Math.max(0, Math.min(C, M)));
         }
       }
     }, this.handleMouseUp = () => {
       this.isDraggingScrollbar && (this.isDraggingScrollbar = !1, this.scrollbarDragStart = null, this.canvas && (this.canvas.style.userSelect = "", this.canvas.style.webkitUserSelect = ""), this.scrollbarVisible && this.getScrollbackLength() > 0 && this.showScrollbar());
-    }, this.ghostty = A.ghostty ?? LA(), this.isAndroidPlatform = oA.detectAndroidPlatform();
+    }, this.ghostty = A.ghostty ?? qA(), this.isAndroidPlatform = sA.detectAndroidPlatform();
     const g = {
       cols: A.cols ?? 80,
       rows: A.rows ?? 24,
@@ -3508,7 +3537,7 @@ class oA {
         const E = Q[I];
         return Q[I] = C, this.isOpen && this.handleOptionChange(I, C, E), !0;
       }
-    }), this.cols = this.options.cols, this.rows = this.options.rows, this.currentTheme = { ...Z, ...A.theme }, this.buffer = new cA(this);
+    }), this.cols = this.options.cols, this.rows = this.options.rows, this.currentTheme = { ...X, ...A.theme }, this.buffer = new hA(this);
   }
   static detectAndroidPlatform() {
     if (typeof navigator > "u")
@@ -3535,7 +3564,7 @@ class oA {
         case "theme":
           if (this.renderer && this.wasmTerm) {
             const I = g && typeof g == "object" ? g : {}, C = Object.keys(I).length > 0;
-            this.currentTheme = C ? { ...this.currentTheme, ...I } : { ...Z }, this.renderer.setTheme(this.currentTheme), this.wasmTerm.setColors(this.buildThemeColorsConfig(this.currentTheme));
+            this.currentTheme = C ? { ...this.currentTheme, ...I } : { ...X }, this.renderer.setTheme(this.currentTheme), this.wasmTerm.setColors(this.buildThemeColorsConfig(this.currentTheme));
           }
           break;
         case "fontSize":
@@ -3653,7 +3682,7 @@ class oA {
         i.preventDefault(), Q.focus();
       }), this.canvas.addEventListener("touchend", (i) => {
         i.preventDefault(), Q.focus();
-      }), this.renderer = new FA(this.canvas, {
+      }), this.renderer = new HA(this.canvas, {
         fontSize: this.options.fontSize,
         fontFamily: this.options.fontFamily,
         cursorStyle: this.options.cursorStyle,
@@ -3674,7 +3703,7 @@ class oA {
           return { left: i.left, top: i.top };
         }
       };
-      this.inputHandler = new MA(
+      this.inputHandler = new NA(
         this.ghostty,
         A,
         (i) => {
@@ -3695,14 +3724,14 @@ class oA {
         () => this.copySelection(),
         this.textarea,
         D
-      ), this.selectionManager = new HA(
+      ), this.selectionManager = new YA(
         this,
         this.renderer,
         this.wasmTerm,
         this.textarea
       ), this.renderer.setSelectionManager(this.selectionManager), this.selectionManager.onSelectionChange(() => {
-        this.selectionChangeEmitter.fire();
-      }), this.linkDetector = new NA(this), this.linkDetector.registerProvider(new JA(this)), this.linkDetector.registerProvider(new yA(this)), A.addEventListener("mousedown", this.handleMouseDown, { capture: !0 }), A.addEventListener("mousemove", this.handleMouseMove), A.addEventListener("mouseleave", this.handleMouseLeave), A.addEventListener("click", this.handleClick), document.addEventListener("mouseup", this.handleMouseUp), A.addEventListener("wheel", this.handleWheel, { passive: !1, capture: !0 }), this.renderer.attachOverlayTo(A), this.renderer.render(this.wasmTerm, !0, this.viewportY, this, this.scrollbarOpacity), this.startRenderLoop(), this.openEmitter.fire(), this.openEmitter.dispose(), this.isAndroidPlatform || this.focus();
+        this.selectionChangeEmitter.fire(), this.requestRender();
+      }), this.linkDetector = new JA(this), this.linkDetector.registerProvider(new yA(this)), this.linkDetector.registerProvider(new FA(this)), A.addEventListener("mousedown", this.handleMouseDown, { capture: !0 }), A.addEventListener("mousemove", this.handleMouseMove), A.addEventListener("mouseleave", this.handleMouseLeave), A.addEventListener("click", this.handleClick), document.addEventListener("mouseup", this.handleMouseUp), A.addEventListener("wheel", this.handleWheel, { passive: !1, capture: !0 }), this.renderer.attachOverlayTo(A), this.renderer.render(this.wasmTerm, !0, this.viewportY, this, this.scrollbarOpacity), this.renderer.setOnRequestRender(() => this.requestRender()), this.renderTick(), this.openEmitter.fire(), this.openEmitter.dispose(), this.isAndroidPlatform || this.focus();
     } catch (g) {
       throw this.isOpen = !1, this.cleanupComponents(), new Error(`Failed to open terminal: ${g}`);
     }
@@ -3719,7 +3748,7 @@ class oA {
    */
   writeInternal(A, g) {
     var Q;
-    this.wasmTerm.write(A), this.processTerminalResponses(), typeof A == "string" && A.includes("\x07") ? this.bellEmitter.fire() : A instanceof Uint8Array && A.includes(7) && this.bellEmitter.fire(), (Q = this.linkDetector) == null || Q.invalidateCache(), this.viewportY !== 0 && this.scrollToBottom(), typeof A == "string" && A.includes("\x1B]") && this.checkForTitleChange(A), g && requestAnimationFrame(g);
+    this.wasmTerm.write(A), this.processTerminalResponses(), typeof A == "string" && A.includes("\x07") ? this.bellEmitter.fire() : A instanceof Uint8Array && A.includes(7) && this.bellEmitter.fire(), (Q = this.linkDetector) == null || Q.invalidateCache(), this.viewportY !== 0 && this.scrollToBottom(), typeof A == "string" && A.includes("\x1B]") && this.checkForTitleChange(A), g && requestAnimationFrame(g), this.requestRender();
   }
   /**
    * Write data with newline
@@ -3761,7 +3790,7 @@ class oA {
       } catch (Q) {
         console.error("Terminal resize failed:", Q);
       }
-      this.flushWriteQueue(), this.isSuspended || this.startRenderLoop();
+      this.flushWriteQueue(), this.isSuspended || this.requestRender();
     }
   }
   /**
@@ -3811,7 +3840,7 @@ class oA {
    * Restarts any scroll animation that was in progress when suspended.
    */
   resume() {
-    !this.isSuspended || !this.isOpen || (this.isSuspended = !1, this.scrollAnimationStartTime !== void 0 && !this.scrollAnimationFrame && this.animateScroll(), this.startRenderLoop());
+    !this.isSuspended || !this.isOpen || (this.isSuspended = !1, this.scrollAnimationStartTime !== void 0 && !this.scrollAnimationFrame && this.animateScroll(), this.requestRender());
   }
   /**
    * Load an addon
@@ -3938,7 +3967,7 @@ class oA {
     if (!this.wasmTerm)
       throw new Error("Terminal not open");
     const g = this.getScrollbackLength(), I = Math.max(0, Math.min(g, this.viewportY - A));
-    I !== this.viewportY && (this.viewportY = I, this.scrollEmitter.fire(this.viewportY), g > 0 && this.showScrollbar());
+    I !== this.viewportY && (this.viewportY = I, this.scrollEmitter.fire(this.viewportY), g > 0 && this.showScrollbar(), this.requestRender());
   }
   /**
    * Scroll viewport by a number of pages
@@ -3952,13 +3981,13 @@ class oA {
    */
   scrollToTop() {
     const A = this.getScrollbackLength();
-    A > 0 && this.viewportY !== A && (this.viewportY = A, this.scrollEmitter.fire(this.viewportY), this.showScrollbar());
+    A > 0 && this.viewportY !== A && (this.viewportY = A, this.scrollEmitter.fire(this.viewportY), this.showScrollbar(), this.requestRender());
   }
   /**
    * Scroll viewport to the bottom (current output)
    */
   scrollToBottom() {
-    this.viewportY !== 0 && (this.viewportY = 0, this.scrollEmitter.fire(this.viewportY), this.getScrollbackLength() > 0 && this.showScrollbar());
+    this.viewportY !== 0 && (this.viewportY = 0, this.scrollEmitter.fire(this.viewportY), this.getScrollbackLength() > 0 && this.showScrollbar(), this.requestRender());
   }
   /**
    * Scroll viewport to a specific line in the buffer
@@ -3966,7 +3995,7 @@ class oA {
    */
   scrollToLine(A) {
     const g = this.getScrollbackLength(), Q = Math.max(0, Math.min(g, A));
-    Q !== this.viewportY && (this.viewportY = Q, this.scrollEmitter.fire(this.viewportY), g > 0 && this.showScrollbar());
+    Q !== this.viewportY && (this.viewportY = Q, this.scrollEmitter.fire(this.viewportY), g > 0 && this.showScrollbar(), this.requestRender());
   }
   /**
    * Smoothly scroll to a target viewport position
@@ -3977,7 +4006,7 @@ class oA {
       return;
     const g = this.getScrollbackLength(), I = Math.max(0, Math.min(g, A));
     if ((this.options.smoothScrollDuration ?? 100) === 0) {
-      this.viewportY = I, this.targetViewportY = I, this.scrollEmitter.fire(Math.floor(this.viewportY)), g > 0 && this.showScrollbar();
+      this.viewportY = I, this.targetViewportY = I, this.scrollEmitter.fire(Math.floor(this.viewportY)), g > 0 && this.showScrollbar(), this.requestRender();
       return;
     }
     this.targetViewportY = I, !this.scrollAnimationFrame && (this.scrollAnimationStartTime = Date.now(), this.scrollAnimationStartY = this.viewportY, this.animateScroll());
@@ -4035,19 +4064,30 @@ class oA {
     }
   }
   /**
-   * Start the render loop
+   * Schedule a single render on the next animation frame. No-op if one
+   * is already pending or the terminal is closed/disposed.
+   *
+   * Replaces the previous perpetual rAF chain, which kept a CPU core
+   * hot at ~60Hz even on a static screen because every frame paid for a
+   * render() entry/exit and a getCursor() round-trip into WASM. With
+   * this design, the terminal goes idle (zero JS work, zero WASM calls)
+   * once the last event-driven render is done, until the next event
+   * wakes it via requestRender().
+   *
+   * Wake points are added on every event source that mutates renderable
+   * state: writes from the PTY, scrolls, resizes, mouse motion (link
+   * hover), selection changes, the cursor-blink interval (via the
+   * renderer's onRequestRender callback), and each smooth-scroll tick.
+   *
+   * Alternative design we considered: leave the rAF chain in place but
+   * have it short-circuit when no work is pending and self-cancel after
+   * N idle frames, with the same wake points re-arming it. End-state
+   * CPU is identical; the difference is purely code shape (a perpetual
+   * loop with self-cancel logic vs. ad-hoc rAF scheduling). We picked
+   * this shape for simplicity.
    */
-  startRenderLoop() {
-    if (this.animationFrameId)
-      return;
-    const A = () => {
-      if (!this.isDisposed && this.isOpen) {
-        this.renderer.render(this.wasmTerm, !1, this.viewportY, this, this.scrollbarOpacity);
-        const g = this.wasmTerm.getCursor();
-        g.y !== this.lastCursorY && (this.lastCursorY = g.y, this.cursorMoveEmitter.fire()), this.animationFrameId = requestAnimationFrame(A);
-      }
-    };
-    A();
+  requestRender() {
+    this.animationFrameId === void 0 && (this.isDisposed || !this.isOpen || (this.animationFrameId = requestAnimationFrame(this.renderTick)));
   }
   /**
    * Get a line from native WASM scrollback buffer
@@ -4088,9 +4128,9 @@ class oA {
     let E = 0, D = null;
     const i = this.getViewportY(), o = Math.max(0, Math.floor(i));
     if (o > 0) {
-      const G = this.wasmTerm.getScrollbackLength();
+      const s = this.wasmTerm.getScrollbackLength();
       if (C < o) {
-        const N = G - o + C;
+        const N = s - o + C;
         D = this.wasmTerm.getScrollbackLine(N);
       } else {
         const N = C - o;
@@ -4099,39 +4139,39 @@ class oA {
     } else
       D = this.wasmTerm.getLine(C);
     D && Q >= 0 && Q < D.length && (E = D[Q].hyperlink_id);
-    const s = this.renderer.hoveredHyperlinkId || 0;
-    E !== s && this.renderer.setHoveredHyperlinkId(E);
-    const a = this.wasmTerm.getScrollbackLength();
-    let k;
-    const c = this.getViewportY(), e = Math.max(0, Math.floor(c));
-    if (e > 0)
-      if (C < e)
-        k = a - e + C;
+    const G = this.renderer.hoveredHyperlinkId || 0;
+    E !== G && this.renderer.setHoveredHyperlinkId(E);
+    const c = this.wasmTerm.getScrollbackLength();
+    let t;
+    const h = this.getViewportY(), k = Math.max(0, Math.floor(h));
+    if (k > 0)
+      if (C < k)
+        t = c - k + C;
       else {
-        const G = C - e;
-        k = a + G;
+        const s = C - k;
+        t = c + s;
       }
     else
-      k = a + C;
-    this.linkDetector.getLinkAt(Q, k).then((G) => {
-      var N, y, H, Y;
-      if (G !== this.currentHoveredLink) {
-        (y = (N = this.currentHoveredLink) == null ? void 0 : N.hover) == null || y.call(N, !1), this.currentHoveredLink = G, (H = G == null ? void 0 : G.hover) == null || H.call(G, !0);
-        const t = G ? "pointer" : "text";
-        if (this.element && (this.element.style.cursor = t), this.canvas && (this.canvas.style.cursor = t), this.renderer)
-          if (G) {
-            const h = ((Y = this.wasmTerm) == null ? void 0 : Y.getScrollbackLength()) || 0, J = this.getViewportY(), L = Math.max(0, Math.floor(J)), b = G.range.start.y - h + L, r = G.range.end.y - h + L;
-            b < this.rows && r >= 0 ? this.renderer.setHoveredLinkRange({
-              startX: G.range.start.x,
-              startY: Math.max(0, b),
-              endX: G.range.end.x,
-              endY: Math.min(this.rows - 1, r)
+      t = c + C;
+    this.linkDetector.getLinkAt(Q, t).then((s) => {
+      var N, J, y, H;
+      if (s !== this.currentHoveredLink) {
+        (J = (N = this.currentHoveredLink) == null ? void 0 : N.hover) == null || J.call(N, !1), this.currentHoveredLink = s, (y = s == null ? void 0 : s.hover) == null || y.call(s, !0);
+        const e = s ? "pointer" : "text";
+        if (this.element && (this.element.style.cursor = e), this.canvas && (this.canvas.style.cursor = e), this.renderer)
+          if (s) {
+            const M = ((H = this.wasmTerm) == null ? void 0 : H.getScrollbackLength()) || 0, Y = this.getViewportY(), K = Math.max(0, Math.floor(Y)), L = s.range.start.y - M + K, m = s.range.end.y - M + K;
+            L < this.rows && m >= 0 ? this.renderer.setHoveredLinkRange({
+              startX: s.range.start.x,
+              startY: Math.max(0, L),
+              endX: s.range.end.x,
+              endY: Math.min(this.rows - 1, m)
             }) : this.renderer.setHoveredLinkRange(null);
           } else
             this.renderer.setHoveredLinkRange(null);
       }
-    }).catch((G) => {
-      console.warn("Link detection error:", G);
+    }).catch((s) => {
+      console.warn("Link detection error:", s);
     });
   }
   /**
@@ -4143,8 +4183,8 @@ class oA {
     const g = this.wasmTerm.getScrollbackLength();
     if (g === 0)
       return;
-    const Q = this.canvas.getBoundingClientRect(), C = A.clientY - Q.top - this.scrollbarDragStart, i = Q.height - 4 * 2, o = this.rows, s = g + o, a = Math.max(20, o / s * i), k = -C / (i - a), c = Math.round(k * g), e = this.scrollbarDragStartViewportY + c;
-    this.scrollToLine(Math.max(0, Math.min(g, e)));
+    const Q = this.canvas.getBoundingClientRect(), C = A.clientY - Q.top - this.scrollbarDragStart, i = Q.height - 4 * 2, o = this.rows, G = g + o, c = Math.max(20, o / G * i), t = -C / (i - c), h = Math.round(t * g), k = this.scrollbarDragStartViewportY + h;
+    this.scrollToLine(Math.max(0, Math.min(g, k)));
   }
   /**
    * Show scrollbar with fade-in and schedule auto-hide
@@ -4273,8 +4313,8 @@ class oA {
     this.renderer && this.renderer.clearPreedit();
   }
 }
-const YA = 2, SA = 1, rA = 15, KA = 100;
-class qA {
+const SA = 2, rA = 1, KA = 15, LA = 100;
+class UA {
   constructor() {
     this._isResizing = !1;
   }
@@ -4338,11 +4378,11 @@ class qA {
     const I = this._terminal.element;
     if (typeof I.clientWidth > "u")
       return;
-    const C = window.getComputedStyle(I), E = Number.parseInt(C.getPropertyValue("padding-top")) || 0, D = Number.parseInt(C.getPropertyValue("padding-bottom")) || 0, i = Number.parseInt(C.getPropertyValue("padding-left")) || 0, o = Number.parseInt(C.getPropertyValue("padding-right")) || 0, s = I.clientWidth, a = I.clientHeight;
-    if (s === 0 || a === 0)
+    const C = window.getComputedStyle(I), E = Number.parseInt(C.getPropertyValue("padding-top")) || 0, D = Number.parseInt(C.getPropertyValue("padding-bottom")) || 0, i = Number.parseInt(C.getPropertyValue("padding-left")) || 0, o = Number.parseInt(C.getPropertyValue("padding-right")) || 0, G = I.clientWidth, c = I.clientHeight;
+    if (G === 0 || c === 0)
       return;
-    const k = s - i - o - rA, c = a - E - D, e = Math.max(YA, Math.floor(k / Q.width)), G = Math.max(SA, Math.floor(c / Q.height));
-    return { cols: e, rows: G };
+    const t = G - i - o - KA, h = c - E - D, k = Math.max(SA, Math.floor(t / Q.width)), s = Math.max(rA, Math.floor(h / Q.height));
+    return { cols: k, rows: s };
   }
   /**
    * Observe the terminal's container for resize events
@@ -4358,22 +4398,22 @@ class qA {
     (A = this._terminal) != null && A.element && (this._resizeObserver || (this._resizeObserver = new ResizeObserver((g) => {
       this._isResizing || !g[0] || (this._resizeDebounceTimer && clearTimeout(this._resizeDebounceTimer), this._resizeDebounceTimer = setTimeout(() => {
         this.fit();
-      }, KA));
+      }, LA));
     }), this._resizeObserver.observe(this._terminal.element)));
   }
 }
-let R = null;
-async function UA(B) {
-  R || (R = await S.load(B));
-}
+let l = null;
 async function RA(B) {
-  R || (R = await S.loadFromBytes(B));
+  l || (l = await S.load(B));
 }
 async function lA(B) {
-  R || (R = await S.loadFromResponse(B));
+  l || (l = await S.loadFromBytes(B));
 }
-function LA() {
-  if (!R)
+async function nA(B) {
+  l || (l = await S.loadFromResponse(B));
+}
+function qA() {
+  if (!l)
     throw new Error(
       `ghostty-web not initialized. Call init() before creating Terminal instances.
 Example:
@@ -4386,30 +4426,30 @@ For tests, pass a Ghostty instance directly:
   const ghostty = await Ghostty.load();
   const term = new Terminal({ ghostty });`
     );
-  return R;
+  return l;
 }
 export {
-  FA as CanvasRenderer,
-  M as CellFlags,
-  Z as DEFAULT_THEME,
-  j as DirtyState,
-  K as EventEmitter,
-  qA as FitAddon,
+  HA as CanvasRenderer,
+  a as CellFlags,
+  X as DEFAULT_THEME,
+  T as DirtyState,
+  r as EventEmitter,
+  UA as FitAddon,
   S as Ghostty,
-  kA as GhosttyTerminal,
-  MA as InputHandler,
+  cA as GhosttyTerminal,
+  NA as InputHandler,
   w as Key,
-  QA as KeyAction,
-  eA as KeyEncoder,
-  P as KeyEncoderOption,
-  NA as LinkDetector,
-  q as Mods,
-  JA as OSC8LinkProvider,
-  HA as SelectionManager,
-  oA as Terminal,
-  yA as UrlRegexProvider,
-  LA as getGhostty,
-  UA as init,
-  RA as initFromBytes,
-  lA as initFromResponse
+  IA as KeyAction,
+  kA as KeyEncoder,
+  _ as KeyEncoderOption,
+  JA as LinkDetector,
+  U as Mods,
+  yA as OSC8LinkProvider,
+  YA as SelectionManager,
+  sA as Terminal,
+  FA as UrlRegexProvider,
+  qA as getGhostty,
+  RA as init,
+  lA as initFromBytes,
+  nA as initFromResponse
 };
