@@ -410,14 +410,14 @@ function resolveCellColors(
   decoration: DecorationRange | null,
   out: ResolvedCellColors,
 ): void {
-  let fgR = cell.fgIsDefault ? theme.foreground.r : cell.fg_r;
-  let fgG = cell.fgIsDefault ? theme.foreground.g : cell.fg_g;
-  let fgB = cell.fgIsDefault ? theme.foreground.b : cell.fg_b;
-  let bgR = cell.bgIsDefault ? theme.background.r : cell.bg_r;
-  let bgG = cell.bgIsDefault ? theme.background.g : cell.bg_g;
-  let bgB = cell.bgIsDefault ? theme.background.b : cell.bg_b;
-  let fgIsDefault = cell.fgIsDefault ?? false;
-  let bgIsDefault = cell.bgIsDefault ?? false;
+  let fgR = cell.fg_r;
+  let fgG = cell.fg_g;
+  let fgB = cell.fg_b;
+  let bgR = cell.bg_r;
+  let bgG = cell.bg_g;
+  let bgB = cell.bg_b;
+  let fgIsDefault = cell.fgIsDefault ?? (fgR === 0 && fgG === 0 && fgB === 0);
+  let bgIsDefault = cell.bgIsDefault ?? (bgR === 0 && bgG === 0 && bgB === 0);
 
   if (cell.flags & CellFlags.INVERSE) {
     const tmpR = fgR;
@@ -434,15 +434,21 @@ function resolveCellColors(
     bgIsDefault = tmpDefault;
   }
 
+  if (fgIsDefault) {
+    fgR = theme.foreground.r;
+    fgG = theme.foreground.g;
+    fgB = theme.foreground.b;
+  }
+
   if (!isSelected && decoration?.foreground) {
     fgR = decoration.foreground.r;
     fgG = decoration.foreground.g;
     fgB = decoration.foreground.b;
   }
 
-  let fgA = fgIsDefault ? clampU8(Math.round(theme.foreground.a * 255)) : 255;
+  let fgA = fgIsDefault ? clampAlpha(theme.foreground.a) * 255 : 255;
   if (decoration?.foreground && !isSelected) {
-    fgA = clampU8(Math.round(decoration.foreground.a * 255));
+    fgA = clampAlpha(decoration.foreground.a) * 255;
   }
   if (cell.flags & CellFlags.INVISIBLE) {
     fgA = 0;
@@ -495,7 +501,7 @@ function resolveCellColors(
   out.fgR = fgR;
   out.fgG = fgG;
   out.fgB = fgB;
-  out.fgA = fgA;
+  out.fgA = clampU8(Math.round(fgA));
   out.bgR = bgR;
   out.bgG = bgG;
   out.bgB = bgB;

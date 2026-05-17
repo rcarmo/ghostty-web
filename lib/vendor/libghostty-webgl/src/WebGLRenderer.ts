@@ -315,26 +315,26 @@ export class WebGLRenderer implements Renderer {
     if (this.background) {
       gl.useProgram(this.background.program);
       gl.bindVertexArray(this.background.vao);
-      gl.uniform2f(this.background.uniforms["u_cellSize"], cellSize.width, cellSize.height);
-      gl.uniform2f(this.background.uniforms["u_gridSize"], input.cols, input.rows);
+      gl.uniform2f(this.background.uniforms.u_cellSize, cellSize.width, cellSize.height);
+      gl.uniform2f(this.background.uniforms.u_gridSize, input.cols, input.rows);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, instanceCount);
     }
 
     if (this.glyph) {
       gl.useProgram(this.glyph.program);
       gl.bindVertexArray(this.glyph.vao);
-      gl.uniform2f(this.glyph.uniforms["u_cellSize"], cellSize.width, cellSize.height);
-      gl.uniform2f(this.glyph.uniforms["u_gridSize"], input.cols, input.rows);
-      gl.uniform2f(this.glyph.uniforms["u_atlasSize"], this.glyphAtlas.size, this.glyphAtlas.size);
-      gl.uniform1f(this.glyph.uniforms["u_baseline"], cellSize.baseline);
+      gl.uniform2f(this.glyph.uniforms.u_cellSize, cellSize.width, cellSize.height);
+      gl.uniform2f(this.glyph.uniforms.u_gridSize, input.cols, input.rows);
+      gl.uniform2f(this.glyph.uniforms.u_atlasSize, this.glyphAtlas.size, this.glyphAtlas.size);
+      gl.uniform1f(this.glyph.uniforms.u_baseline, cellSize.baseline);
 
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.glyphAtlas.texture);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, this.glyphAtlas.colorAtlas);
 
-      gl.uniform1i(this.glyph.uniforms["u_atlas"], 0);
-      gl.uniform1i(this.glyph.uniforms["u_colorAtlas"], 1);
+      gl.uniform1i(this.glyph.uniforms.u_atlas, 0);
+      gl.uniform1i(this.glyph.uniforms.u_colorAtlas, 1);
 
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, instanceCount);
     }
@@ -342,9 +342,9 @@ export class WebGLRenderer implements Renderer {
     if (this.decoration) {
       gl.useProgram(this.decoration.program);
       gl.bindVertexArray(this.decoration.vao);
-      gl.uniform2f(this.decoration.uniforms["u_cellSize"], cellSize.width, cellSize.height);
-      gl.uniform2f(this.decoration.uniforms["u_gridSize"], input.cols, input.rows);
-      gl.uniform1f(this.decoration.uniforms["u_baseline"], cellSize.baseline);
+      gl.uniform2f(this.decoration.uniforms.u_cellSize, cellSize.width, cellSize.height);
+      gl.uniform2f(this.decoration.uniforms.u_gridSize, input.cols, input.rows);
+      gl.uniform1f(this.decoration.uniforms.u_baseline, cellSize.baseline);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, instanceCount);
     }
   }
@@ -444,12 +444,12 @@ export class WebGLRenderer implements Renderer {
     const gl = this.gl;
     gl.useProgram(this.solid.program);
     gl.bindVertexArray(this.solid.vao);
-    gl.uniform2f(this.solid.uniforms["u_rectOrigin"], origin.x, origin.y);
-    gl.uniform2f(this.solid.uniforms["u_rectSize"], size.width, size.height);
-    gl.uniform2f(this.solid.uniforms["u_canvasSize"], this.canvas.width, this.canvas.height);
+    gl.uniform2f(this.solid.uniforms.u_rectOrigin, origin.x, origin.y);
+    gl.uniform2f(this.solid.uniforms.u_rectSize, size.width, size.height);
+    gl.uniform2f(this.solid.uniforms.u_canvasSize, this.canvas.width, this.canvas.height);
     const a = color.a;
     gl.uniform4f(
-      this.solid.uniforms["u_color"],
+      this.solid.uniforms.u_color,
       (color.r / 255) * a,
       (color.g / 255) * a,
       (color.b / 255) * a,
@@ -601,7 +601,6 @@ function computeCursorSizePx(
       const width = Math.max(2 * dpr, metrics.width * 0.15 * dpr);
       return { width, height: cellHeight, offsetX: 0, offsetY: 0 };
     }
-    case "block":
     default:
       return { width: cellWidth, height: cellHeight, offsetX: 0, offsetY: 0 };
   }

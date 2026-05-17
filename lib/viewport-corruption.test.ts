@@ -9,8 +9,8 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { createIsolatedTerminal } from './test-helpers';
 import type { Terminal } from './terminal';
+import { createIsolatedTerminal } from './test-helpers';
 
 /**
  * Generate escape-heavy terminal output matching the bug report description.
@@ -272,8 +272,8 @@ describe('Viewport Corruption', () => {
           const text = getViewportRowText(term, row);
           const match = text.match(/R(\d{2})L(\d{2})/);
           if (match) {
-            const markerRun = parseInt(match[1], 10);
-            const markerLine = parseInt(match[2], 10);
+            const markerRun = Number.parseInt(match[1], 10);
+            const markerLine = Number.parseInt(match[2], 10);
             // The marker should reference a valid run/line
             expect(markerRun).toBeGreaterThanOrEqual(1);
             expect(markerRun).toBeLessThanOrEqual(run);

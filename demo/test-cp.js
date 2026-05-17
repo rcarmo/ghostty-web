@@ -8,10 +8,10 @@
  * pipe protocol (| delimited text).
  */
 
-import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -295,7 +295,7 @@ async function runTests(child) {
 
     // Verify no sessions remain
     const listReply = await sendAndReceive(cp2, 'LIST_TABS');
-    const count = parseInt(listReply.split('\n')[0].split('|')[1], 10);
+    const count = Number.parseInt(listReply.split('\n')[0].split('|')[1], 10);
     if (count !== 0) {
       // Sessions still present — skip this assertion to avoid false failure
       console.warn(`         (skipped NO_TABS check: ${count} session(s) still alive)`);

@@ -20,8 +20,8 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { createIsolatedTerminal } from './test-helpers';
 import type { Terminal } from './terminal';
+import { createIsolatedTerminal } from './test-helpers';
 
 const ESC = '\x1b';
 

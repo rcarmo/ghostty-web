@@ -725,7 +725,7 @@ cpWss.on('connection', (ws) => {
         let sessionIdArg = '';
         if (parts[1] !== undefined) {
           const parsed = Number(parts[1]);
-          if (!isNaN(parsed) && parts[1] !== '') {
+          if (!Number.isNaN(parsed) && parts[1] !== '') {
             n = parsed;
             sessionIdArg = parts[2] || '';
           } else {

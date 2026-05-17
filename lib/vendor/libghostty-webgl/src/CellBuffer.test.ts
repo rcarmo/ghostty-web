@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { GlyphAtlas } from "./GlyphAtlas";
 import { CellBuffer } from "./CellBuffer";
-import { DirtyState, ROW_DIRTY, type GhosttyCell, type RenderInput } from "./types";
+import type { GlyphAtlas } from "./GlyphAtlas";
+import { DirtyState, type GhosttyCell, ROW_DIRTY, type RenderInput } from "./types";
 
 class FakeWebGLBuffer {}
 

@@ -8,11 +8,11 @@
  */
 
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -129,44 +129,50 @@ async function run() {
       const kv = Object.fromEntries(lines.map((l) => l.split('=').map((s, i) => (i === 0 ? s : l.slice(l.indexOf('=') + 1)))));
 
       try {
-        assert.strictEqual(kv['session_name'], `ghostty-web-${pid}`, 'session_name');
+        assert.strictEqual(kv.session_name, `ghostty-web-${pid}`, 'session_name');
         ok('session_name field correct');
       } catch (e) {
         fail('session_name field correct', e);
       }
 
       try {
-        assert.strictEqual(kv['safe_session_name'], 'ghostty-web', 'safe_session_name');
+        assert.strictEqual(kv.safe_session_name, 'ghostty-web', 'safe_session_name');
         ok('safe_session_name field correct');
       } catch (e) {
         fail('safe_session_name field correct', e);
       }
 
       try {
-        assert.strictEqual(kv['pid'], String(pid), 'pid field');
+        assert.strictEqual(kv.pid, String(pid), 'pid field');
         ok('pid field correct');
       } catch (e) {
         fail('pid field correct', e);
       }
 
       try {
-        assert.strictEqual(kv['ws_url'], `ws://localhost:${TEST_PORT}/cp`, 'ws_url field');
+        assert.strictEqual(kv.ws_url, `ws://localhost:${TEST_PORT}/cp`, 'ws_url field');
         ok('ws_url field correct');
       } catch (e) {
         fail('ws_url field correct', e);
       }
 
       try {
-        assert.strictEqual(kv['port'], String(TEST_PORT), 'port field');
+        assert.strictEqual(kv.port, String(TEST_PORT), 'port field');
         ok('port field correct');
       } catch (e) {
         fail('port field correct', e);
       }
     } else {
       // Already counted as fail above; skip content checks
-      ['session_name field correct', 'safe_session_name field correct', 'pid field correct', 'ws_url field correct', 'port field correct'].forEach(
-        (name) => fail(name, new Error('session file missing, cannot check content'))
-      );
+      for (const name of [
+        'session_name field correct',
+        'safe_session_name field correct',
+        'pid field correct',
+        'ws_url field correct',
+        'port field correct',
+      ]) {
+        fail(name, new Error('session file missing, cannot check content'));
+      }
     }
 
     // ── Test 2: session file is removed on SIGINT ───────────────────────────

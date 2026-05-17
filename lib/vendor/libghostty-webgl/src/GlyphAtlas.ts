@@ -249,14 +249,20 @@ export class GlyphAtlas {
     ctx.textAlign = "left";
 
     const metrics = ctx.measureText(grapheme);
-    const left = metrics.actualBoundingBoxLeft ?? 0;
-    const right = metrics.actualBoundingBoxRight ?? metrics.width;
-    const ascent = metrics.actualBoundingBoxAscent ?? fontSizePx * 0.8;
-    const descent = metrics.actualBoundingBoxDescent ?? fontSizePx * 0.2;
+    let left = metrics.actualBoundingBoxLeft ?? 0;
+    let right = metrics.actualBoundingBoxRight ?? metrics.width;
+    let ascent = metrics.actualBoundingBoxAscent ?? fontSizePx * 0.8;
+    let descent = metrics.actualBoundingBoxDescent ?? fontSizePx * 0.2;
+    if (![left, right, ascent, descent].every(Number.isFinite)) {
+      left = 0;
+      right = Number.isFinite(metrics.width) && metrics.width > 0 ? metrics.width : fontSizePx * 0.6;
+      ascent = fontSizePx * 0.8;
+      descent = fontSizePx * 0.2;
+    }
     const width = Math.ceil(left + right);
     const height = Math.ceil(ascent + descent);
 
-    if (width === 0 || height === 0) {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width === 0 || height === 0) {
       return {
         ...emptyMetrics(isColor),
         shelfId: -1,
@@ -286,7 +292,12 @@ export class GlyphAtlas {
     const drawY = PADDING + bearingY;
     ctx.fillText(grapheme, drawX, drawY);
 
-    const imageData = ctx.getImageData(0, 0, paddedW, paddedH);
+    let imageData: ImageData;
+    try {
+      imageData = ctx.getImageData(0, 0, paddedW, paddedH);
+    } catch {
+      return null;
+    }
     const gl = this.gl;
 
     if (isColor) {
@@ -626,13 +637,18 @@ function isEmoji(grapheme: string): boolean {
 
 function createCanvas(width: number, height: number): HTMLCanvasElement | OffscreenCanvas {
   // Unit tests install a fake OffscreenCanvas with deterministic text metrics.
-  // Keep using it there, while preferring DOM canvas in real browsers. WebKit/
-  // WKWebView has proven more reliable with DOM-backed glyph rasterization than
-  // native OffscreenCanvas for this path.
+  // Keep using it there, while preferring DOM canvas only for real WebKit where
+  // WKWebView has proven more reliable with DOM-backed glyph rasterization.
   if (typeof OffscreenCanvas !== "undefined" && !isNativeFunction(OffscreenCanvas)) {
     return new OffscreenCanvas(width, height);
   }
-  if (typeof document !== "undefined" && document.createElement) {
+  if (shouldPreferDOMCanvas() && typeof document !== "undefined" && document.createElement) {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+  }
+  if (typeof document !== "undefined" && document.createElement && typeof OffscreenCanvas === "undefined") {
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -646,4 +662,10 @@ function createCanvas(width: number, height: number): HTMLCanvasElement | Offscr
 
 function isNativeFunction(value: unknown): boolean {
   return typeof value === "function" && Function.prototype.toString.call(value).includes("[native code]");
+}
+
+function shouldPreferDOMCanvas(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /AppleWebKit/i.test(ua) && !/(Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS|HappyDOM)/i.test(ua);
 }
