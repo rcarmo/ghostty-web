@@ -11,12 +11,12 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./lib",
+    "rootDir": "./src",
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["bun-types"]
+    "composite": true
   },
-  "include": ["lib/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "lib/vendor/libghostty-webgl/**"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

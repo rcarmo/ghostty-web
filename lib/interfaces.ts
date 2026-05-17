@@ -14,6 +14,12 @@ export interface ITerminalOptions {
   fontSize?: number; // Default: 15
   fontFamily?: string; // Default: 'monospace'
   allowTransparency?: boolean;
+  /**
+   * Rendering backend selection.
+   * - canvas: always use Canvas2D renderer (default)
+   * - webgl: try WebGL renderer first, fallback to Canvas2D if init fails
+   */
+  renderer?: 'canvas' | 'webgl';
 
   // Phase 1 additions
   convertEol?: boolean; // Convert \n to \r\n (default: false)

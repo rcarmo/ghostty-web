@@ -11,7 +11,9 @@
 
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import type { Terminal } from './terminal';
+import { CanvasRenderer } from './renderer';
 import { createIsolatedTerminal } from './test-helpers';
+import { WebGLRenderer } from './webgl-renderer';
 
 /**
  * Helper to convert viewport row to absolute buffer row for selection tests.
@@ -88,6 +90,30 @@ describe('Terminal', () => {
       });
       expect(term.cols).toBe(120);
       expect(term.rows).toBe(40);
+    });
+
+    test('defaults renderer option to canvas', async () => {
+      const term = await createIsolatedTerminal();
+      expect(term.options.renderer).toBe('canvas');
+    });
+  });
+
+  describe('Renderer selection', () => {
+    test('uses canvas renderer by default', async () => {
+      const term = await createIsolatedTerminal();
+      term.open(container!);
+      expect(term.renderer).toBeInstanceOf(CanvasRenderer);
+      term.dispose();
+    });
+
+    test('falls back to canvas when webgl is requested but unavailable', async () => {
+      const canUseSpy = jest.spyOn(WebGLRenderer, 'canUse').mockReturnValue(false);
+      const term = await createIsolatedTerminal({ renderer: 'webgl' });
+      term.open(container!);
+      expect(term.renderer).toBeInstanceOf(CanvasRenderer);
+      expect(term.renderer).not.toBeInstanceOf(WebGLRenderer);
+      term.dispose();
+      canUseSpy.mockRestore();
     });
   });
 

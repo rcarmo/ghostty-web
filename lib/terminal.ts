@@ -37,6 +37,8 @@ import { LinkDetector } from './link-detector';
 import { OSC8LinkProvider } from './providers/osc8-link-provider';
 import { UrlRegexProvider } from './providers/url-regex-provider';
 import { CanvasRenderer, DEFAULT_SCROLLBAR_WIDTH, DEFAULT_THEME } from './renderer';
+import type { ITerminalRenderer } from './renderer-contract';
+import { WebGLRenderer } from './webgl-renderer';
 import { SelectionManager } from './selection-manager';
 import type { ILink, ILinkProvider } from './types';
 
@@ -67,7 +69,7 @@ export class Terminal implements ITerminalCore {
   // Components (created on open())
   private ghostty?: Ghostty;
   public wasmTerm?: GhosttyTerminal; // Made public for link providers
-  public renderer?: CanvasRenderer; // Made public for FitAddon
+  public renderer?: ITerminalRenderer; // Made public for FitAddon
   private inputHandler?: InputHandler;
   private selectionManager?: SelectionManager;
   private canvas?: HTMLCanvasElement;
@@ -161,6 +163,7 @@ export class Terminal implements ITerminalCore {
       convertEol: options.convertEol ?? false,
       disableStdin: options.disableStdin ?? false,
       smoothScrollDuration: options.smoothScrollDuration ?? 100, // Default: 100ms smooth scroll
+      renderer: options.renderer ?? 'canvas',
     };
 
     // Wrap in Proxy to intercept runtime changes (xterm.js compatibility)
@@ -474,15 +477,20 @@ export class Terminal implements ITerminalCore {
         textarea.focus();
       });
 
-      // Create renderer
-      this.renderer = new CanvasRenderer(this.canvas, {
+      // Create renderer (Canvas default; WebGL opt-in with safe fallback)
+      const rendererOptions = {
         fontSize: this.options.fontSize,
         fontFamily: this.options.fontFamily,
         cursorStyle: this.options.cursorStyle,
         cursorBlink: this.options.cursorBlink,
         theme: this.options.theme,
         scrollbarWidth: this.options.scrollbarWidth,
-      });
+      };
+      if (this.options.renderer === 'webgl' && WebGLRenderer.canUse(this.canvas)) {
+        this.renderer = new WebGLRenderer(this.canvas, rendererOptions);
+      } else {
+        this.renderer = new CanvasRenderer(this.canvas, rendererOptions);
+      }
 
       // Size canvas to terminal dimensions (use renderer.resize for proper DPI scaling)
       this.renderer.resize(this.cols, this.rows);

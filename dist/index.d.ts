@@ -1518,12 +1518,52 @@ export declare interface ITerminalOptions {
     fontSize?: number;
     fontFamily?: string;
     allowTransparency?: boolean;
+    /**
+     * Rendering backend selection.
+     * - canvas: always use Canvas2D renderer (default)
+     * - webgl: try WebGL renderer first, fallback to Canvas2D if init fails
+     */
+    renderer?: 'canvas' | 'webgl';
     convertEol?: boolean;
     disableStdin?: boolean;
     smoothScrollDuration?: number;
     scrollbarWidth?: number;
     onLinkClick?: (url: string, event: MouseEvent) => boolean;
     ghostty?: Ghostty;
+}
+
+declare interface ITerminalRenderer {
+    readonly charWidth: number;
+    readonly charHeight: number;
+    resize(cols: number, rows: number): void;
+    render(buffer: IRenderable, forceAll?: boolean, viewportY?: number, scrollbackProvider?: IScrollbackProvider, scrollbarOpacity?: number): void;
+    clear(): void;
+    dispose(): void;
+    getMetrics(): {
+        width: number;
+        height: number;
+        baseline: number;
+    };
+    getCanvas(): HTMLCanvasElement;
+    setTheme(theme: ITheme): void;
+    setFontSize(fontSize: number): void;
+    setFontFamily(fontFamily: string): void;
+    setCursorStyle(style: 'block' | 'underline' | 'bar'): void;
+    setCursorBlink(blink: boolean): void;
+    setSelectionManager(selectionManager: SelectionManager): void;
+    setHoveredHyperlinkId(id: number | null): void;
+    setHoveredLinkRange(range: {
+        startX: number;
+        startY: number;
+        endX: number;
+        endY: number;
+    } | null): void;
+    setDecorations(decorations: ITerminalDecoration[]): void;
+    clearDecorations(): void;
+    drawPreedit(text: string, cursorStart?: number, cursorEnd?: number): void;
+    clearPreedit(): void;
+    attachOverlayTo(parent: HTMLElement): void;
+    setOnRequestRender(onRequestRender: () => void): void;
 }
 
 export declare interface ITheme {
@@ -2075,7 +2115,7 @@ export declare class SelectionManager {
     private absoluteRowToViewport;
     private static readonly AUTO_SCROLL_SPEED;
     private static readonly AUTO_SCROLL_INTERVAL;
-    constructor(terminal: Terminal, renderer: CanvasRenderer, wasmTerm: GhosttyTerminal, textarea: HTMLTextAreaElement);
+    constructor(terminal: Terminal, renderer: ITerminalRenderer, wasmTerm: GhosttyTerminal, textarea: HTMLTextAreaElement);
     /**
      * Get the selected text as a string
      */
@@ -2217,7 +2257,7 @@ export declare class Terminal implements ITerminalCore {
     readonly options: Required<ITerminalOptions>;
     private ghostty?;
     wasmTerm?: GhosttyTerminal;
-    renderer?: CanvasRenderer;
+    renderer?: ITerminalRenderer;
     private inputHandler?;
     private selectionManager?;
     private canvas?;

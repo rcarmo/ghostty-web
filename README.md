@@ -30,6 +30,20 @@ term.open(document.getElementById('terminal')!);
 term.write('Hello, World!\r\n');
 ```
 
+### Experimental WebGL Renderer
+
+Canvas2D remains the default renderer. WebGL is explicit opt-in:
+
+```typescript
+const term = new Terminal({
+  cols: 80,
+  rows: 24,
+  renderer: 'webgl',
+});
+```
+
+When `renderer: 'webgl'` is requested, `ghostty-web` checks for `webgl2` support before constructing the renderer. If WebGL2 is unavailable, initialization safely falls back to the default Canvas2D renderer. The WebGL path is currently experimental: it uses a vendored adapter from `0xBigBoss/ghostty-webgl` and preserves the same terminal-facing renderer contract, but Canvas2D remains the production default.
+
 The sections below cover the main integration and development workflows.
 
 ## Features
@@ -42,6 +56,7 @@ The sections below cover the main integration and development workflows.
 - ✅ Styled scrollback and row-iterator based viewport rendering
 - ✅ CSI `14/16/18 t` size responses and callback-based terminal query handling
 - ✅ Canvas rendering at 60 FPS
+- ✅ Experimental opt-in WebGL renderer with Canvas fallback
 - ✅ Scrollback buffer
 - ✅ Text selection & clipboard
 - ✅ FitAddon for responsive sizing

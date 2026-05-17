@@ -13,7 +13,7 @@
 import { EventEmitter } from './event-emitter';
 import type { GhosttyTerminal } from './ghostty';
 import type { IEvent } from './interfaces';
-import type { CanvasRenderer } from './renderer';
+import type { ITerminalRenderer } from './renderer-contract';
 import type { Terminal } from './terminal';
 import type { GhosttyCell } from './types';
 
@@ -34,7 +34,7 @@ export interface SelectionCoordinates {
 
 export class SelectionManager {
   private terminal: Terminal;
-  private renderer: CanvasRenderer;
+  private renderer: ITerminalRenderer;
   private wasmTerm: GhosttyTerminal;
   private textarea: HTMLTextAreaElement;
 
@@ -101,7 +101,7 @@ export class SelectionManager {
 
   constructor(
     terminal: Terminal,
-    renderer: CanvasRenderer,
+    renderer: ITerminalRenderer,
     wasmTerm: GhosttyTerminal,
     textarea: HTMLTextAreaElement
   ) {

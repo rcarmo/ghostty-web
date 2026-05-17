@@ -1,0 +1,47 @@
+{
+  "name": "@0xbigboss/libghostty-webgl",
+  "version": "0.0.1",
+  "description": "WebGL2 GPU-accelerated renderer for ghostty-web terminals",
+  "keywords": [
+    "ghostty",
+    "gpu",
+    "renderer",
+    "terminal",
+    "webgl",
+    "webgl2"
+  ],
+  "license": "MIT",
+  "author": "0xBigBoss",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xBigBoss/ghostty-webgl.git",
+    "directory": "packages/libghostty-webgl"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsgo",
+    "dev": "tsgo --watch",
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "debug": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12"
+  },
+  "peerDependencies": {
+    "@0xbigboss/ghostty-web": ">=0.4.0"
+  }
+}
