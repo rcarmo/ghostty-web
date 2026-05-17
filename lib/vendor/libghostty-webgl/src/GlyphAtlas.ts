@@ -73,7 +73,9 @@ export class GlyphAtlas {
     this.dpr = dpr;
 
     const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
-    const baseSize = 2048;
+    // Keep atlas memory conservative for iOS/WKWebView. RGBA atlas storage is
+    // more compatible than single-channel RED/R8 there, but costs more memory.
+    const baseSize = 1024;
     this.atlasSize = Math.min(baseSize, maxSize);
     this.colorAtlasSize = Math.min(baseSize, maxSize);
 
@@ -130,6 +132,13 @@ export class GlyphAtlas {
     return this.colorAtlasSize;
   }
 
+  dispose(): void {
+    this.gl.deleteTexture(this.atlasTexture);
+    this.gl.deleteTexture(this.colorTexture);
+    this.glyphs.clear();
+    this.resetPages();
+  }
+
   reset(fontSize: number, fontFamily: string, dpr: number): void {
     this.fontSize = fontSize;
     this.fontFamily = fontFamily;
@@ -137,7 +146,8 @@ export class GlyphAtlas {
     this.resetPages();
     this.glyphs.clear();
     this.useCounter = 0;
-    this.recreateTextures();
+    this.clearFullPageTexture(false);
+    this.clearFullPageTexture(true);
     this.prewarmAscii();
   }
 
@@ -179,7 +189,7 @@ export class GlyphAtlas {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.R8, this.atlasSize, this.atlasSize);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, this.atlasSize, this.atlasSize);
 
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.colorTexture);
@@ -300,7 +310,7 @@ export class GlyphAtlas {
       );
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
     } else {
-      const alpha = extractAlpha(imageData.data, paddedW, paddedH);
+      const alpha = extractAlphaRgba(imageData.data, paddedW, paddedH);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.atlasTexture);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -315,7 +325,7 @@ export class GlyphAtlas {
         alloc.y,
         paddedW,
         paddedH,
-        gl.RED,
+        gl.RGBA,
         gl.UNSIGNED_BYTE,
         alpha,
       );
@@ -407,7 +417,7 @@ export class GlyphAtlas {
       return;
     }
 
-    const byteLength = width * shelf.height;
+    const byteLength = width * shelf.height * 4;
     const zero = new Uint8Array(byteLength);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.atlasTexture);
@@ -419,7 +429,7 @@ export class GlyphAtlas {
       shelf.y,
       width,
       shelf.height,
-      gl.RED,
+      gl.RGBA,
       gl.UNSIGNED_BYTE,
       zero,
     );
@@ -569,10 +579,15 @@ function createEmptyPage(size: number): AtlasPage {
   };
 }
 
-function extractAlpha(data: Uint8ClampedArray, width: number, height: number): Uint8Array {
-  const out = new Uint8Array(width * height);
-  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-    out[j] = data[i + 3];
+function extractAlphaRgba(data: Uint8ClampedArray, width: number, height: number): Uint8Array {
+  const out = new Uint8Array(width * height * 4);
+  for (let i = 0, j = 0; i < data.length; i += 4, j += 4) {
+    // Store coverage in alpha. Keeping RGB white makes the texture easy to
+    // inspect and avoids RED/R8 sampling issues observed in iOS WKWebView.
+    out[j] = 255;
+    out[j + 1] = 255;
+    out[j + 2] = 255;
+    out[j + 3] = data[i + 3];
   }
   return out;
 }
@@ -610,7 +625,11 @@ function isEmoji(grapheme: string): boolean {
 }
 
 function createCanvas(width: number, height: number): HTMLCanvasElement | OffscreenCanvas {
-  if (typeof OffscreenCanvas !== "undefined") {
+  // Unit tests install a fake OffscreenCanvas with deterministic text metrics.
+  // Keep using it there, while preferring DOM canvas in real browsers. WebKit/
+  // WKWebView has proven more reliable with DOM-backed glyph rasterization than
+  // native OffscreenCanvas for this path.
+  if (typeof OffscreenCanvas !== "undefined" && !isNativeFunction(OffscreenCanvas)) {
     return new OffscreenCanvas(width, height);
   }
   if (typeof document !== "undefined" && document.createElement) {
@@ -619,5 +638,12 @@ function createCanvas(width: number, height: number): HTMLCanvasElement | Offscr
     canvas.height = height;
     return canvas;
   }
+  if (typeof OffscreenCanvas !== "undefined") {
+    return new OffscreenCanvas(width, height);
+  }
   throw new Error("No canvas implementation available for glyph atlas");
+}
+
+function isNativeFunction(value: unknown): boolean {
+  return typeof value === "function" && Function.prototype.toString.call(value).includes("[native code]");
 }

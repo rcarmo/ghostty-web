@@ -24,11 +24,11 @@ import type {
   IBufferNamespace,
   IBufferRange,
   IDisposable,
-  ITerminalDecoration,
   IEvent,
   IKeyEvent,
   ITerminalAddon,
   ITerminalCore,
+  ITerminalDecoration,
   ITerminalOptions,
   ITheme,
   IUnicodeVersionProvider,
@@ -38,9 +38,9 @@ import { OSC8LinkProvider } from './providers/osc8-link-provider';
 import { UrlRegexProvider } from './providers/url-regex-provider';
 import { CanvasRenderer, DEFAULT_SCROLLBAR_WIDTH, DEFAULT_THEME } from './renderer';
 import type { ITerminalRenderer } from './renderer-contract';
-import { WebGLRenderer } from './webgl-renderer';
 import { SelectionManager } from './selection-manager';
 import type { ILink, ILinkProvider } from './types';
+import { WebGLRenderer } from './webgl-renderer';
 
 // ============================================================================
 // Terminal Class
@@ -285,15 +285,10 @@ export class Terminal implements ITerminalCore {
       this.selectionManager.clearSelection();
     }
 
-    // Resize canvas to match new font metrics
+    // Resize canvas to match new font metrics. The renderer owns the backing
+    // store details (DPR scaling, WebGL viewport, overlays), so do not rewrite
+    // canvas.width/height here after resize or high-DPI/WebGL state is lost.
     this.renderer.resize(this.cols, this.rows);
-
-    // Update canvas element dimensions to match renderer
-    const metrics = this.renderer.getMetrics();
-    this.canvas.width = metrics.width * this.cols;
-    this.canvas.height = metrics.height * this.rows;
-    this.canvas.style.width = `${metrics.width * this.cols}px`;
-    this.canvas.style.height = `${metrics.height * this.rows}px`;
 
     // Push the new per-cell pixel size into the WASM terminal so size
     // reports / kitty graphics see the updated metrics.
@@ -487,7 +482,28 @@ export class Terminal implements ITerminalCore {
         scrollbarWidth: this.options.scrollbarWidth,
       };
       if (this.options.renderer === 'webgl' && WebGLRenderer.canUse(this.canvas)) {
-        this.renderer = new WebGLRenderer(this.canvas, rendererOptions);
+        try {
+          this.renderer = new WebGLRenderer(this.canvas, rendererOptions);
+        } catch (error) {
+          console.warn('WebGL renderer initialization failed; falling back to CanvasRenderer', error);
+          // WebGL construction may have already bound the original canvas to a
+          // WebGL context before failing. A canvas cannot later switch to 2D, so
+          // replace it before creating the CanvasRenderer fallback.
+          const fallbackCanvas = document.createElement('canvas');
+          fallbackCanvas.style.display = 'block';
+          fallbackCanvas.style.cursor = 'text';
+          fallbackCanvas.addEventListener('mousedown', (ev) => {
+            ev.preventDefault();
+            textarea.focus();
+          });
+          fallbackCanvas.addEventListener('touchend', (ev) => {
+            ev.preventDefault();
+            textarea.focus();
+          });
+          this.canvas.replaceWith(fallbackCanvas);
+          this.canvas = fallbackCanvas;
+          this.renderer = new CanvasRenderer(this.canvas, rendererOptions);
+        }
       } else {
         this.renderer = new CanvasRenderer(this.canvas, rendererOptions);
       }

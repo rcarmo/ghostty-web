@@ -10,8 +10,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
-import type { Terminal } from './terminal';
 import { CanvasRenderer } from './renderer';
+import type { Terminal } from './terminal';
 import { createIsolatedTerminal } from './test-helpers';
 import { WebGLRenderer } from './webgl-renderer';
 
@@ -114,6 +114,36 @@ describe('Terminal', () => {
       expect(term.renderer).not.toBeInstanceOf(WebGLRenderer);
       term.dispose();
       canUseSpy.mockRestore();
+    });
+
+    test('webgl capability probe does not bind the terminal canvas context', () => {
+      let originalCanvasGetContextCalls = 0;
+      let probeCanvasGetContextCalls = 0;
+      let loseContextCalls = 0;
+      const probeCanvas = {
+        getContext: (kind: string) => {
+          probeCanvasGetContextCalls++;
+          expect(kind).toBe('webgl2');
+          return {
+            getExtension: (name: string) => {
+              expect(name).toBe('WEBGL_lose_context');
+              return { loseContext: () => loseContextCalls++ };
+            },
+          };
+        },
+      };
+      const terminalCanvas = {
+        ownerDocument: { createElement: () => probeCanvas },
+        getContext: () => {
+          originalCanvasGetContextCalls++;
+          return null;
+        },
+      } as unknown as HTMLCanvasElement;
+
+      expect(WebGLRenderer.canUse(terminalCanvas)).toBe(true);
+      expect(originalCanvasGetContextCalls).toBe(0);
+      expect(probeCanvasGetContextCalls).toBe(1);
+      expect(loseContextCalls).toBe(1);
     });
   });
 

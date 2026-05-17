@@ -68,9 +68,9 @@ void main() {
   if (v_colorAtlas > 0.5) {
     vec4 rgba = texture(u_colorAtlas, v_texCoord);
     float outA = rgba.a * v_fgColor.a;
-    fragColor = vec4(rgba.rgb * v_fgColor.a, outA);
+    fragColor = vec4(rgba.rgb * outA, outA);
   } else {
-    float coverage = texture(u_atlas, v_texCoord).r;
+    float coverage = texture(u_atlas, v_texCoord).a;
     float outA = v_fgColor.a * coverage;
     fragColor = vec4(v_fgColor.rgb * outA, outA);
   }

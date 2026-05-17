@@ -1389,6 +1389,7 @@ export declare class InputHandler {
 
 export declare interface IRenderable {
     getLine(y: number): GhosttyCell[] | null;
+    getViewport?(): GhosttyCell[];
     getCursor(): {
         x: number;
         y: number;

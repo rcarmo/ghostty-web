@@ -1,6 +1,6 @@
 # @ghostty-web/demo
 
-Cross-platform demo server for [ghostty-web](https://github.com/coder/ghostty-web) terminal emulator.
+Cross-platform demo server for [ghostty-web](https://github.com/rcarmo/ghostty-web) terminal emulator.
 
 ## Quick Start
 
@@ -14,9 +14,10 @@ Works on **Linux** and **macOS** (no Windows support yet).
 ## What it does
 
 - Starts an HTTP server on port 8080 (configurable via `PORT` env var)
-- Serves WebSocket PTY on the same port at `/ws` endpoint
+- Serves the browser terminal demo and PTY/control-plane WebSocket plumbing
 - Opens a real shell session (bash, zsh, etc.)
 - Provides full PTY support (colors, cursor positioning, resize, etc.)
+- Uses the Canvas renderer by default; WebGL remains library-level opt-in via `new Terminal({ renderer: 'webgl' })`
 - Supports reverse proxies (ngrok, nginx, etc.) via X-Forwarded-\* headers
 
 ## Usage

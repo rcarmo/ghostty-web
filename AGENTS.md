@@ -6,8 +6,8 @@
 
 ```bash
 bun install                          # Install dependencies
-bun test                            # Run test suite (95 tests)
-bun run dev                         # Start Vite dev server (http://localhost:8000)
+bun test                             # Run test suite
+bun run dev                          # Start Vite dev server (http://localhost:8000)
 ```
 
 **Before committing, always run:**
@@ -19,8 +19,8 @@ bun run fmt && bun run lint && bun run typecheck && bun test && bun run build
 **Run interactive terminal demo:**
 
 ```bash
-cd demo/server && bun install && bun run start  # Terminal 1: PTY server
-bun run dev                                     # Terminal 2: Web server
+bun run demo      # Launch demo server
+# or: bun run dev # Static Vite dev server
 # Open: http://localhost:8000/demo/
 ```
 
@@ -32,6 +32,7 @@ This is a **fully functional terminal emulator** (MVP complete) that uses Ghostt
 
 - ✅ Full VT100/ANSI terminal emulation (vim, htop, colors, etc.)
 - ✅ Canvas-based renderer with 60 FPS
+- ✅ Experimental opt-in WebGL2 renderer (`renderer: 'webgl'`) with Canvas fallback
 - ✅ Keyboard input handling (Kitty keyboard protocol)
 - ✅ Text selection and clipboard
 - ✅ WebSocket PTY integration (real shell sessions)
@@ -43,8 +44,9 @@ This is a **fully functional terminal emulator** (MVP complete) that uses Ghostt
 
 - TypeScript + Bun runtime for tests
 - Vite for dev server and bundling
-- Ghostty WASM (404 KB, committed) for VT100 parsing
-- Canvas API for rendering
+- Ghostty WASM build artifacts for VT parsing/render-state access
+- Canvas API for default rendering
+- Optional WebGL2 adapter in `lib/webgl-renderer.ts` with vendored `libghostty-webgl`
 
 ## Architecture
 
@@ -57,8 +59,9 @@ This is a **fully functional terminal emulator** (MVP complete) that uses Ghostt
             ├─► GhosttyTerminal (WASM)
             │   └─ VT100 state machine, screen buffer
             │
-            ├─► CanvasRenderer (lib/renderer.ts)
-            │   └─ 60 FPS rendering, all colors/styles
+            ├─► ITerminalRenderer (lib/renderer-contract.ts)
+            │   ├─ CanvasRenderer (lib/renderer.ts) - default
+            │   └─ WebGLRenderer (lib/webgl-renderer.ts) - opt-in experimental
             │
             ├─► InputHandler (lib/input-handler.ts)
             │   └─ Keyboard events → escape sequences
@@ -74,16 +77,20 @@ Ghostty WASM Bridge (lib/ghostty.ts)
 
 ### Key Files
 
-| File                        | Lines | Purpose                             |
-| --------------------------- | ----- | ----------------------------------- |
-| `lib/terminal.ts`           | 427   | Main Terminal class, xterm.js API   |
-| `lib/ghostty.ts`            | 552   | WASM bridge, memory management      |
-| `lib/renderer.ts`           | 610   | Canvas renderer with font metrics   |
-| `lib/input-handler.ts`      | 438   | Keyboard → escape sequences         |
-| `lib/selection-manager.ts`  | 442   | Text selection + clipboard          |
-| `lib/types.ts`              | 454   | TypeScript definitions for WASM ABI |
-| `lib/addons/fit.ts`         | 240   | Responsive terminal sizing          |
-| `demo/server/pty-server.ts` | 284   | WebSocket PTY server (real shell)   |
+| File                       | Purpose                                      |
+| -------------------------- | -------------------------------------------- |
+| `lib/terminal.ts`          | Main Terminal class, xterm.js API            |
+| `lib/ghostty.ts`           | Ghostty WASM/C ABI wrapper                   |
+| `lib/renderer-contract.ts` | Shared Terminal-facing renderer contract     |
+| `lib/renderer.ts`          | Default Canvas renderer                      |
+| `lib/webgl-renderer.ts`    | Experimental opt-in WebGL renderer adapter   |
+| `lib/input-handler.ts`     | Keyboard/IME/mouse input handling            |
+| `lib/selection-manager.ts` | Text selection, clipboard, decorations       |
+| `lib/types.ts`             | TypeScript definitions for WASM ABI          |
+| `lib/wasm-png-decoder.ts`  | Vendored WASM PNG decoder for kitty graphics |
+| `lib/addons/fit.ts`        | Responsive terminal sizing                   |
+| `demo/bin/demo.js`         | Demo server with PTY/WebSocket support       |
+| `demo/bin/render-test.ts`  | Browser screenshot regression runner         |
 
 ### WASM Integration Pattern
 
@@ -123,7 +130,7 @@ Ghostty WASM Bridge (lib/ghostty.ts)
 bun run fmt                           # Check formatting (Prettier)
 bun run lint                          # Run linter (Biome)
 bun run typecheck                     # Type check (TypeScript)
-bun test                              # Run tests (95 tests)
+bun test                              # Run tests
 bun run build                         # Build library
 ```
 
@@ -346,8 +353,8 @@ python3 -m http.server
 
 ### 2. **WASM Binary is Committed**
 
-- `ghostty-vt.wasm` (404 KB) is in the repo
-- Don't need to rebuild unless updating Ghostty version
+- `ghostty-vt.wasm` is built from the Ghostty submodule and copied into `dist/`
+- Don't need to rebuild unless updating Ghostty version or ABI glue
 - Rebuild instructions in README.md if needed
 
 ### 3. **Test Timeouts**
@@ -375,15 +382,13 @@ const view = new Uint8Array(this.getBuffer(), ptr, size);
 ### 5. **PTY Server Required for Interactive Demos**
 
 ```bash
-# Terminal needs PTY server running
-cd demo/server
-bun run start
-
-# Then access from browser
-# http://localhost:8000/demo/
+# Terminal demo with PTY/WebSocket support
+bun run demo
+# or, during source development:
+bun run demo:dev
 ```
 
-**WebSocket connects to:** `ws://localhost:3001/ws` (or current hostname)
+The demo serves HTTP and WebSocket traffic from the same origin, so reverse proxies must preserve WebSocket upgrade headers.
 
 ### 6. **Canvas Rendering Requires Container Resize**
 

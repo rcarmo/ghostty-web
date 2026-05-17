@@ -1,5 +1,4 @@
 import type { ITerminalDecoration, ITheme } from './interfaces';
-import type { ITerminalRenderer } from './renderer-contract';
 import {
   DEFAULT_THEME,
   type FontMetrics,
@@ -7,14 +6,17 @@ import {
   type IScrollbackProvider,
   type RendererOptions,
 } from './renderer';
+import type { ITerminalRenderer } from './renderer-contract';
 import type { SelectionManager } from './selection-manager';
+import type { GhosttyCell } from './types';
 import { WebGLRenderer as VendoredWebGLRenderer } from './vendor/libghostty-webgl/src/WebGLRenderer';
 import { DirtyState, ROW_DIRTY, ROW_HAS_HYPERLINK, ROW_HAS_SELECTION } from './vendor/libghostty-webgl/src/types';
 import type {
-  GhosttyCell as WebGLGhosttyCell,
+  DecorationRange,
   RenderInput,
   SelectionRange,
   TerminalTheme,
+  GhosttyCell as WebGLGhosttyCell,
 } from './vendor/libghostty-webgl/src/types';
 
 /**
@@ -39,10 +41,24 @@ export class WebGLRenderer implements ITerminalRenderer {
   private hoveredLinkRange: { startX: number; startY: number; endX: number; endY: number } | null = null;
   private decorations: ITerminalDecoration[] = [];
   private preeditOverlay?: HTMLDivElement;
+  private cursorVisible = true;
+  private cursorBlinkInterval?: number;
 
   static canUse(canvas: HTMLCanvasElement): boolean {
+    // Probe on a throwaway canvas. Calling getContext('webgl2') on the real
+    // terminal canvas would permanently bind it to WebGL; if construction later
+    // fails, CanvasRenderer fallback could no longer obtain a 2D context.
+    const doc = canvas.ownerDocument ?? (typeof document !== 'undefined' ? document : undefined);
+    if (!doc) return false;
+    const probe = doc.createElement('canvas');
     try {
-      return Boolean(canvas.getContext('webgl2'));
+      const gl = probe.getContext('webgl2');
+      if (!gl) return false;
+      // Release the probe context immediately where supported. This avoids
+      // burning scarce WebGL contexts on iOS/WebKit before the real renderer is
+      // constructed.
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      return true;
     } catch {
       return false;
     }
@@ -60,6 +76,7 @@ export class WebGLRenderer implements ITerminalRenderer {
     });
     this.vendored.attach(canvas);
     this.vendored.updateTheme(this.toWebGLTheme(this.theme));
+    this.setCursorBlink(options.cursorBlink ?? false);
   }
 
   get charWidth(): number {
@@ -97,7 +114,9 @@ export class WebGLRenderer implements ITerminalRenderer {
   }
 
   dispose(): void {
-    this.clearPreedit();
+    this.stopCursorBlink();
+    this.preeditOverlay?.remove();
+    this.preeditOverlay = undefined;
     this.vendored.dispose();
   }
 
@@ -130,6 +149,11 @@ export class WebGLRenderer implements ITerminalRenderer {
 
   setCursorBlink(blink: boolean): void {
     this.options.cursorBlink = blink;
+    if (blink) {
+      this.startCursorBlink();
+    } else {
+      this.stopCursorBlink();
+    }
   }
 
   setSelectionManager(selectionManager: SelectionManager): void {
@@ -154,29 +178,63 @@ export class WebGLRenderer implements ITerminalRenderer {
 
   attachOverlayTo(parent: HTMLElement): void {
     if (this.preeditOverlay) return;
-    const overlay = document.createElement('div');
+    const overlay = parent.ownerDocument.createElement('div');
     overlay.style.position = 'absolute';
     overlay.style.pointerEvents = 'none';
     overlay.style.whiteSpace = 'pre';
     overlay.style.display = 'none';
+    overlay.style.textDecoration = 'underline';
+    overlay.style.zIndex = '1';
     parent.appendChild(overlay);
     this.preeditOverlay = overlay;
   }
 
-  drawPreedit(text: string): void {
+  drawPreedit(text: string, cellX = 0, cellY = 0): void {
     if (!this.preeditOverlay) return;
+    if (!text) {
+      this.clearPreedit();
+      return;
+    }
+    const metrics = this.getMetrics();
     this.preeditOverlay.textContent = text;
-    this.preeditOverlay.style.display = text ? 'block' : 'none';
+    this.preeditOverlay.style.left = `${cellX * metrics.width}px`;
+    this.preeditOverlay.style.top = `${cellY * metrics.height}px`;
+    this.preeditOverlay.style.font = `${this.options.fontSize ?? 15}px ${this.options.fontFamily ?? 'monospace'}`;
+    this.preeditOverlay.style.color = this.theme.foreground;
+    this.preeditOverlay.style.display = 'block';
   }
 
   clearPreedit(): void {
     if (!this.preeditOverlay) return;
-    this.preeditOverlay.remove();
-    this.preeditOverlay = undefined;
+    this.preeditOverlay.textContent = '';
+    this.preeditOverlay.style.display = 'none';
   }
 
   setOnRequestRender(onRequestRender: () => void): void {
     this.onRequestRender = onRequestRender;
+  }
+
+  private startCursorBlink(): void {
+    if (this.cursorBlinkInterval !== undefined) return;
+    const view = this.canvas.ownerDocument.defaultView;
+    if (!view) return;
+    this.cursorBlinkInterval = view.setInterval(() => {
+      this.cursorVisible = !this.cursorVisible;
+      this.onRequestRender?.();
+    }, 530);
+  }
+
+  private stopCursorBlink(): void {
+    if (this.cursorBlinkInterval !== undefined) {
+      const view = this.canvas.ownerDocument.defaultView;
+      if (view) {
+        view.clearInterval(this.cursorBlinkInterval);
+      } else {
+        clearInterval(this.cursorBlinkInterval);
+      }
+      this.cursorBlinkInterval = undefined;
+    }
+    this.cursorVisible = true;
   }
 
   private buildRenderInput(
@@ -193,19 +251,32 @@ export class WebGLRenderer implements ITerminalRenderer {
     const selectionRange = this.selectionManager?.getSelectionCoords() ?? null;
     const cursor = buffer.getCursor();
 
+    const viewport = buffer.getViewport?.();
+    const scrollbackLength = scrollbackProvider?.getScrollbackLength() ?? 0;
+    const clampedViewportY = clamp(viewportY, 0, scrollbackLength);
+    const integerViewportY = Math.floor(clampedViewportY);
+
     for (let row = 0; row < dims.rows; row++) {
-      const line = buffer.getLine(row) ?? [];
+      const source = this.getRenderLineSource(
+        buffer,
+        row,
+        dims.cols,
+        integerViewportY,
+        scrollbackLength,
+        scrollbackProvider,
+        viewport
+      );
       const graphemes: Array<string | undefined> = [];
       let hasGrapheme = false;
-      let flags = forceAll || buffer.isRowDirty(row) ? ROW_DIRTY : 0;
+      let flags = forceAll || source.isDirty ? ROW_DIRTY : 0;
       if (this.rowIntersectsSelection(row, selectionRange)) flags |= ROW_HAS_SELECTION;
       if (this.rowIntersectsHoveredLink(row)) flags |= ROW_HAS_HYPERLINK;
 
       for (let col = 0; col < dims.cols; col++) {
-        const cell = line[col] ?? this.emptyCell();
+        const cell = source.cellAt(col) ?? this.emptyCell();
         viewportCells.push(cell as WebGLGhosttyCell);
-        if (cell.grapheme_len > 0 && buffer.getGraphemeString) {
-          graphemes[col] = buffer.getGraphemeString(row, col);
+        if (cell.grapheme_len > 0 && source.graphemeRow !== null && buffer.getGraphemeString) {
+          graphemes[col] = buffer.getGraphemeString(source.graphemeRow, col);
           hasGrapheme = true;
         }
       }
@@ -219,7 +290,11 @@ export class WebGLRenderer implements ITerminalRenderer {
       viewportCells,
       graphemeRows,
       rowFlags,
-      dirtyState: forceAll ? DirtyState.FULL : DirtyState.PARTIAL,
+      // Force a full instance upload for now. WKWebView/iOS in particular has
+      // shown blank/stale rows when dirty-row metadata and viewport snapshots
+      // disagree. This is conservative but correct; rowFlags still carry dirty
+      // information for future optimization.
+      dirtyState: DirtyState.FULL,
       selectionRange: selectionRange
         ? {
             startCol: selectionRange.startCol,
@@ -232,16 +307,67 @@ export class WebGLRenderer implements ITerminalRenderer {
         this.hoveredHyperlinkId !== null || this.hoveredLinkRange
           ? { hyperlinkId: this.hoveredHyperlinkId ?? 0, range: this.hoveredLinkRange }
           : null,
+      decorations: this.toWebGLDecorations(),
       cursorX: cursor.x,
       cursorY: cursor.y,
-      cursorVisible: cursor.visible,
+      cursorVisible: cursor.visible && this.cursorVisible,
       cursorStyle: cursor.style ?? this.options.cursorStyle ?? 'block',
       getGraphemeString: buffer.getGraphemeString?.bind(buffer),
       theme: this.toWebGLTheme(this.theme),
-      viewportY,
-      scrollbackLength: scrollbackProvider?.getScrollbackLength() ?? 0,
+      viewportY: clampedViewportY,
+      scrollbackLength,
       scrollbarOpacity,
     };
+  }
+
+  private getRenderLineSource(
+    buffer: IRenderable,
+    viewportRow: number,
+    cols: number,
+    viewportY: number,
+    scrollbackLength: number,
+    scrollbackProvider: IScrollbackProvider | undefined,
+    viewport: GhosttyCell[] | undefined
+  ): { cellAt: (col: number) => GhosttyCell | undefined; graphemeRow: number | null; isDirty: boolean } {
+    if (viewportY > 0) {
+      if (viewportRow < viewportY && scrollbackProvider) {
+        const scrollbackOffset = scrollbackLength - viewportY + viewportRow;
+        const line = scrollbackProvider.getScrollbackLine(scrollbackOffset) ?? [];
+        return {
+          cellAt: (col) => line[col],
+          graphemeRow: null,
+          isDirty: true,
+        };
+      }
+
+      const screenRow = viewportRow - viewportY;
+      return {
+        cellAt: this.getViewportLineCellReader(buffer, viewport, screenRow, cols),
+        graphemeRow: screenRow >= 0 ? screenRow : null,
+        isDirty: screenRow >= 0 ? buffer.isRowDirty(screenRow) : true,
+      };
+    }
+
+    return {
+      cellAt: this.getViewportLineCellReader(buffer, viewport, viewportRow, cols),
+      graphemeRow: viewportRow,
+      isDirty: buffer.isRowDirty(viewportRow),
+    };
+  }
+
+  private getViewportLineCellReader(
+    buffer: IRenderable,
+    viewport: GhosttyCell[] | undefined,
+    row: number,
+    cols: number
+  ): (col: number) => GhosttyCell | undefined {
+    if (row < 0) return () => undefined;
+    if (!viewport) {
+      const line = buffer.getLine(row) ?? [];
+      return (col) => line[col];
+    }
+    const offset = row * cols;
+    return (col) => viewport[offset + col];
   }
 
   private rowIntersectsSelection(row: number, selection: SelectionRange | null): boolean {
@@ -264,11 +390,23 @@ export class WebGLRenderer implements ITerminalRenderer {
       bg_r: 0,
       bg_g: 0,
       bg_b: 0,
+      fgIsDefault: true,
+      bgIsDefault: true,
       flags: 0,
       width: 1,
       hyperlink_id: 0,
       grapheme_len: 0,
     };
+  }
+
+  private toWebGLDecorations(): DecorationRange[] {
+    return this.decorations.map((decoration) => ({
+      line: decoration.line,
+      column: decoration.column,
+      length: decoration.length,
+      background: decoration.background ? this.cssToRgba(decoration.background) : undefined,
+      foreground: decoration.foreground ? this.cssToRgba(decoration.foreground) : undefined,
+    }));
   }
 
   private toWebGLTheme(theme: Required<ITheme>): TerminalTheme {
@@ -284,25 +422,98 @@ export class WebGLRenderer implements ITerminalRenderer {
   }
 
   private cssToRgba(value: string): { r: number; g: number; b: number; a: number } {
-    if (value.startsWith('#')) {
-      const hex = value.slice(1);
-      if (hex.length === 3) {
-        return {
-          r: Number.parseInt(hex[0]! + hex[0]!, 16),
-          g: Number.parseInt(hex[1]! + hex[1]!, 16),
-          b: Number.parseInt(hex[2]! + hex[2]!, 16),
-          a: 1,
-        };
-      }
-      if (hex.length >= 6) {
-        return {
-          r: Number.parseInt(hex.slice(0, 2), 16),
-          g: Number.parseInt(hex.slice(2, 4), 16),
-          b: Number.parseInt(hex.slice(4, 6), 16),
-          a: 1,
-        };
-      }
+    const direct = parseCssColor(value);
+    if (direct) return direct;
+
+    // CanvasRenderer accepts any browser CSS color. Use the browser parser too
+    // so WebGL themes don't regress for names, rgb(), hsl(), etc.
+    const normalized = normalizeCssColor(value);
+    if (normalized && normalized !== value) {
+      const parsed = parseCssColor(normalized);
+      if (parsed) return parsed;
     }
+
     return { r: 0, g: 0, b: 0, a: 1 };
   }
+}
+
+function parseCssColor(value: string): { r: number; g: number; b: number; a: number } | null {
+  const color = value.trim();
+  if (color.startsWith('#')) {
+    const hex = color.slice(1);
+    if (hex.length === 3 || hex.length === 4) {
+      return validRgba({
+        r: Number.parseInt(hex[0]! + hex[0]!, 16),
+        g: Number.parseInt(hex[1]! + hex[1]!, 16),
+        b: Number.parseInt(hex[2]! + hex[2]!, 16),
+        a: hex.length === 4 ? Number.parseInt(hex[3]! + hex[3]!, 16) / 255 : 1,
+      });
+    }
+    if (hex.length === 6 || hex.length === 8) {
+      return validRgba({
+        r: Number.parseInt(hex.slice(0, 2), 16),
+        g: Number.parseInt(hex.slice(2, 4), 16),
+        b: Number.parseInt(hex.slice(4, 6), 16),
+        a: hex.length === 8 ? Number.parseInt(hex.slice(6, 8), 16) / 255 : 1,
+      });
+    }
+  }
+
+  const rgba = color.match(/^rgba?\(([^)]+)\)$/i);
+  if (rgba) {
+    const parts = rgba[1]!
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length >= 3) {
+      return validRgba({
+        r: parseColorChannel(parts[0]!),
+        g: parseColorChannel(parts[1]!),
+        b: parseColorChannel(parts[2]!),
+        a: parts[3] !== undefined ? clamp01(Number.parseFloat(parts[3]!)) : 1,
+      });
+    }
+  }
+
+  return null;
+}
+
+function validRgba(color: { r: number; g: number; b: number; a: number }): {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+} | null {
+  if (![color.r, color.g, color.b, color.a].every(Number.isFinite)) return null;
+  return color;
+}
+
+function normalizeCssColor(value: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.fillStyle = '#000000';
+  ctx.fillStyle = value;
+  return typeof ctx.fillStyle === 'string' ? ctx.fillStyle : null;
+}
+
+function parseColorChannel(value: string): number {
+  if (value.endsWith('%')) return clampU8((Number.parseFloat(value) / 100) * 255);
+  return clampU8(Number.parseFloat(value));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, Math.min(max, value));
+}
+
+function clampU8(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.max(0, Math.min(1, value));
 }

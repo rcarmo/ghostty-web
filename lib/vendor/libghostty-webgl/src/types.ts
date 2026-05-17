@@ -45,6 +45,14 @@ export interface HyperlinkRange {
   range: LinkRange | null;
 }
 
+export interface DecorationRange {
+  line: number;
+  column: number;
+  length: number;
+  background?: RGBA;
+  foreground?: RGBA;
+}
+
 export const ROW_DIRTY = 0x01;
 export const ROW_HAS_SELECTION = 0x02;
 export const ROW_HAS_HYPERLINK = 0x04;
@@ -76,6 +84,8 @@ export interface GhosttyCell {
   bg_r: number;
   bg_g: number;
   bg_b: number;
+  fgIsDefault?: boolean;
+  bgIsDefault?: boolean;
   flags: number;
   width: number;
   hyperlink_id: number;
@@ -94,6 +104,7 @@ export interface RenderInput {
   dirtyState: DirtyState;
   selectionRange: SelectionRange | null;
   hoveredLink: HyperlinkRange | null;
+  decorations: readonly DecorationRange[];
   cursorX: number;
   cursorY: number;
   cursorVisible: boolean;

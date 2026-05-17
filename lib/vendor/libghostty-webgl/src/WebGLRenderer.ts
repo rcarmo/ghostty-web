@@ -1,14 +1,14 @@
 import debug from "debug";
-import type { CellMetrics, RenderInput, Renderer, TerminalTheme } from "./types";
 import { CellBuffer } from "./CellBuffer";
 import { GlyphAtlas } from "./GlyphAtlas";
 import { profileDuration, profileStart } from "./profile";
+import type { CellMetrics, RenderInput, Renderer, TerminalTheme } from "./types";
 
 // Namespaced debug loggers
 const log = debug("bootty:webgl");
 import { backgroundFragmentSource, backgroundVertexSource } from "./shaders/background";
-import { glyphFragmentSource, glyphVertexSource } from "./shaders/glyph";
 import { decorationFragmentSource, decorationVertexSource } from "./shaders/decoration";
+import { glyphFragmentSource, glyphVertexSource } from "./shaders/glyph";
 import { solidFragmentSource, solidVertexSource } from "./shaders/solid";
 
 const CELL_STRIDE = 32;
@@ -189,18 +189,15 @@ export class WebGLRenderer implements Renderer {
       this.canvas.removeEventListener("webglcontextlost", this.handleContextLost);
       this.canvas.removeEventListener("webglcontextrestored", this.handleContextRestored);
     }
-    this.background = undefined;
-    this.glyph = undefined;
-    this.decoration = undefined;
-    this.solid = undefined;
-    this.cellBuffer = undefined;
-    this.glyphAtlas = undefined;
+    this.releaseResources();
     this.gl = undefined;
     this.canvas = undefined;
+    this.contextValid = false;
   }
 
   private initResources(): void {
     if (!this.gl) return;
+    this.releaseResources();
     const gl = this.gl;
 
     const quadVbo = gl.createBuffer();
@@ -239,6 +236,35 @@ export class WebGLRenderer implements Renderer {
     );
 
     this.forceFullUpload = true;
+  }
+
+  private releaseResources(): void {
+    const gl = this.gl;
+    if (!gl) return;
+
+    this.deleteProgramInfo(this.background);
+    this.deleteProgramInfo(this.glyph);
+    this.deleteProgramInfo(this.decoration);
+    this.deleteProgramInfo(this.solid);
+    this.background = undefined;
+    this.glyph = undefined;
+    this.decoration = undefined;
+    this.solid = undefined;
+
+    if (this.quadVbo) {
+      gl.deleteBuffer(this.quadVbo);
+      this.quadVbo = undefined;
+    }
+    this.cellBuffer?.dispose();
+    this.cellBuffer = undefined;
+    this.glyphAtlas?.dispose();
+    this.glyphAtlas = undefined;
+  }
+
+  private deleteProgramInfo(info: ProgramInfo | undefined): void {
+    if (!this.gl || !info) return;
+    this.gl.deleteVertexArray(info.vao);
+    this.gl.deleteProgram(info.program);
   }
 
   private prepareFrame(input: RenderInput): boolean {

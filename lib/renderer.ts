@@ -11,7 +11,7 @@
  */
 
 import type { ITerminalDecoration, ITheme } from './interfaces';
-import { diacriticToInt, KITTY_PLACEHOLDER } from './kitty_diacritics';
+import { KITTY_PLACEHOLDER, diacriticToInt } from './kitty_diacritics';
 import type { SelectionManager } from './selection-manager';
 import type { GhosttyCell, ILink, KittyImagePixels, KittyPlacementInfo } from './types';
 import { CellFlags, KittyImageFormat } from './types';
@@ -19,6 +19,7 @@ import { CellFlags, KittyImageFormat } from './types';
 // Interface for objects that can be rendered
 export interface IRenderable {
   getLine(y: number): GhosttyCell[] | null;
+  getViewport?(): GhosttyCell[];
   getCursor(): { x: number; y: number; visible: boolean; style?: 'block' | 'underline' | 'bar' };
   getDimensions(): { cols: number; rows: number };
   isRowDirty(y: number): boolean;
@@ -822,7 +823,7 @@ export class CanvasRenderer {
 
   private getDecorationAt(x: number, viewportRow: number): ITerminalDecoration | null {
     if (this.decorations.length === 0) return null;
-    const absoluteLine = viewportRow + this.currentScrollbackLength - this.currentViewportY;
+    const absoluteLine = viewportRow + this.currentScrollbackLength - Math.floor(this.currentViewportY);
     for (let i = this.decorations.length - 1; i >= 0; i--) {
       const d = this.decorations[i];
       if (d.line !== absoluteLine) continue;

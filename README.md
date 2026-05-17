@@ -42,7 +42,9 @@ const term = new Terminal({
 });
 ```
 
-When `renderer: 'webgl'` is requested, `ghostty-web` checks for `webgl2` support before constructing the renderer. If WebGL2 is unavailable, initialization safely falls back to the default Canvas2D renderer. The WebGL path is currently experimental: it uses a vendored adapter from `0xBigBoss/ghostty-webgl` and preserves the same terminal-facing renderer contract, but Canvas2D remains the production default.
+When `renderer: 'webgl'` is requested, `ghostty-web` checks for `webgl2` support on a throwaway probe canvas before constructing the renderer. If WebGL2 is unavailable, or if WebGL initialization fails after binding a context, initialization safely falls back to the default Canvas2D renderer on a fresh canvas. The WebGL path is currently experimental: it uses a vendored adapter from `0xBigBoss/ghostty-webgl` and preserves the same terminal-facing renderer contract, but Canvas2D remains the production default.
+
+The WebGL adapter mirrors the Canvas renderer contract for selection, hyperlinks, decorations/search highlights, cursor blink, IME preedit overlays, scrollback viewports, theme colors (including common CSS color forms), and font changes. It uses conservative full-row uploads for correctness and an RGBA glyph atlas for better WebKit/WKWebView compatibility. Kitty graphics and geometric box/block rendering remain Canvas-only for now; choose Canvas when those features are required.
 
 The sections below cover the main integration and development workflows.
 
@@ -78,15 +80,13 @@ Version `0.8.0` folds in the Nimble ABI/render-state migration on top of the ear
 **Requires server**
 
 ```bash
-# Terminal 1: Start PTY shell server
-cd demo/server
-bun install
-bun run start
+# Builds/serves the package demo with PTY WebSocket support
+bun run demo
 
-# Terminal 2: Start web server (from project root)
-bun run dev
+# Development mode uses the repo sources and Vite-compatible assets
+bun run demo:dev
 
-# Open: http://localhost:8000/demo/
+# Open the printed local URL, typically http://localhost:8080/
 ```
 
 This provides a **real persistent shell session**! You can:
@@ -97,19 +97,9 @@ This provides a **real persistent shell session**! You can:
 - Use pipes, redirects, and background jobs
 - Access all your shell aliases and environment
 
-**Alternative: Command-by-Command Mode**
+**Renderer selection:** The demo uses the default Canvas renderer. The experimental WebGL renderer is available to library consumers with `new Terminal({ renderer: 'webgl' })`; Canvas remains recommended for kitty graphics and box/block geometry coverage.
 
-For the original file browser (executes each command separately):
-
-```bash
-cd demo/server
-bun run file-browser
-```
-
-**Remote Access:** If you're accessing via a forwarded hostname (e.g., `mux.coder`), make sure to forward both ports:
-
-- Port 8000 (web server - Vite)
-- Port 3001 (WebSocket server)
+**Remote Access:** The demo serves HTTP and WebSocket traffic from the same origin, so reverse proxies only need to forward the demo HTTP port and preserve WebSocket upgrade headers.
 
 The terminal will automatically connect to the WebSocket using the same hostname you're accessing the page from.
 
@@ -318,23 +308,24 @@ Each `GhosttyCell` contains:
 │  - Event handling (onData, onResize)    │
 └───────────┬─────────────────────────────┘
             │
-            ├─► ScreenBuffer (lib/buffer.ts)
-            │   - 2D grid, cursor, scrollback
+            ├─► GhosttyTerminal (lib/ghostty.ts)
+            │   - Upstream Ghostty C ABI, render-state rows, scrollback
+            │   - Kitty graphics, callbacks, terminal size/query responses
             │
-            ├─► VTParser (lib/vt-parser.ts)
-            │   - ANSI escape sequence parsing
-            │   └─► Ghostty WASM (SGR parser)
+            ├─► ITerminalRenderer (lib/renderer-contract.ts)
+            │   ├─► CanvasRenderer (lib/renderer.ts)
+            │   │   - Default renderer, kitty graphics, box/block geometry
+            │   └─► WebGLRenderer (lib/webgl-renderer.ts)
+            │       - Experimental opt-in WebGL2 adapter with Canvas fallback
             │
-            ├─► CanvasRenderer (lib/renderer.ts)
-            │   - Canvas-based rendering
-            │   - 60 FPS, supports all colors
+            ├─► SelectionManager (lib/selection-manager.ts)
+            │   - Text selection, clipboard, renderer decoration ranges
             │
             └─► InputHandler (lib/input-handler.ts)
-                - Keyboard events → escape codes
-                └─► Ghostty WASM (Key encoder)
+                - Keyboard/IME/mouse events → Ghostty-compatible input
 
-WebSocket Server (server/file-browser-server.ts)
-└─► Executes shell commands (ls, cd, cat, etc.)
+Demo server (demo/bin/demo.js)
+└─► Starts the Vite demo and WebSocket control/PTY plumbing
 ```
 
 ## Project Structure
@@ -342,28 +333,33 @@ WebSocket Server (server/file-browser-server.ts)
 ```
 ├── lib/
 │   ├── terminal.ts       - Main Terminal class (xterm.js-compatible)
-│   ├── buffer.ts         - Screen buffer with scrollback
-│   ├── vt-parser.ts      - VT100/ANSI escape sequence parser
-│   ├── renderer.ts       - Canvas-based renderer
-│   ├── input-handler.ts  - Keyboard input handling
-│   ├── ghostty.ts        - Ghostty WASM wrapper
-│   ├── types.ts          - TypeScript type definitions
-│   ├── interfaces.ts     - xterm.js-compatible interfaces
+│   ├── terminal.ts          - Main Terminal class (xterm.js-compatible)
+│   ├── ghostty.ts           - Ghostty WASM/C ABI wrapper
+│   ├── renderer-contract.ts - Shared Terminal-facing renderer contract
+│   ├── renderer.ts          - Default Canvas renderer
+│   ├── webgl-renderer.ts    - Experimental opt-in WebGL renderer adapter
+│   ├── wasm-png-decoder.ts  - Vendored WASM PNG decoder wrapper for kitty graphics
+│   ├── input-handler.ts     - Keyboard, IME, mouse input handling
+│   ├── selection-manager.ts - Selection, clipboard, decorations
+│   ├── types.ts             - TypeScript type definitions
+│   ├── interfaces.ts        - xterm.js-compatible interfaces
+│   ├── vendor/              - Vendored PNG/WebGL support code
 │   └── addons/
-│       └── fit.ts        - FitAddon for responsive sizing
+│       └── fit.ts           - FitAddon for responsive sizing
 │
 ├── demo/
-│   ├── index.html        - File browser terminal
-│   ├── colors-demo.html  - ANSI colors showcase
-│   └── server/
-│       ├── file-browser-server.ts - WebSocket server
-│       ├── package.json
-│       └── start.sh      - Startup script (auto-kills port conflicts)
+│   ├── index.html           - Browser terminal demo
+│   ├── colors-demo.html     - ANSI colors showcase
+│   ├── render-test.html     - Browser render regression harness
+│   └── bin/
+│       ├── demo.js          - Demo server launcher
+│       └── render-test.ts   - Screenshot regression runner
 │
-├── docs/
-│   └── API.md            - Complete API documentation
+├── scripts/
+│   ├── ensure-zig.sh        - Deterministic Zig bootstrap
+│   └── build-wasm.sh        - Ghostty WASM build script
 │
-└── ghostty-vt.wasm       - Ghostty VT100 parser (122 KB)
+└── ghostty-vt.wasm          - Built Ghostty terminal WASM artifact
 ```
 
 ## Building WASM
@@ -390,10 +386,10 @@ bun run build:wasm
 **What it does:**
 
 1. Initializes `ghostty/` submodule (ghostty-org/ghostty)
-2. Applies patches from `patches/ghostty-wasm-api.patch`
-3. Builds WASM with Zig (takes ~20 seconds)
-4. Outputs `ghostty-vt.wasm` (404 KB)
-5. Reverts patch to keep submodule clean
+2. Applies `patches/ghostty-wasm-api.patch` if it contains local patch content
+3. Builds WASM with the deterministic Zig bootstrap from `scripts/ensure-zig.sh`
+4. Outputs `ghostty-vt.wasm`
+5. Keeps Zig cache/tooling outside linted source paths
 
 **Updating Ghostty:**
 
