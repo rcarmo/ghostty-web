@@ -17,7 +17,7 @@ Works on **Linux** and **macOS** (no Windows support yet).
 - Serves the browser terminal demo and PTY/control-plane WebSocket plumbing
 - Opens a real shell session (bash, zsh, etc.)
 - Provides full PTY support (colors, cursor positioning, resize, etc.)
-- Uses the Canvas renderer by default; WebGL remains library-level opt-in via `new Terminal({ renderer: 'webgl' })`
+- Uses the Canvas renderer by default; WebGL remains library-level opt-in via `new Terminal({ renderer: 'webgl' })` with safe Canvas fallback
 - Supports reverse proxies (ngrok, nginx, etc.) via X-Forwarded-\* headers
 
 ## Usage
@@ -80,3 +80,13 @@ server {
 ⚠️ **This server provides full shell access.**
 
 Only use for local development and demos. Do not expose to untrusted networks.
+
+## Renderer Notes
+
+The packaged demo intentionally uses the default Canvas renderer because it covers the full current feature set, including kitty graphics and geometric box/block drawing. Library consumers can opt into the experimental WebGL2 renderer with:
+
+```ts
+const term = new Terminal({ renderer: 'webgl' });
+```
+
+If WebGL2 is unavailable or initialization fails, `ghostty-web` falls back to Canvas. Both renderer paths use the terminal canvas' owner browsing context for DOM/timer/DPR behavior, which makes embedded or iframe-hosted demos safer than relying on global `window`/`document`.

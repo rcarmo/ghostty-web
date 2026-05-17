@@ -13,7 +13,7 @@ bun run dev                          # Start Vite dev server (http://localhost:8
 **Before committing, always run:**
 
 ```bash
-bun run fmt && bun run lint && bun run typecheck && bun test && bun run build
+bun run fmt && bun run lint && bun run typecheck && bun test && bun run build:lib && bun run build:wasm-copy
 ```
 
 **Run interactive terminal demo:**
@@ -31,7 +31,7 @@ This is a **fully functional terminal emulator** (MVP complete) that uses Ghostt
 **What works:**
 
 - ✅ Full VT100/ANSI terminal emulation (vim, htop, colors, etc.)
-- ✅ Canvas-based renderer with 60 FPS
+- ✅ Event-driven Canvas renderer with dirty-row redraws
 - ✅ Experimental opt-in WebGL2 renderer (`renderer: 'webgl'`) with Canvas fallback
 - ✅ Keyboard input handling (Kitty keyboard protocol)
 - ✅ Text selection and clipboard
@@ -47,6 +47,7 @@ This is a **fully functional terminal emulator** (MVP complete) that uses Ghostt
 - Ghostty WASM build artifacts for VT parsing/render-state access
 - Canvas API for default rendering
 - Optional WebGL2 adapter in `lib/webgl-renderer.ts` with vendored `libghostty-webgl`
+- Renderer/terminal lifecycle code that derives DOM, timer, animation-frame, and DPR state from the terminal canvas' owner browsing context
 
 ## Architecture
 
@@ -60,8 +61,8 @@ This is a **fully functional terminal emulator** (MVP complete) that uses Ghostt
             │   └─ VT100 state machine, screen buffer
             │
             ├─► ITerminalRenderer (lib/renderer-contract.ts)
-            │   ├─ CanvasRenderer (lib/renderer.ts) - default
-            │   └─ WebGLRenderer (lib/webgl-renderer.ts) - opt-in experimental
+            │   ├─ CanvasRenderer (lib/renderer.ts) - default, kitty graphics + box/block geometry
+            │   └─ WebGLRenderer (lib/webgl-renderer.ts) - opt-in experimental, Canvas fallback
             │
             ├─► InputHandler (lib/input-handler.ts)
             │   └─ Keyboard events → escape sequences
@@ -131,10 +132,11 @@ bun run fmt                           # Check formatting (Prettier)
 bun run lint                          # Run linter (Biome)
 bun run typecheck                     # Type check (TypeScript)
 bun test                              # Run tests
-bun run build                         # Build library
+bun run build:lib                     # Build library dist files
+bun run build:wasm-copy               # Copy WASM artifacts into dist
 ```
 
-All at once: `bun run fmt && bun run lint && bun run typecheck && bun test && bun run build`
+All at once: `bun run fmt && bun run lint && bun run typecheck && bun test && bun run build:lib && bun run build:wasm-copy`
 
 Auto-fix formatting: `bun run fmt:fix`
 
@@ -351,11 +353,12 @@ python3 -m http.server
 
 **Why:** Demos import TypeScript modules directly (`from './lib/terminal.ts'`). Need Vite to transpile.
 
-### 2. **WASM Binary is Committed**
+### 2. **Generated Artifacts Must Stay In Sync**
 
 - `ghostty-vt.wasm` is built from the Ghostty submodule and copied into `dist/`
-- Don't need to rebuild unless updating Ghostty version or ABI glue
-- Rebuild instructions in README.md if needed
+- `dist/ghostty-web.js`, `dist/ghostty-web.umd.cjs`, `dist/index.d.ts`, and WASM copies are tracked release artifacts
+- Rebuild library artifacts with `bun run build:lib`
+- Refresh WASM copies with `bun run build:wasm-copy` after WASM or packaging changes
 
 ### 3. **Test Timeouts**
 
@@ -390,7 +393,16 @@ bun run demo:dev
 
 The demo serves HTTP and WebSocket traffic from the same origin, so reverse proxies must preserve WebSocket upgrade headers.
 
-### 6. **Canvas Rendering Requires Container Resize**
+### 6. **Renderer Lifecycle and Browsing Contexts**
+
+- Canvas is the default renderer; WebGL is opt-in via `renderer: 'webgl'`
+- Do not make WebGL extend `CanvasRenderer`; a canvas cannot own both 2D and WebGL contexts
+- Use `ITerminalRenderer` for terminal-facing renderer behavior
+- Use the terminal canvas/parent owner document/window for DOM nodes, timers, animation frames, computed styles, DPR, and clipboard fallbacks
+- When adding visible state changes, wake the event-driven renderer with `requestRender()` or `requestFullRender()` rather than relying on a perpetual frame loop
+- Keep Canvas/WebGL runtime option parity where practical (`theme`, cursor, font, decorations, scrollbar width, DPR)
+
+### 7. **Canvas Rendering Requires Container Resize**
 
 ```typescript
 // After opening terminal, must call fit
@@ -403,7 +415,7 @@ fitAddon.fit(); // ⚠️ Required! Otherwise terminal may not render
 window.addEventListener('resize', () => fitAddon.fit());
 ```
 
-### 7. **Font Loading for Visual Tests**
+### 8. **Font Loading for Visual Tests**
 
 Visual render tests require all font variants to be loaded before rendering:
 

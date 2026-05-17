@@ -44,7 +44,7 @@ const term = new Terminal({
 
 When `renderer: 'webgl'` is requested, `ghostty-web` checks for `webgl2` support on a throwaway probe canvas before constructing the renderer. If WebGL2 is unavailable, or if WebGL initialization fails after binding a context, initialization safely falls back to the default Canvas2D renderer on a fresh canvas. The WebGL path is currently experimental: it uses a vendored adapter from `0xBigBoss/ghostty-webgl` and preserves the same terminal-facing renderer contract, but Canvas2D remains the production default.
 
-The WebGL adapter mirrors the Canvas renderer contract for selection, hyperlinks, decorations/search highlights, cursor blink, IME preedit overlays, scrollback viewports, theme colors (including common CSS color forms), and font changes. It uses conservative full-row uploads for correctness and an RGBA glyph atlas for better WebKit/WKWebView compatibility. Kitty graphics and geometric box/block rendering remain Canvas-only for now; choose Canvas when those features are required.
+The WebGL adapter mirrors the Canvas renderer contract for selection, hyperlinks, decorations/search highlights, cursor blink, IME preedit overlays, scrollback viewports, theme colors (including common CSS color forms), font changes, DPR changes, and scrollbar width. Both renderers are hardened for iframe/embedded browsing contexts by deriving DOM, timer, animation-frame, and device-pixel-ratio state from the terminal canvas' owner document/window instead of assuming globals. WebGL uses conservative full-row uploads for correctness and an RGBA glyph atlas for better WebKit/WKWebView compatibility. Kitty graphics and geometric box/block rendering remain Canvas-only for now; choose Canvas when those features are required.
 
 The sections below cover the main integration and development workflows.
 
@@ -57,21 +57,23 @@ The sections below cover the main integration and development workflows.
 - ✅ CJK and wide-emoji cell width handling
 - ✅ Styled scrollback and row-iterator based viewport rendering
 - ✅ CSI `14/16/18 t` size responses and callback-based terminal query handling
-- ✅ Canvas rendering at 60 FPS
+- ✅ Event-driven Canvas rendering with dirty-row redraws
 - ✅ Experimental opt-in WebGL renderer with Canvas fallback
 - ✅ Scrollback buffer
 - ✅ Text selection & clipboard
 - ✅ FitAddon for responsive sizing
 - ✅ TypeScript declarations included
 
-## What's New in 0.8.0
+## What's New in 0.9.1
 
-Version `0.8.0` folds in the Nimble ABI/render-state migration on top of the earlier upstream/canopy/Yuuji work. In practice that means:
+Version `0.9.1` adds the experimental WebGL renderer path and hardens the shared renderer lifecycle on top of the upstream Ghostty ABI/render-state migration:
 
-- the WASM build now targets the upstream Ghostty lib-vt ABI directly
-- viewport/render-state access uses the newer key/value and row-iterator APIs
-- wide-cell rendering, scrollback styling, grapheme handling, and wrapped-row state are restored on top of the new ABI
-- terminal query responses such as CSI `14/16/18 t` are wired back through callback-based response handling
+- Canvas remains the default renderer; WebGL2 is explicit opt-in via `new Terminal({ renderer: 'webgl' })` with safe Canvas fallback
+- terminal/rendering code is event-driven rather than a perpetual frame loop, with explicit wakeups for writes, scrolls, cursor blink, selections, hover underlines, theme changes, clear/reset, and runtime option changes
+- Canvas, Terminal, SelectionManager, and WebGL paths use the terminal canvas' owner browsing context for DOM nodes, timers, animation frames, font measurement, clipboard fallbacks, and DPR rather than assuming global `window`/`document`
+- WebGL now tracks DPR changes, owner-document font measurement, runtime scrollbar width, decorations/search highlights, cursor blink, IME preedit, and scrollback viewport parity
+- lifecycle cleanup is symmetric for document/canvas listeners, context-loss listeners, timers, animation frames, and renderer resources
+- Canvas-only features remain documented: kitty graphics and geometric box/block rendering are still not implemented in the WebGL path
 
 ## Development & Demos
 
@@ -97,7 +99,7 @@ This provides a **real persistent shell session**! You can:
 - Use pipes, redirects, and background jobs
 - Access all your shell aliases and environment
 
-**Renderer selection:** The demo uses the default Canvas renderer. The experimental WebGL renderer is available to library consumers with `new Terminal({ renderer: 'webgl' })`; Canvas remains recommended for kitty graphics and box/block geometry coverage.
+**Renderer selection:** The demo uses the default Canvas renderer. The experimental WebGL renderer is available to library consumers with `new Terminal({ renderer: 'webgl' })`; Canvas remains recommended for kitty graphics and box/block geometry coverage. WebGL is safe to request in browsers without WebGL2 because initialization probes a throwaway canvas and falls back to Canvas on failure.
 
 **Remote Access:** The demo serves HTTP and WebSocket traffic from the same origin, so reverse proxies only need to forward the demo HTTP port and preserve WebSocket upgrade headers.
 
@@ -332,7 +334,6 @@ Demo server (demo/bin/demo.js)
 
 ```
 ├── lib/
-│   ├── terminal.ts       - Main Terminal class (xterm.js-compatible)
 │   ├── terminal.ts          - Main Terminal class (xterm.js-compatible)
 │   ├── ghostty.ts           - Ghostty WASM/C ABI wrapper
 │   ├── renderer-contract.ts - Shared Terminal-facing renderer contract
@@ -417,12 +418,7 @@ bun run build           # Build distribution
 
 **Test Coverage:**
 
-- ✅ ScreenBuffer (63 tests, 163 assertions)
-- ✅ VTParser (45 tests)
-- ✅ CanvasRenderer (11 tests)
-- ✅ InputHandler (35 tests)
-- ✅ Terminal integration (25 tests)
-- ✅ FitAddon (12 tests)
+The current suite covers terminal integration, Ghostty ABI behavior, input handling, selection, renderer behavior, WebGL adapter/vendor pieces, FitAddon, kitty graphics, scrollback regressions, viewport corruption/merge regressions, and PNG decoding. As of this update the full suite reports `388 tests across 15 files`, with two intentionally skipped historical scrollback assumption tests.
 
 ## Documentation
 

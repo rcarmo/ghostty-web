@@ -27,6 +27,7 @@ export interface WebGLRendererOptions {
   antialias?: boolean;
   alpha?: boolean;
   onContextLoss?: () => void;
+  ownerDocument?: Document;
 }
 
 export class WebGLRenderer implements Renderer {
@@ -36,6 +37,7 @@ export class WebGLRenderer implements Renderer {
   private fontSize: number;
   private fontFamily: string;
   private dpr: number;
+  private fixedDevicePixelRatio?: number;
   private metrics: CellMetrics;
   private theme: TerminalTheme;
   private cellBuffer?: CellBuffer;
@@ -57,9 +59,8 @@ export class WebGLRenderer implements Renderer {
     this.options = options;
     this.fontSize = options.fontSize ?? 15;
     this.fontFamily = options.fontFamily ?? "monospace";
-    this.dpr =
-      options.devicePixelRatio ??
-      (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
+    this.fixedDevicePixelRatio = options.devicePixelRatio;
+    this.dpr = this.getDevicePixelRatio();
     this.metrics = this.measureFont();
     this.theme = {
       foreground: { r: 0, g: 0, b: 0, a: 1 },
@@ -75,6 +76,8 @@ export class WebGLRenderer implements Renderer {
   attach(canvas: HTMLCanvasElement): void {
     log("attach() called");
     this.canvas = canvas;
+    this.options.ownerDocument = canvas.ownerDocument;
+    this.dpr = this.getDevicePixelRatio();
     const gl = canvas.getContext("webgl2", {
       antialias: this.options.antialias ?? false,
       alpha: this.options.alpha ?? true,
@@ -116,6 +119,13 @@ export class WebGLRenderer implements Renderer {
   }
 
   render(input: RenderInput): void {
+    const currentDpr = this.getDevicePixelRatio();
+    if (currentDpr !== this.dpr) {
+      this.dpr = currentDpr;
+      if (this.gridCols > 0 && this.gridRows > 0) {
+        this.resize(this.gridCols, this.gridRows);
+      }
+    }
     if (!this.prepareFrame(input)) return;
     const renderStart = profileStart();
 
@@ -362,8 +372,8 @@ export class WebGLRenderer implements Renderer {
       );
     }
 
-    if (input.scrollbarOpacity > 0 && input.scrollbackLength > 0) {
-      this.drawScrollbar(input.scrollbarOpacity, input.scrollbackLength, input.viewportY);
+    if (input.scrollbarWidth > 0 && input.scrollbarOpacity > 0 && input.scrollbackLength > 0) {
+      this.drawScrollbar(input.scrollbarOpacity, input.scrollbackLength, input.viewportY, input.scrollbarWidth);
     }
   }
 
@@ -458,11 +468,15 @@ export class WebGLRenderer implements Renderer {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
-  private drawScrollbar(opacity: number, scrollbackLength: number, viewportY: number): void {
+  private drawScrollbar(
+    opacity: number,
+    scrollbackLength: number,
+    viewportY: number,
+    scrollbarWidth: number,
+  ): void {
     if (!this.canvas) return;
     const cssWidth = this.gridCols * this.metrics.width;
     const cssHeight = this.gridRows * this.metrics.height;
-    const scrollbarWidth = 8;
     const padding = 4;
     const trackHeight = cssHeight - padding * 2;
     if (scrollbackLength <= 0 || trackHeight <= 0) return;
@@ -495,12 +509,17 @@ export class WebGLRenderer implements Renderer {
     );
   }
 
+  private getDevicePixelRatio(): number {
+    return this.fixedDevicePixelRatio ?? this.canvas?.ownerDocument.defaultView?.devicePixelRatio ?? 1;
+  }
+
   private measureFont(): CellMetrics {
+    const ownerDocument = this.options.ownerDocument ?? this.canvas?.ownerDocument;
     const canvas =
       typeof OffscreenCanvas !== "undefined"
         ? new OffscreenCanvas(1, 1)
-        : typeof document !== "undefined"
-          ? document.createElement("canvas")
+        : ownerDocument
+          ? ownerDocument.createElement("canvas")
           : null;
     const ctx = canvas?.getContext("2d") ?? null;
     if (!ctx) {

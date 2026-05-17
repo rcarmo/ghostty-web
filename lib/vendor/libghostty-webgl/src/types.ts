@@ -114,6 +114,7 @@ export interface RenderInput {
   viewportY: number;
   scrollbackLength: number;
   scrollbarOpacity: number;
+  scrollbarWidth: number;
 }
 
 export interface Renderer {

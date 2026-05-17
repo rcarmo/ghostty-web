@@ -77,6 +77,7 @@ export class Terminal implements ITerminalCore {
   // Link detection system
   private linkDetector?: LinkDetector;
   private currentHoveredLink?: ILink;
+  private hoveredHyperlinkId: number = 0;
   private mouseMoveThrottleTimeout?: number;
   private pendingMouseMove?: MouseEvent;
 
@@ -109,6 +110,7 @@ export class Terminal implements ITerminalCore {
   private isDisposed = false;
   private isSuspended = false;
   private animationFrameId?: number;
+  private forceNextRender = false;
   private writeQueue: Uint8Array[] = [];
 
   // Addons
@@ -116,6 +118,9 @@ export class Terminal implements ITerminalCore {
 
   // Phase 1: Custom event handlers
   private customKeyEventHandler?: (event: KeyboardEvent) => boolean;
+  private boundBeforeInputHandler?: (event: InputEvent) => void;
+  private boundCanvasMouseDownFocusHandler?: (event: MouseEvent) => void;
+  private boundCanvasTouchEndFocusHandler?: (event: TouchEvent) => void;
 
   // Phase 1: Title tracking
   private currentTitle: string = '';
@@ -230,6 +235,7 @@ export class Terminal implements ITerminalCore {
         if (this.renderer) {
           this.renderer.setCursorStyle(this.options.cursorStyle);
           this.renderer.setCursorBlink(this.options.cursorBlink);
+          this.requestFullRender();
         }
         break;
 
@@ -248,6 +254,7 @@ export class Terminal implements ITerminalCore {
 
           // Update WASM terminal colors (for cell color re-resolution)
           this.wasmTerm.setColors(this.buildThemeColorsConfig(this.currentTheme));
+          this.requestFullRender();
         }
         break;
 
@@ -262,6 +269,13 @@ export class Terminal implements ITerminalCore {
         if (this.renderer) {
           this.renderer.setFontFamily(this.options.fontFamily);
           this.handleFontChange();
+        }
+        break;
+
+      case 'scrollbarWidth':
+        if (this.renderer) {
+          this.renderer.setScrollbarWidth(this.options.scrollbarWidth ?? 8);
+          this.requestFullRender();
         }
         break;
 
@@ -414,11 +428,12 @@ export class Terminal implements ITerminalCore {
       // this as an input element and don't intercept keyboard events.
       parent.setAttribute('contenteditable', 'true');
       // Prevent actual content editing - we handle input ourselves
-      parent.addEventListener('beforeinput', (e) => {
+      this.boundBeforeInputHandler = (e: InputEvent) => {
         if (e.target === parent) {
           e.preventDefault();
         }
-      });
+      };
+      parent.addEventListener('beforeinput', this.boundBeforeInputHandler);
 
       // Add accessibility attributes for screen readers and extensions
       parent.setAttribute('role', 'textbox');
@@ -429,15 +444,17 @@ export class Terminal implements ITerminalCore {
       const config = this.buildWasmConfig();
       this.wasmTerm = this.ghostty!.createTerminal(this.cols, this.rows, config);
 
+      const ownerDocument = parent.ownerDocument;
+
       // Create canvas element
-      this.canvas = document.createElement('canvas');
+      this.canvas = ownerDocument.createElement('canvas');
       this.canvas.style.display = 'block';
       this.canvas.style.cursor = 'text';
 
       parent.appendChild(this.canvas);
 
       // Create hidden textarea for keyboard input (must be inside parent for event bubbling)
-      this.textarea = document.createElement('textarea');
+      this.textarea = ownerDocument.createElement('textarea');
       this.textarea.setAttribute('autocorrect', 'off');
       this.textarea.setAttribute('autocapitalize', 'off');
       this.textarea.setAttribute('spellcheck', 'false');
@@ -461,16 +478,18 @@ export class Terminal implements ITerminalCore {
 
       // Focus textarea on interaction - preventDefault before focus
       const textarea = this.textarea;
+      this.boundCanvasMouseDownFocusHandler = (ev: MouseEvent) => {
+        ev.preventDefault();
+        textarea.focus();
+      };
+      this.boundCanvasTouchEndFocusHandler = (ev: TouchEvent) => {
+        ev.preventDefault();
+        textarea.focus();
+      };
       // Desktop: mousedown
-      this.canvas.addEventListener('mousedown', (ev) => {
-        ev.preventDefault();
-        textarea.focus();
-      });
+      this.canvas.addEventListener('mousedown', this.boundCanvasMouseDownFocusHandler);
       // Mobile: touchend with preventDefault to suppress iOS caret
-      this.canvas.addEventListener('touchend', (ev) => {
-        ev.preventDefault();
-        textarea.focus();
-      });
+      this.canvas.addEventListener('touchend', this.boundCanvasTouchEndFocusHandler);
 
       // Create renderer (Canvas default; WebGL opt-in with safe fallback)
       const rendererOptions = {
@@ -489,17 +508,11 @@ export class Terminal implements ITerminalCore {
           // WebGL construction may have already bound the original canvas to a
           // WebGL context before failing. A canvas cannot later switch to 2D, so
           // replace it before creating the CanvasRenderer fallback.
-          const fallbackCanvas = document.createElement('canvas');
+          const fallbackCanvas = this.canvas.ownerDocument.createElement('canvas');
           fallbackCanvas.style.display = 'block';
           fallbackCanvas.style.cursor = 'text';
-          fallbackCanvas.addEventListener('mousedown', (ev) => {
-            ev.preventDefault();
-            textarea.focus();
-          });
-          fallbackCanvas.addEventListener('touchend', (ev) => {
-            ev.preventDefault();
-            textarea.focus();
-          });
+          fallbackCanvas.addEventListener('mousedown', this.boundCanvasMouseDownFocusHandler);
+          fallbackCanvas.addEventListener('touchend', this.boundCanvasTouchEndFocusHandler);
           this.canvas.replaceWith(fallbackCanvas);
           this.canvas = fallbackCanvas;
           this.renderer = new CanvasRenderer(this.canvas, rendererOptions);
@@ -602,7 +615,7 @@ export class Terminal implements ITerminalCore {
       parent.addEventListener('click', this.handleClick);
 
       // Setup document-level mouseup for scrollbar drag (so drag works even outside canvas)
-      document.addEventListener('mouseup', this.handleMouseUp);
+      ownerDocument.addEventListener('mouseup', this.handleMouseUp);
 
       // Setup wheel event handling for scrolling (Phase 2)
       // Use capture phase to ensure we get the event before browser scrolling
@@ -698,7 +711,7 @@ export class Terminal implements ITerminalCore {
     // Call callback if provided
     if (callback) {
       // Queue callback after next render
-      requestAnimationFrame(callback);
+      this.scheduleAnimationFrame(callback);
     }
 
     // Wake the render scheduler — the write almost certainly mutated
@@ -827,8 +840,10 @@ export class Terminal implements ITerminalCore {
    */
   clear(): void {
     this.assertOpen();
-    // Send ANSI clear screen and cursor home sequences
-    this.wasmTerm!.write('\x1b[2J\x1b[H');
+    // Send ANSI clear screen and cursor home sequences through the same
+    // write path as external input so responses, cache invalidation, title/bell
+    // handling, auto-scroll, and event-driven render wakeups stay consistent.
+    this.writeInternal('\x1b[2J\x1b[H');
   }
 
   /**
@@ -854,6 +869,10 @@ export class Terminal implements ITerminalCore {
 
     // Reset title
     this.currentTitle = '';
+
+    // The reset replaced all render-state storage; repaint a fresh blank screen
+    // instead of waiting for incidental future writes to wake the renderer.
+    this.requestFullRender();
   }
 
   /**
@@ -866,7 +885,7 @@ export class Terminal implements ITerminalCore {
 
       // Also schedule a delayed focus as backup to ensure it sticks
       // (some browsers may need this if DOM isn't fully settled)
-      setTimeout(() => {
+      this.getOwnerWindow()?.setTimeout(() => {
         this.element?.focus();
       }, 0);
     }
@@ -905,7 +924,7 @@ export class Terminal implements ITerminalCore {
   resume(): void {
     if (!this.isSuspended || !this.isOpen) return;
     this.isSuspended = false;
-    if (this.scrollAnimationStartTime !== undefined && !this.scrollAnimationFrame) {
+    if (this.scrollAnimationStartTime !== undefined && this.scrollAnimationFrame === undefined) {
       this.animateScroll();
     }
     this.requestRender();
@@ -1185,7 +1204,7 @@ export class Terminal implements ITerminalCore {
     // If animation is already running, don't restart it
     // Just let it continue toward the updated target
     // This prevents choppy restarts during continuous scrolling
-    if (this.scrollAnimationFrame) {
+    if (this.scrollAnimationFrame !== undefined) {
       return;
     }
 
@@ -1229,11 +1248,11 @@ export class Terminal implements ITerminalCore {
       return;
     }
 
-    // Move a fraction of the remaining distance
-    // At 60fps, move ~1/6 of distance per frame for ~100ms total duration
-    // This creates smooth deceleration toward target
-    const framesForDuration = (duration / 1000) * 60; // Convert ms to frame count
-    const moveRatio = 1 - (1 / framesForDuration) ** 2; // Ease-out
+    // Move a fraction of the remaining distance. Clamp very short non-zero
+    // durations to a single-frame snap; otherwise sub-frame durations can
+    // produce invalid easing ratios or a zero-movement animation.
+    const framesForDuration = Math.max(1, (duration / 1000) * 60); // Convert ms to frame count
+    const moveRatio = framesForDuration <= 1 ? 1 : Math.min(1, 1 / framesForDuration);
     this.viewportY += distance * moveRatio;
 
     // Fire scroll event (use floor to convert fractional to integer for API)
@@ -1252,7 +1271,7 @@ export class Terminal implements ITerminalCore {
     this.requestRender();
 
     // Continue animation
-    this.scrollAnimationFrame = requestAnimationFrame(this.animateScroll);
+    this.scrollAnimationFrame = this.scheduleAnimationFrame(this.animateScroll);
   };
 
   // ==========================================================================
@@ -1279,8 +1298,13 @@ export class Terminal implements ITerminalCore {
     this.cancelScrollAnimation();
 
     // Clear mouse move throttle timeout
-    if (this.mouseMoveThrottleTimeout) {
-      clearTimeout(this.mouseMoveThrottleTimeout);
+    if (this.mouseMoveThrottleTimeout !== undefined) {
+      const view = this.getOwnerWindow();
+      if (view) {
+        view.clearTimeout(this.mouseMoveThrottleTimeout);
+      } else {
+        clearTimeout(this.mouseMoveThrottleTimeout);
+      }
       this.mouseMoveThrottleTimeout = undefined;
     }
     this.pendingMouseMove = undefined;
@@ -1330,16 +1354,34 @@ export class Terminal implements ITerminalCore {
   /**
    * Cancel the render loop
    */
+  private getOwnerWindow(): Window | undefined {
+    return this.element?.ownerDocument.defaultView ?? this.canvas?.ownerDocument.defaultView ?? undefined;
+  }
+
+  private scheduleAnimationFrame(callback: FrameRequestCallback): number {
+    const view = this.getOwnerWindow();
+    return view ? view.requestAnimationFrame(callback) : requestAnimationFrame(callback);
+  }
+
+  private cancelAnimationFrame(frameId: number): void {
+    const view = this.getOwnerWindow();
+    if (view) {
+      view.cancelAnimationFrame(frameId);
+    } else {
+      cancelAnimationFrame(frameId);
+    }
+  }
+
   private cancelRenderLoop(): void {
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
+    if (this.animationFrameId !== undefined) {
+      this.cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = undefined;
     }
   }
 
   private cancelScrollAnimation(): void {
-    if (this.scrollAnimationFrame) {
-      cancelAnimationFrame(this.scrollAnimationFrame);
+    if (this.scrollAnimationFrame !== undefined) {
+      this.cancelAnimationFrame(this.scrollAnimationFrame);
       this.scrollAnimationFrame = undefined;
     }
   }
@@ -1379,8 +1421,13 @@ export class Terminal implements ITerminalCore {
    */
   private requestRender(): void {
     if (this.animationFrameId !== undefined) return;
-    if (this.isDisposed || !this.isOpen) return;
-    this.animationFrameId = requestAnimationFrame(this.renderTick);
+    if (this.isDisposed || !this.isOpen || this.isSuspended) return;
+    this.animationFrameId = this.scheduleAnimationFrame(this.renderTick);
+  }
+
+  private requestFullRender(): void {
+    this.forceNextRender = true;
+    this.requestRender();
   }
 
   private renderTick = (): void => {
@@ -1392,7 +1439,9 @@ export class Terminal implements ITerminalCore {
     // 1. Calls update() once to sync state and check dirty flags
     // 2. Only redraws dirty rows when forceAll=false
     // 3. Always calls clearDirty() at the end
-    this.renderer!.render(this.wasmTerm!, false, this.viewportY, this, this.scrollbarOpacity);
+    const forceAll = this.forceNextRender;
+    this.forceNextRender = false;
+    this.renderer!.render(this.wasmTerm!, forceAll, this.viewportY, this, this.scrollbarOpacity);
 
     // Check for cursor movement (Phase 2: onCursorMove event)
     // Note: getCursor() reads from already-updated render state (from render() above)
@@ -1461,6 +1510,10 @@ export class Terminal implements ITerminalCore {
 
     // Remove event listeners
     if (this.element) {
+      if (this.boundBeforeInputHandler) {
+        this.element.removeEventListener('beforeinput', this.boundBeforeInputHandler);
+        this.boundBeforeInputHandler = undefined;
+      }
       this.element.removeEventListener('wheel', this.handleWheel);
       this.element.removeEventListener('mousedown', this.handleMouseDown, { capture: true });
       this.element.removeEventListener('mousemove', this.handleMouseMove);
@@ -1474,14 +1527,28 @@ export class Terminal implements ITerminalCore {
       this.element.removeAttribute('aria-multiline');
     }
 
-    // Remove document-level listeners (only if opened)
-    if (this.isOpen && typeof document !== 'undefined') {
-      document.removeEventListener('mouseup', this.handleMouseUp);
+    // Remove document-level listeners
+    this.element?.ownerDocument.removeEventListener('mouseup', this.handleMouseUp);
+
+    if (this.canvas) {
+      if (this.boundCanvasMouseDownFocusHandler) {
+        this.canvas.removeEventListener('mousedown', this.boundCanvasMouseDownFocusHandler);
+      }
+      if (this.boundCanvasTouchEndFocusHandler) {
+        this.canvas.removeEventListener('touchend', this.boundCanvasTouchEndFocusHandler);
+      }
     }
+    this.boundCanvasMouseDownFocusHandler = undefined;
+    this.boundCanvasTouchEndFocusHandler = undefined;
 
     // Clean up scrollbar timers
-    if (this.scrollbarHideTimeout) {
-      window.clearTimeout(this.scrollbarHideTimeout);
+    if (this.scrollbarHideTimeout !== undefined) {
+      const view = this.getOwnerWindow();
+      if (view) {
+        view.clearTimeout(this.scrollbarHideTimeout);
+      } else {
+        clearTimeout(this.scrollbarHideTimeout);
+      }
       this.scrollbarHideTimeout = undefined;
     }
 
@@ -1531,14 +1598,16 @@ export class Terminal implements ITerminalCore {
     if (!this.linkDetector) return;
 
     // Throttle to ~60fps (16ms) to avoid blocking scroll/other events
-    if (this.mouseMoveThrottleTimeout) {
+    if (this.mouseMoveThrottleTimeout !== undefined) {
       this.pendingMouseMove = e;
       return;
     }
 
     this.processMouseMove(e);
 
-    this.mouseMoveThrottleTimeout = window.setTimeout(() => {
+    const view = this.getOwnerWindow();
+    if (!view) return;
+    this.mouseMoveThrottleTimeout = view.setTimeout(() => {
       this.mouseMoveThrottleTimeout = undefined;
       if (this.pendingMouseMove) {
         const pending = this.pendingMouseMove;
@@ -1592,13 +1661,11 @@ export class Terminal implements ITerminalCore {
       hyperlinkId = line[x].hyperlink_id;
     }
 
-    // Update renderer for underline rendering
-    const previousHyperlinkId = (this.renderer as any).hoveredHyperlinkId || 0;
-    if (hyperlinkId !== previousHyperlinkId) {
+    // Update renderer for underline rendering.
+    if (hyperlinkId !== this.hoveredHyperlinkId) {
+      this.hoveredHyperlinkId = hyperlinkId;
       this.renderer.setHoveredHyperlinkId(hyperlinkId);
-
-      // The 60fps render loop will pick up the change automatically
-      // No need to force a render - this keeps performance smooth
+      this.requestRender();
     }
 
     // Check if there's a link at this position (for click handling and cursor)
@@ -1677,6 +1744,7 @@ export class Terminal implements ITerminalCore {
             } else {
               this.renderer.setHoveredLinkRange(null);
             }
+            this.requestRender();
           }
         }
       })
@@ -1691,14 +1759,13 @@ export class Terminal implements ITerminalCore {
   private handleMouseLeave = (): void => {
     // Clear hyperlink underline
     if (this.renderer && this.wasmTerm) {
-      const previousHyperlinkId = (this.renderer as any).hoveredHyperlinkId || 0;
-      if (previousHyperlinkId > 0) {
+      if (this.hoveredHyperlinkId > 0) {
+        this.hoveredHyperlinkId = 0;
         this.renderer.setHoveredHyperlinkId(0);
-
-        // The 60fps render loop will pick up the change automatically
       }
       // Clear regex link underline
       this.renderer.setHoveredLinkRange(null);
+      this.requestRender();
     }
 
     if (this.currentHoveredLink) {
@@ -1947,8 +2014,13 @@ export class Terminal implements ITerminalCore {
    */
   private showScrollbar(): void {
     // Clear any existing hide timeout
-    if (this.scrollbarHideTimeout) {
-      window.clearTimeout(this.scrollbarHideTimeout);
+    if (this.scrollbarHideTimeout !== undefined) {
+      const view = this.getOwnerWindow();
+      if (view) {
+        view.clearTimeout(this.scrollbarHideTimeout);
+      } else {
+        clearTimeout(this.scrollbarHideTimeout);
+      }
       this.scrollbarHideTimeout = undefined;
     }
 
@@ -1964,9 +2036,12 @@ export class Terminal implements ITerminalCore {
 
     // Schedule auto-hide (unless dragging)
     if (!this.isDraggingScrollbar) {
-      this.scrollbarHideTimeout = window.setTimeout(() => {
-        this.hideScrollbar();
-      }, this.SCROLLBAR_HIDE_DELAY_MS);
+      const view = this.getOwnerWindow();
+      if (view) {
+        this.scrollbarHideTimeout = view.setTimeout(() => {
+          this.hideScrollbar();
+        }, this.SCROLLBAR_HIDE_DELAY_MS);
+      }
     }
   }
 
@@ -1974,8 +2049,13 @@ export class Terminal implements ITerminalCore {
    * Hide scrollbar with fade-out
    */
   private hideScrollbar(): void {
-    if (this.scrollbarHideTimeout) {
-      window.clearTimeout(this.scrollbarHideTimeout);
+    if (this.scrollbarHideTimeout !== undefined) {
+      const view = this.getOwnerWindow();
+      if (view) {
+        view.clearTimeout(this.scrollbarHideTimeout);
+      } else {
+        clearTimeout(this.scrollbarHideTimeout);
+      }
       this.scrollbarHideTimeout = undefined;
     }
 

@@ -24,6 +24,7 @@ export interface ITerminalRenderer {
   setFontFamily(fontFamily: string): void;
   setCursorStyle(style: 'block' | 'underline' | 'bar'): void;
   setCursorBlink(blink: boolean): void;
+  setScrollbarWidth(width: number): void;
 
   setSelectionManager(selectionManager: SelectionManager): void;
   setHoveredHyperlinkId(id: number | null): void;

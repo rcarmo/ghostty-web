@@ -43,6 +43,7 @@ export class WebGLRenderer implements ITerminalRenderer {
   private preeditOverlay?: HTMLDivElement;
   private cursorVisible = true;
   private cursorBlinkInterval?: number;
+  private scrollbarWidth: number;
 
   static canUse(canvas: HTMLCanvasElement): boolean {
     // Probe on a throwaway canvas. Calling getContext('webgl2') on the real
@@ -68,10 +69,12 @@ export class WebGLRenderer implements ITerminalRenderer {
     this.canvas = canvas;
     this.options = options;
     this.theme = { ...DEFAULT_THEME, ...(options.theme ?? {}) };
+    this.scrollbarWidth = Math.max(0, options.scrollbarWidth ?? 8);
     this.vendored = new VendoredWebGLRenderer({
       fontSize: options.fontSize,
       fontFamily: options.fontFamily,
       devicePixelRatio: options.devicePixelRatio,
+      ownerDocument: canvas.ownerDocument,
       alpha: true,
     });
     this.vendored.attach(canvas);
@@ -154,6 +157,10 @@ export class WebGLRenderer implements ITerminalRenderer {
     } else {
       this.stopCursorBlink();
     }
+  }
+
+  setScrollbarWidth(width: number): void {
+    this.scrollbarWidth = Math.max(0, width);
   }
 
   setSelectionManager(selectionManager: SelectionManager): void {
@@ -317,6 +324,7 @@ export class WebGLRenderer implements ITerminalRenderer {
       viewportY: clampedViewportY,
       scrollbackLength,
       scrollbarOpacity,
+      scrollbarWidth: this.scrollbarWidth,
     };
   }
 
@@ -427,7 +435,7 @@ export class WebGLRenderer implements ITerminalRenderer {
 
     // CanvasRenderer accepts any browser CSS color. Use the browser parser too
     // so WebGL themes don't regress for names, rgb(), hsl(), etc.
-    const normalized = normalizeCssColor(value);
+    const normalized = normalizeCssColor(value, this.canvas.ownerDocument);
     if (normalized && normalized !== value) {
       const parsed = parseCssColor(normalized);
       if (parsed) return parsed;
@@ -488,8 +496,8 @@ function validRgba(color: { r: number; g: number; b: number; a: number }): {
   return color;
 }
 
-function normalizeCssColor(value: string): string | null {
-  if (typeof document === 'undefined') return null;
+function normalizeCssColor(value: string, document: Document | undefined): string | null {
+  if (!document) return null;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;

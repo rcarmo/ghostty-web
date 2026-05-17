@@ -7,6 +7,7 @@ export declare class CanvasRenderer {
     private cursorBlink;
     private theme;
     private devicePixelRatio;
+    private readonly fixedDevicePixelRatio?;
     private scrollbarWidth;
     private metrics;
     private fontStrings;
@@ -79,6 +80,7 @@ export declare class CanvasRenderer {
     constructor(canvas: HTMLCanvasElement, options?: RendererOptions);
     private buildFontStrings;
     private getFontString;
+    private getDevicePixelRatio;
     private measureFont;
     /**
      * Remeasure font metrics (call after font loads or changes)
@@ -223,6 +225,7 @@ export declare class CanvasRenderer {
      * Enable/disable cursor blinking
      */
     setCursorBlink(enabled: boolean): void;
+    setScrollbarWidth(width: number): void;
     /**
      * Render scrollbar (Phase 2)
      * Shows scroll position and allows click/drag interaction
@@ -1551,6 +1554,7 @@ declare interface ITerminalRenderer {
     setFontFamily(fontFamily: string): void;
     setCursorStyle(style: 'block' | 'underline' | 'bar'): void;
     setCursorBlink(blink: boolean): void;
+    setScrollbarWidth(width: number): void;
     setSelectionManager(selectionManager: SelectionManager): void;
     setHoveredHyperlinkId(id: number | null): void;
     setHoveredLinkRange(range: {
@@ -2094,6 +2098,12 @@ export declare class SelectionManager {
     private mouseDownTarget;
     private dirtySelectionRows;
     private selectionChangedEmitter;
+    private boundCanvasMouseDownHandler;
+    private boundCanvasMouseMoveHandler;
+    private boundCanvasMouseLeaveHandler;
+    private boundCanvasMouseEnterHandler;
+    private boundCanvasClickHandler;
+    private boundDocumentMouseDownHandler;
     private boundMouseUpHandler;
     private boundContextMenuHandler;
     private boundClickHandler;
@@ -2264,6 +2274,7 @@ export declare class Terminal implements ITerminalCore {
     private canvas?;
     private linkDetector?;
     private currentHoveredLink?;
+    private hoveredHyperlinkId;
     private mouseMoveThrottleTimeout?;
     private pendingMouseMove?;
     private dataEmitter;
@@ -2297,9 +2308,13 @@ export declare class Terminal implements ITerminalCore {
     private isDisposed;
     private isSuspended;
     private animationFrameId?;
+    private forceNextRender;
     private writeQueue;
     private addons;
     private customKeyEventHandler?;
+    private boundBeforeInputHandler?;
+    private boundCanvasMouseDownFocusHandler?;
+    private boundCanvasTouchEndFocusHandler?;
     private currentTitle;
     private currentTheme;
     viewportY: number;
@@ -2539,6 +2554,9 @@ export declare class Terminal implements ITerminalCore {
     /**
      * Cancel the render loop
      */
+    private getOwnerWindow;
+    private scheduleAnimationFrame;
+    private cancelAnimationFrame;
     private cancelRenderLoop;
     private cancelScrollAnimation;
     /**
@@ -2569,6 +2587,7 @@ export declare class Terminal implements ITerminalCore {
      * this shape for simplicity.
      */
     private requestRender;
+    private requestFullRender;
     private renderTick;
     /**
      * Get a line from native WASM scrollback buffer

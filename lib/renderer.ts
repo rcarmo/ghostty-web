@@ -147,6 +147,7 @@ export class CanvasRenderer {
   private cursorBlink: boolean;
   private theme: Required<ITheme>;
   private devicePixelRatio: number;
+  private readonly fixedDevicePixelRatio?: number;
   private scrollbarWidth: number;
   private metrics: FontMetrics;
   private fontStrings: { plain: string; bold: string; italic: string; boldItalic: string };
@@ -299,7 +300,8 @@ export class CanvasRenderer {
     this.cursorStyle = options.cursorStyle ?? 'block';
     this.cursorBlink = options.cursorBlink ?? false;
     this.theme = { ...DEFAULT_THEME, ...options.theme };
-    this.devicePixelRatio = options.devicePixelRatio ?? window.devicePixelRatio ?? 1;
+    this.fixedDevicePixelRatio = options.devicePixelRatio;
+    this.devicePixelRatio = this.getDevicePixelRatio();
     this.scrollbarWidth = options.scrollbarWidth ?? DEFAULT_SCROLLBAR_WIDTH;
 
     // Measure font metrics (also builds cached font strings)
@@ -344,9 +346,13 @@ export class CanvasRenderer {
     return this.fontStrings.plain;
   }
 
+  private getDevicePixelRatio(): number {
+    return this.fixedDevicePixelRatio ?? this.canvas.ownerDocument.defaultView?.devicePixelRatio ?? 1;
+  }
+
   private measureFont(): FontMetrics {
     // Use an offscreen canvas for measurement
-    const canvas = document.createElement('canvas');
+    const canvas = this.canvas.ownerDocument.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
 
     // Set font (use actual pixel size for accurate measurement)
@@ -458,6 +464,12 @@ export class CanvasRenderer {
 
     // Check if buffer needs full redraw (e.g., screen change between normal/alternate)
     if (buffer.needsFullRedraw?.()) {
+      forceAll = true;
+    }
+
+    const currentDevicePixelRatio = this.getDevicePixelRatio();
+    if (currentDevicePixelRatio !== this.devicePixelRatio) {
+      this.devicePixelRatio = currentDevicePixelRatio;
       forceAll = true;
     }
 
@@ -1703,7 +1715,7 @@ export class CanvasRenderer {
         return null;
     }
 
-    const canvas = document.createElement('canvas');
+    const canvas = this.canvas.ownerDocument.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
@@ -1775,7 +1787,9 @@ export class CanvasRenderer {
 
   private startCursorBlink(): void {
     // xterm.js uses ~530ms blink interval
-    this.cursorBlinkInterval = window.setInterval(() => {
+    const view = this.canvas.ownerDocument.defaultView;
+    if (!view) return;
+    this.cursorBlinkInterval = view.setInterval(() => {
       this.cursorVisible = !this.cursorVisible;
       // Wake the render scheduler so the cursor cell is actually
       // repainted with the new visibility state.
@@ -1785,7 +1799,12 @@ export class CanvasRenderer {
 
   private stopCursorBlink(): void {
     if (this.cursorBlinkInterval !== undefined) {
-      clearInterval(this.cursorBlinkInterval);
+      const view = this.canvas.ownerDocument.defaultView;
+      if (view) {
+        view.clearInterval(this.cursorBlinkInterval);
+      } else {
+        clearInterval(this.cursorBlinkInterval);
+      }
       this.cursorBlinkInterval = undefined;
     }
     this.cursorVisible = true;
@@ -1852,6 +1871,10 @@ export class CanvasRenderer {
     }
   }
 
+  public setScrollbarWidth(width: number): void {
+    this.scrollbarWidth = Math.max(0, width);
+  }
+
   /**
    * Render scrollbar (Phase 2)
    * Shows scroll position and allows click/drag interaction
@@ -1878,8 +1901,8 @@ export class CanvasRenderer {
     ctx.fillStyle = this.theme.background;
     ctx.fillRect(scrollbarX - 2, 0, scrollbarWidth + 6, canvasHeight);
 
-    // Don't draw scrollbar if fully transparent or no scrollback
-    if (opacity <= 0 || scrollbackLength === 0) return;
+    // Don't draw scrollbar if disabled, fully transparent, or no scrollback
+    if (scrollbarWidth <= 0 || opacity <= 0 || scrollbackLength === 0) return;
 
     // Calculate scrollbar thumb size and position
     const totalLines = scrollbackLength + visibleRows;
@@ -2016,7 +2039,7 @@ export class CanvasRenderer {
 
     // Create canvas if not yet created
     if (!this.overlayCanvas) {
-      this.overlayCanvas = document.createElement('canvas');
+      this.overlayCanvas = parent.ownerDocument.createElement('canvas');
       this.overlayCanvas.setAttribute('aria-hidden', 'true');
     }
 
@@ -2029,8 +2052,8 @@ export class CanvasRenderer {
     // Ensure parent has a positioning context so absolute child lands correctly.
     // getComputedStyle returns 'static' in real browsers and '' in some test
     // environments when no explicit position is set — treat both as needing a fix.
-    const cs = getComputedStyle(parent);
-    if (cs.position === 'static' || cs.position === '') {
+    const cs = parent.ownerDocument.defaultView?.getComputedStyle(parent);
+    if (!cs || cs.position === 'static' || cs.position === '') {
       parent.style.position = 'relative';
     }
 
