@@ -24,6 +24,7 @@ import type {
   IBufferNamespace,
   IBufferRange,
   IDisposable,
+  ITerminalDecoration,
   IEvent,
   IKeyEvent,
   ITerminalAddon,
@@ -946,6 +947,21 @@ export class Terminal implements ITerminalCore {
    */
   public selectLines(start: number, end: number): void {
     this.selectionManager?.selectLines(start, end);
+  }
+
+  /**
+   * Set general-purpose cell decorations in absolute buffer coordinates.
+   * The renderer paints these under text and above normal cell backgrounds.
+   */
+  public setDecorations(decorations: ITerminalDecoration[]): void {
+    this.renderer?.setDecorations(decorations);
+    this.requestRender();
+  }
+
+  /** Clear all general-purpose cell decorations. */
+  public clearDecorations(): void {
+    this.renderer?.clearDecorations();
+    this.requestRender();
   }
 
   /**

@@ -10,7 +10,7 @@
  * - Dirty line optimization for 60 FPS
  */
 
-import type { ITheme } from './interfaces';
+import type { ITerminalDecoration, ITheme } from './interfaces';
 import { diacriticToInt, KITTY_PLACEHOLDER } from './kitty_diacritics';
 import type { SelectionManager } from './selection-manager';
 import type { GhosttyCell, ILink, KittyImagePixels, KittyPlacementInfo } from './types';
@@ -271,6 +271,14 @@ export class CanvasRenderer {
     endX: number;
     endY: number;
   } | null = null;
+
+  // General-purpose decorations (absolute buffer coordinates) used by search
+  // and other consumers that need xterm-style highlight ranges.
+  private decorations: ITerminalDecoration[] = [];
+  private previousDecorationRows: Set<number> = new Set();
+  private currentDecorationRows: Set<number> = new Set();
+  private currentScrollbackLength: number = 0;
+  private currentViewportY: number = 0;
 
   // Preedit overlay canvas (separate layer above main canvas for IME composition)
   private overlayCanvas: HTMLCanvasElement | null = null;
@@ -593,6 +601,23 @@ export class CanvasRenderer {
       this.previousHoveredLinkRange = this.hoveredLinkRange;
     }
 
+    // Track decoration rows. Decorations are stored in absolute buffer
+    // coordinates (0 = oldest scrollback line); convert them to viewport rows
+    // for the current scroll position, and also repaint previous decoration
+    // rows so clearing/changing decorations removes stale highlights.
+    this.currentScrollbackLength = scrollbackLength;
+    this.currentViewportY = Math.floor(viewportY);
+    const decorationRows = new Set<number>(this.previousDecorationRows);
+    this.currentDecorationRows = new Set();
+    for (const d of this.decorations) {
+      if (d.length <= 0) continue;
+      const row = d.line - scrollbackLength + this.currentViewportY;
+      if (row < 0 || row >= dims.rows) continue;
+      decorationRows.add(row);
+      this.currentDecorationRows.add(row);
+    }
+    this.previousDecorationRows = new Set(this.currentDecorationRows);
+
     // Track if anything was actually rendered
     let anyLinesRendered = false;
 
@@ -610,6 +635,7 @@ export class CanvasRenderer {
             buffer.isRowDirty(y) ||
             selectionRows.has(y) ||
             hyperlinkRows.has(y) ||
+            decorationRows.has(y) ||
             this.kittyDamagedRows.has(y);
 
       if (needsRender) {
@@ -761,6 +787,8 @@ export class CanvasRenderer {
       return; // Selection background replaces cell background
     }
 
+    const decoration = this.getDecorationAt(x, y);
+
     // Extract background color and handle inverse
     let bg_r = cell.bg_r,
       bg_g = cell.bg_g,
@@ -785,6 +813,22 @@ export class CanvasRenderer {
       this.ctx.fillStyle = this.rgbToCSS(bg_r, bg_g, bg_b);
       this.ctx.fillRect(cellX, cellY, cellWidth, this.metrics.height);
     }
+
+    if (decoration?.background) {
+      this.ctx.fillStyle = decoration.background;
+      this.ctx.fillRect(cellX, cellY, cellWidth, this.metrics.height);
+    }
+  }
+
+  private getDecorationAt(x: number, viewportRow: number): ITerminalDecoration | null {
+    if (this.decorations.length === 0) return null;
+    const absoluteLine = viewportRow + this.currentScrollbackLength - this.currentViewportY;
+    for (let i = this.decorations.length - 1; i >= 0; i--) {
+      const d = this.decorations[i];
+      if (d.line !== absoluteLine) continue;
+      if (x >= d.column && x < d.column + d.length) return d;
+    }
+    return null;
   }
 
   private drawHorizontalLine(x: number, y: number, width: number, color: string): void {
@@ -835,6 +879,10 @@ export class CanvasRenderer {
     } else if (isSelected) {
       fillColor = this.theme.selectionForeground;
     } else {
+      const decoration = this.getDecorationAt(x, y);
+      if (decoration?.foreground) {
+        fillColor = decoration.foreground;
+      } else {
       // Extract colors and handle inverse. Mirrors the background path
       // above: cells with no explicit color come back as (0,0,0) — treat
       // that as a sentinel for "use theme default" rather than rendering
@@ -855,6 +903,7 @@ export class CanvasRenderer {
       // RGB happens to be (0,0,0).
       const useThemeFg = (cell.flags & CellFlags.INVERSE) ? cell.bgIsDefault : cell.fgIsDefault;
       fillColor = useThemeFg ? this.theme.foreground : this.rgbToCSS(fg_r, fg_g, fg_b);
+      }
     }
     this.ctx.fillStyle = fillColor;
 
@@ -1750,6 +1799,18 @@ export class CanvasRenderer {
    */
   public setTheme(theme: ITheme): void {
     this.theme = { ...DEFAULT_THEME, ...theme };
+  }
+
+  /**
+   * Set general-purpose decorations in absolute buffer coordinates.
+   * Decorations are painted as cell backgrounds before text rendering.
+   */
+  public setDecorations(decorations: ITerminalDecoration[]): void {
+    this.decorations = decorations.slice();
+  }
+
+  public clearDecorations(): void {
+    this.decorations = [];
   }
 
   /**

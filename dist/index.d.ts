@@ -69,6 +69,11 @@ export declare class CanvasRenderer {
     private previousHoveredHyperlinkId;
     private hoveredLinkRange;
     private previousHoveredLinkRange;
+    private decorations;
+    private previousDecorationRows;
+    private currentDecorationRows;
+    private currentScrollbackLength;
+    private currentViewportY;
     private overlayCanvas;
     private overlayCtx;
     constructor(canvas: HTMLCanvasElement, options?: RendererOptions);
@@ -106,6 +111,7 @@ export declare class CanvasRenderer {
      * complex glyphs (like Devanagari) that extend outside their cell bounds.
      */
     private renderCellBackground;
+    private getDecorationAt;
     private drawHorizontalLine;
     /**
      * Render a cell's text and decorations (Pass 2 of two-pass rendering)
@@ -195,6 +201,12 @@ export declare class CanvasRenderer {
      * Update theme colors
      */
     setTheme(theme: ITheme): void;
+    /**
+     * Set general-purpose decorations in absolute buffer coordinates.
+     * Decorations are painted as cell backgrounds before text rendering.
+     */
+    setDecorations(decorations: ITerminalDecoration[]): void;
+    clearDecorations(): void;
     /**
      * Update font size
      */
@@ -1428,6 +1440,19 @@ export declare interface ITerminalCore {
     resume(): void;
 }
 
+export declare interface ITerminalDecoration {
+    /** Absolute buffer line. 0 is the oldest scrollback line; visible rows follow. */
+    line: number;
+    /** Start column, zero-based. */
+    column: number;
+    /** Cell length. */
+    length: number;
+    /** CSS background color to paint under matching cells. */
+    background?: string;
+    /** Optional CSS foreground override for matching cells. */
+    foreground?: string;
+}
+
 export declare interface ITerminalDimensions {
     cols: number;
     rows: number;
@@ -2378,6 +2403,13 @@ export declare class Terminal implements ITerminalCore {
      * Select entire lines from start to end
      */
     selectLines(start: number, end: number): void;
+    /**
+     * Set general-purpose cell decorations in absolute buffer coordinates.
+     * The renderer paints these under text and above normal cell backgrounds.
+     */
+    setDecorations(decorations: ITerminalDecoration[]): void;
+    /** Clear all general-purpose cell decorations. */
+    clearDecorations(): void;
     /**
      * Get selection position as buffer range
      */

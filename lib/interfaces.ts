@@ -33,6 +33,19 @@ export interface ITerminalOptions {
   ghostty?: Ghostty;
 }
 
+export interface ITerminalDecoration {
+  /** Absolute buffer line. 0 is the oldest scrollback line; visible rows follow. */
+  line: number;
+  /** Start column, zero-based. */
+  column: number;
+  /** Cell length. */
+  length: number;
+  /** CSS background color to paint under matching cells. */
+  background?: string;
+  /** Optional CSS foreground override for matching cells. */
+  foreground?: string;
+}
+
 export interface ITheme {
   foreground?: string;
   background?: string;
