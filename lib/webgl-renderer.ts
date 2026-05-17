@@ -264,6 +264,8 @@ export class WebGLRenderer implements ITerminalRenderer {
       bg_r: 0,
       bg_g: 0,
       bg_b: 0,
+      fgIsDefault: true,
+      bgIsDefault: true,
       flags: 0,
       width: 1,
       hyperlink_id: 0,

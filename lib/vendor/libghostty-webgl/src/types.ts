@@ -76,6 +76,8 @@ export interface GhosttyCell {
   bg_r: number;
   bg_g: number;
   bg_b: number;
+  fgIsDefault?: boolean;
+  bgIsDefault?: boolean;
   flags: number;
   width: number;
   hyperlink_id: number;

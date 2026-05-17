@@ -402,6 +402,8 @@ function resolveCellColors(
   let bgR = cell.bg_r;
   let bgG = cell.bg_g;
   let bgB = cell.bg_b;
+  const fgIsDefault = cell.fgIsDefault ?? (fgR === 0 && fgG === 0 && fgB === 0);
+  const bgIsDefault = cell.bgIsDefault ?? (bgR === 0 && bgG === 0 && bgB === 0);
 
   if (cell.flags & CellFlags.INVERSE) {
     const tmpR = fgR;
@@ -415,21 +417,28 @@ function resolveCellColors(
     bgB = tmpB;
   }
 
-  let fgA = 255;
+  const useThemeFg = (cell.flags & CellFlags.INVERSE) ? bgIsDefault : fgIsDefault;
+  const useThemeBg = (cell.flags & CellFlags.INVERSE) ? fgIsDefault : bgIsDefault;
+  if (useThemeFg) {
+    fgR = theme.foreground.r;
+    fgG = theme.foreground.g;
+    fgB = theme.foreground.b;
+  }
+
+  let fgA = useThemeFg ? clampAlpha(theme.foreground.a) * 255 : 255;
   if (cell.flags & CellFlags.INVISIBLE) {
     fgA = 0;
   } else if (cell.flags & CellFlags.FAINT) {
     fgA = 128;
   }
 
-  const isDefaultBg = bgR === 0 && bgG === 0 && bgB === 0;
-  let bgA = isDefaultBg ? 0 : 255;
+  let bgA = useThemeBg ? 0 : 255;
 
   if (isSelected) {
     const selectionOpacity = clampAlpha(theme.selectionOpacity * theme.selectionBackground.a);
-    const baseR = isDefaultBg ? theme.background.r : bgR;
-    const baseG = isDefaultBg ? theme.background.g : bgG;
-    const baseB = isDefaultBg ? theme.background.b : bgB;
+    const baseR = useThemeBg ? theme.background.r : bgR;
+    const baseG = useThemeBg ? theme.background.g : bgG;
+    const baseB = useThemeBg ? theme.background.b : bgB;
     const inv = 1 - selectionOpacity;
     bgR = clampU8(Math.round(baseR * inv + theme.selectionBackground.r * selectionOpacity));
     bgG = clampU8(Math.round(baseG * inv + theme.selectionBackground.g * selectionOpacity));
@@ -461,7 +470,7 @@ function resolveCellColors(
   out.fgR = fgR;
   out.fgG = fgG;
   out.fgB = fgB;
-  out.fgA = fgA;
+  out.fgA = clampU8(Math.round(fgA));
   out.bgR = bgR;
   out.bgG = bgG;
   out.bgB = bgB;
