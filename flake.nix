@@ -26,7 +26,7 @@
 
         packages.default = pkgs.stdenv.mkDerivation {
           pname = "ghostty-web";
-          version = "0.9.1";
+          version = "0.9.2";
 
           src = ./.;
 
