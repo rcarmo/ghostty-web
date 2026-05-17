@@ -47,7 +47,7 @@ This is a **fully functional terminal emulator** (MVP complete) that uses Ghostt
 - Ghostty WASM build artifacts for VT parsing/render-state access
 - Canvas API for default rendering
 - Optional WebGL2 adapter in `lib/webgl-renderer.ts` with vendored `libghostty-webgl`
-- Renderer/terminal lifecycle code that derives DOM, timer, animation-frame, and DPR state from the terminal canvas' owner browsing context
+- Renderer/terminal lifecycle code that derives DOM, timer, animation-frame, link-opening, clipboard fallback, and DPR state from the terminal canvas' owner browsing context
 
 ## Architecture
 
@@ -398,9 +398,10 @@ The demo serves HTTP and WebSocket traffic from the same origin, so reverse prox
 - Canvas is the default renderer; WebGL is opt-in via `renderer: 'webgl'`
 - Do not make WebGL extend `CanvasRenderer`; a canvas cannot own both 2D and WebGL contexts
 - Use `ITerminalRenderer` for terminal-facing renderer behavior
-- Use the terminal canvas/parent owner document/window for DOM nodes, timers, animation frames, computed styles, DPR, and clipboard fallbacks
+- Use the terminal canvas/parent owner document/window for DOM nodes, timers, animation frames, computed styles, DPR, link opening, and clipboard fallbacks
 - When adding visible state changes, wake the event-driven renderer with `requestRender()` or `requestFullRender()` rather than relying on a perpetual frame loop
-- Keep Canvas/WebGL runtime option parity where practical (`theme`, cursor, font, decorations, scrollbar width, DPR)
+- Guard async UI lookups (link hover/click, providers, etc.) with request ids or disposal checks so stale promises cannot mutate disposed/newer state
+- Keep Canvas/WebGL runtime option parity where practical (`theme`, cursor, font, decorations, transparency, scrollbar width, DPR)
 
 ### 7. **Canvas Rendering Requires Container Resize**
 
@@ -448,8 +449,9 @@ await document.fonts.ready;
 
 1. Check if cells are correct: `wasmTerm.getLine(y)`
 2. Check if dirty tracking works: `renderer.render()`
-3. Check font metrics: `renderer['fontMetrics']`
-4. Check color conversion: `renderer['applyStyle']()`
+3. Check font metrics and DPR on the active renderer
+4. Check color conversion in both renderer and WASM config paths when theme colors affect cell defaults
+5. Check whether the state change explicitly wakes the event-driven renderer
 
 ### Add Keyboard Shortcut
 

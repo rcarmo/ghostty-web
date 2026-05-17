@@ -89,4 +89,6 @@ The packaged demo intentionally uses the default Canvas renderer because it cove
 const term = new Terminal({ renderer: 'webgl' });
 ```
 
-If WebGL2 is unavailable or initialization fails, `ghostty-web` falls back to Canvas. Both renderer paths use the terminal canvas' owner browsing context for DOM/timer/DPR behavior, which makes embedded or iframe-hosted demos safer than relying on global `window`/`document`.
+If WebGL2 is unavailable or initialization fails, `ghostty-web` falls back to Canvas. Both renderer paths use the terminal canvas' owner browsing context for DOM/timer/DPR/link-opening behavior, which makes embedded or iframe-hosted demos safer than relying on global `window`/`document`.
+
+The library also supports `allowTransparency: true` and an `onLinkClick(url, event)` override for hosts that want transparent backgrounds or in-app link handling instead of opening a new tab.

@@ -6,6 +6,7 @@ export declare class CanvasRenderer {
     private cursorStyle;
     private cursorBlink;
     private theme;
+    private allowTransparency;
     private devicePixelRatio;
     private readonly fixedDevicePixelRatio?;
     private scrollbarWidth;
@@ -203,6 +204,7 @@ export declare class CanvasRenderer {
      * Update theme colors
      */
     setTheme(theme: ITheme): void;
+    setAllowTransparency(allowTransparency: boolean): void;
     /**
      * Set general-purpose decorations in absolute buffer coordinates.
      * Decorations are painted as cell backgrounds before text rendering.
@@ -1479,9 +1481,6 @@ declare interface ITerminalForLinkDetector {
     };
 }
 
-/**
- * Minimal terminal interface required by OSC8LinkProvider
- */
 declare interface ITerminalForOSC8Provider {
     buffer: {
         active: {
@@ -1501,9 +1500,6 @@ declare interface ITerminalForOSC8Provider {
     };
 }
 
-/**
- * Minimal terminal interface required by UrlRegexProvider
- */
 declare interface ITerminalForUrlProvider {
     buffer: {
         active: {
@@ -1550,6 +1546,7 @@ declare interface ITerminalRenderer {
     };
     getCanvas(): HTMLCanvasElement;
     setTheme(theme: ITheme): void;
+    setAllowTransparency(allowTransparency: boolean): void;
     setFontSize(fontSize: number): void;
     setFontFamily(fontFamily: string): void;
     setCursorStyle(style: 'block' | 'underline' | 'bar'): void;
@@ -2043,6 +2040,7 @@ export declare interface RendererOptions {
     theme?: ITheme;
     devicePixelRatio?: number;
     scrollbarWidth?: number;
+    allowTransparency?: boolean;
 }
 
 /**
@@ -2275,6 +2273,8 @@ export declare class Terminal implements ITerminalCore {
     private linkDetector?;
     private currentHoveredLink?;
     private hoveredHyperlinkId;
+    private linkHoverRequestId;
+    private linkClickRequestId;
     private mouseMoveThrottleTimeout?;
     private pendingMouseMove?;
     private dataEmitter;
@@ -2350,6 +2350,8 @@ export declare class Terminal implements ITerminalCore {
      * Returns 0 if the color is undefined or invalid.
      */
     private parseColorToHex;
+    private parseCssColor;
+    private parseCssColorChannel;
     /**
      * Convert terminal options to WASM terminal config.
      */

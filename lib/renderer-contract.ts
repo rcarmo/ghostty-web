@@ -20,6 +20,7 @@ export interface ITerminalRenderer {
   getMetrics(): { width: number; height: number; baseline: number };
   getCanvas(): HTMLCanvasElement;
   setTheme(theme: ITheme): void;
+  setAllowTransparency(allowTransparency: boolean): void;
   setFontSize(fontSize: number): void;
   setFontFamily(fontFamily: string): void;
   setCursorStyle(style: 'block' | 'underline' | 'bar'): void;

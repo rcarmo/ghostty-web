@@ -78,6 +78,8 @@ export class Terminal implements ITerminalCore {
   private linkDetector?: LinkDetector;
   private currentHoveredLink?: ILink;
   private hoveredHyperlinkId: number = 0;
+  private linkHoverRequestId: number = 0;
+  private linkClickRequestId: number = 0;
   private mouseMoveThrottleTimeout?: number;
   private pendingMouseMove?: MouseEvent;
 
@@ -279,6 +281,13 @@ export class Terminal implements ITerminalCore {
         }
         break;
 
+      case 'allowTransparency':
+        if (this.renderer) {
+          this.renderer.setAllowTransparency(this.options.allowTransparency);
+          this.requestFullRender();
+        }
+        break;
+
       case 'cols':
       case 'rows':
         // Redirect to resize method
@@ -319,26 +328,58 @@ export class Terminal implements ITerminalCore {
   private parseColorToHex(color?: string): number {
     if (!color) return 0;
 
-    // Handle hex colors (#RGB, #RRGGBB)
-    if (color.startsWith('#')) {
-      let hex = color.slice(1);
-      if (hex.length === 3) {
-        hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    const parsed = this.parseCssColor(color);
+    if (!parsed) return 0;
+    return (parsed.r << 16) | (parsed.g << 8) | parsed.b;
+  }
+
+  private parseCssColor(color: string): { r: number; g: number; b: number } | null {
+    const value = color.trim();
+
+    if (value.startsWith('#')) {
+      const hex = value.slice(1);
+      const expand = (text: string) => text.split('').map((ch) => ch + ch).join('');
+      const rgb = hex.length === 3 || hex.length === 4 ? expand(hex.slice(0, 3)) : hex.slice(0, 6);
+      if (rgb.length !== 6 || !/^[0-9a-f]{6}$/i.test(rgb)) return null;
+      return {
+        r: Number.parseInt(rgb.slice(0, 2), 16),
+        g: Number.parseInt(rgb.slice(2, 4), 16),
+        b: Number.parseInt(rgb.slice(4, 6), 16),
+      };
+    }
+
+    const rgba = value.match(/^rgba?\(([^)]+)\)$/i);
+    if (rgba) {
+      const parts = rgba[1]!.split(',').map((part) => part.trim());
+      if (parts.length >= 3) {
+        return {
+          r: this.parseCssColorChannel(parts[0]!),
+          g: this.parseCssColorChannel(parts[1]!),
+          b: this.parseCssColorChannel(parts[2]!),
+        };
       }
-      const value = Number.parseInt(hex, 16);
-      return Number.isNaN(value) ? 0 : value;
     }
 
-    // Handle rgb(r, g, b) format
-    const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-    if (match) {
-      const r = Number.parseInt(match[1], 10);
-      const g = Number.parseInt(match[2], 10);
-      const b = Number.parseInt(match[3], 10);
-      return (r << 16) | (g << 8) | b;
+    const ownerDocument = this.element?.ownerDocument;
+    if (!ownerDocument) return null;
+    const canvas = ownerDocument.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.fillStyle = '#000000';
+    ctx.fillStyle = value;
+    const normalized = ctx.fillStyle;
+    if (typeof normalized !== 'string' || normalized === '#000000') {
+      return /^black$/i.test(value) || /^#(?:000|0000|000000|00000000)$/i.test(value)
+        ? { r: 0, g: 0, b: 0 }
+        : null;
     }
+    return this.parseCssColor(normalized);
+  }
 
-    return 0;
+  private parseCssColorChannel(value: string): number {
+    const parsed = value.endsWith('%') ? (Number.parseFloat(value) / 100) * 255 : Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.max(0, Math.min(255, Math.round(parsed)));
   }
 
   /**
@@ -499,6 +540,7 @@ export class Terminal implements ITerminalCore {
         cursorBlink: this.options.cursorBlink,
         theme: this.options.theme,
         scrollbarWidth: this.options.scrollbarWidth,
+        allowTransparency: this.options.allowTransparency,
       };
       if (this.options.renderer === 'webgl' && WebGLRenderer.canUse(this.canvas)) {
         try {
@@ -1308,6 +1350,8 @@ export class Terminal implements ITerminalCore {
       this.mouseMoveThrottleTimeout = undefined;
     }
     this.pendingMouseMove = undefined;
+    this.linkHoverRequestId++;
+    this.linkClickRequestId++;
 
     // Dispose addons
     for (const addon of this.addons) {
@@ -1514,7 +1558,7 @@ export class Terminal implements ITerminalCore {
         this.element.removeEventListener('beforeinput', this.boundBeforeInputHandler);
         this.boundBeforeInputHandler = undefined;
       }
-      this.element.removeEventListener('wheel', this.handleWheel);
+      this.element.removeEventListener('wheel', this.handleWheel, { capture: true });
       this.element.removeEventListener('mousedown', this.handleMouseDown, { capture: true });
       this.element.removeEventListener('mousemove', this.handleMouseMove);
       this.element.removeEventListener('mouseleave', this.handleMouseLeave);
@@ -1693,10 +1737,15 @@ export class Terminal implements ITerminalCore {
       bufferRow = scrollbackLength + viewportRow;
     }
 
-    // Make async call non-blocking - don't await
+    // Make async call non-blocking - don't await. Track a request id so
+    // slower older lookups cannot overwrite newer hover state or mutate a
+    // disposed terminal.
+    const requestId = ++this.linkHoverRequestId;
     this.linkDetector
       .getLinkAt(x, bufferRow)
       .then((link) => {
+        if (requestId !== this.linkHoverRequestId || this.isDisposed || !this.isOpen) return;
+
         // Update hover state for cursor changes and click handling
         if (link !== this.currentHoveredLink) {
           // Notify old link we're leaving
@@ -1749,6 +1798,7 @@ export class Terminal implements ITerminalCore {
         }
       })
       .catch((err) => {
+        if (requestId !== this.linkHoverRequestId || this.isDisposed) return;
         console.warn('Link detection error:', err);
       });
   }
@@ -1757,6 +1807,8 @@ export class Terminal implements ITerminalCore {
    * Handle mouse leave to clear link hover
    */
   private handleMouseLeave = (): void => {
+    this.linkHoverRequestId++;
+
     // Clear hyperlink underline
     if (this.renderer && this.wasmTerm) {
       if (this.hoveredHyperlinkId > 0) {
@@ -1818,15 +1870,20 @@ export class Terminal implements ITerminalCore {
       bufferRow = scrollbackLength + viewportRow;
     }
 
-    // Get the link at this position
+    // Get the link at this position. Guard the async result so a disposed
+    // terminal or a newer click cannot activate an old lookup.
+    const requestId = ++this.linkClickRequestId;
     const link = await this.linkDetector.getLinkAt(x, bufferRow);
+    if (requestId !== this.linkClickRequestId || this.isDisposed || !this.isOpen) return;
 
     if (link) {
-      // Activate link
-      link.activate(e);
+      const handled = this.options.onLinkClick?.(link.text, e) ?? false;
+      if (!handled) {
+        link.activate(e);
+      }
 
-      // Prevent default action if modifier key held
-      if (e.ctrlKey || e.metaKey) {
+      // Prevent default action if modifier key held or custom handler consumed it.
+      if (handled || e.ctrlKey || e.metaKey) {
         e.preventDefault();
       }
     }

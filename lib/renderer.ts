@@ -65,8 +65,9 @@ export interface RendererOptions {
   cursorStyle?: 'block' | 'underline' | 'bar'; // Default: 'block'
   cursorBlink?: boolean; // Default: false
   theme?: ITheme;
-  devicePixelRatio?: number; // Default: window.devicePixelRatio
+  devicePixelRatio?: number; // Default: canvas owner window devicePixelRatio
   scrollbarWidth?: number; // 0 = hidden
+  allowTransparency?: boolean;
 }
 
 export interface FontMetrics {
@@ -146,6 +147,7 @@ export class CanvasRenderer {
   private cursorStyle: 'block' | 'underline' | 'bar';
   private cursorBlink: boolean;
   private theme: Required<ITheme>;
+  private allowTransparency: boolean;
   private devicePixelRatio: number;
   private readonly fixedDevicePixelRatio?: number;
   private scrollbarWidth: number;
@@ -288,7 +290,7 @@ export class CanvasRenderer {
 
   constructor(canvas: HTMLCanvasElement, options: RendererOptions = {}) {
     this.canvas = canvas;
-    const ctx = canvas.getContext('2d', { alpha: true });
+    const ctx = canvas.getContext('2d', { alpha: options.allowTransparency ?? false });
     if (!ctx) {
       throw new Error('Failed to get 2D rendering context');
     }
@@ -300,6 +302,7 @@ export class CanvasRenderer {
     this.cursorStyle = options.cursorStyle ?? 'block';
     this.cursorBlink = options.cursorBlink ?? false;
     this.theme = { ...DEFAULT_THEME, ...options.theme };
+    this.allowTransparency = options.allowTransparency ?? false;
     this.fixedDevicePixelRatio = options.devicePixelRatio;
     this.devicePixelRatio = this.getDevicePixelRatio();
     this.scrollbarWidth = options.scrollbarWidth ?? DEFAULT_SCROLLBAR_WIDTH;
@@ -422,9 +425,11 @@ export class CanvasRenderer {
     this.ctx.textBaseline = 'alphabetic';
     this.ctx.textAlign = 'left';
 
-    // Fill background after resize
-    this.ctx.fillStyle = this.theme.background;
-    this.ctx.fillRect(0, 0, cssWidth, cssHeight);
+    // Fill background after resize unless the host wants the terminal to stay transparent.
+    if (!this.allowTransparency) {
+      this.ctx.fillStyle = this.theme.background;
+      this.ctx.fillRect(0, 0, cssWidth, cssHeight);
+    }
 
     // Keep overlay canvas in sync with main canvas dimensions
     this.resizeOverlay();
@@ -759,8 +764,10 @@ export class CanvasRenderer {
     // clearRect is needed because fillRect composites rather than replaces,
     // so transparent/translucent backgrounds wouldn't clear previous content.
     this.ctx.clearRect(0, lineY, lineWidth, this.metrics.height);
-    this.ctx.fillStyle = this.theme.background;
-    this.ctx.fillRect(0, lineY, lineWidth, this.metrics.height);
+    if (!this.allowTransparency) {
+      this.ctx.fillStyle = this.theme.background;
+      this.ctx.fillRect(0, lineY, lineWidth, this.metrics.height);
+    }
 
     // PASS 1: Draw all cell backgrounds first
     // This ensures all backgrounds are painted before any text, allowing text
@@ -1821,6 +1828,10 @@ export class CanvasRenderer {
     this.theme = { ...DEFAULT_THEME, ...theme };
   }
 
+  public setAllowTransparency(allowTransparency: boolean): void {
+    this.allowTransparency = allowTransparency;
+  }
+
   /**
    * Set general-purpose decorations in absolute buffer coordinates.
    * Decorations are painted as cell backgrounds before text rendering.
@@ -1898,8 +1909,10 @@ export class CanvasRenderer {
 
     // Always clear the scrollbar area first (fixes ghosting when fading out)
     ctx.clearRect(scrollbarX - 2, 0, scrollbarWidth + 6, canvasHeight);
-    ctx.fillStyle = this.theme.background;
-    ctx.fillRect(scrollbarX - 2, 0, scrollbarWidth + 6, canvasHeight);
+    if (!this.allowTransparency) {
+      ctx.fillStyle = this.theme.background;
+      ctx.fillRect(scrollbarX - 2, 0, scrollbarWidth + 6, canvasHeight);
+    }
 
     // Don't draw scrollbar if disabled, fully transparent, or no scrollback
     if (scrollbarWidth <= 0 || opacity <= 0 || scrollbackLength === 0) return;
@@ -2020,8 +2033,10 @@ export class CanvasRenderer {
     // clearRect first because fillRect composites rather than replaces,
     // so transparent/translucent backgrounds wouldn't clear previous content.
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = this.theme.background;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    if (!this.allowTransparency) {
+      this.ctx.fillStyle = this.theme.background;
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
   }
 
   // ==========================================================================

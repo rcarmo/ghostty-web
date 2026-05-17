@@ -102,7 +102,7 @@ export class OSC8LinkProvider implements ILinkProvider {
           activate: (event) => {
             // Open link if Ctrl/Cmd is pressed
             if (event.ctrlKey || event.metaKey) {
-              window.open(uri, '_blank', 'noopener,noreferrer');
+              openLinkFromEvent(event, uri);
             }
           },
         });
@@ -232,7 +232,11 @@ export class OSC8LinkProvider implements ILinkProvider {
 /**
  * Minimal terminal interface required by OSC8LinkProvider
  */
-export interface ITerminalForOSC8Provider {
+export function openLinkFromEvent(event: MouseEvent, url: string): void {
+  event.view?.open(url, '_blank', 'noopener,noreferrer');
+}
+
+interface ITerminalForOSC8Provider {
   buffer: {
     active: {
       length: number;

@@ -319,10 +319,14 @@ export class WebGLRenderer implements Renderer {
     gl.disable(gl.SCISSOR_TEST);
 
     const bg = input.theme.background;
-    gl.clearColor((bg.r / 255) * bg.a, (bg.g / 255) * bg.a, (bg.b / 255) * bg.a, bg.a);
+    if (input.allowTransparency) {
+      gl.clearColor(0, 0, 0, 0);
+    } else {
+      gl.clearColor((bg.r / 255) * bg.a, (bg.g / 255) * bg.a, (bg.b / 255) * bg.a, bg.a);
+    }
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    if (this.background) {
+    if (!input.allowTransparency && this.background) {
       gl.useProgram(this.background.program);
       gl.bindVertexArray(this.background.vao);
       gl.uniform2f(this.background.uniforms.u_cellSize, cellSize.width, cellSize.height);

@@ -33,6 +33,7 @@ export class WebGLRenderer implements ITerminalRenderer {
   private options: RendererOptions;
   private vendored: VendoredWebGLRenderer;
   private theme: Required<ITheme>;
+  private allowTransparency: boolean;
   private cols = 0;
   private rows = 0;
   private selectionManager?: SelectionManager;
@@ -69,13 +70,14 @@ export class WebGLRenderer implements ITerminalRenderer {
     this.canvas = canvas;
     this.options = options;
     this.theme = { ...DEFAULT_THEME, ...(options.theme ?? {}) };
+    this.allowTransparency = options.allowTransparency ?? false;
     this.scrollbarWidth = Math.max(0, options.scrollbarWidth ?? 8);
     this.vendored = new VendoredWebGLRenderer({
       fontSize: options.fontSize,
       fontFamily: options.fontFamily,
       devicePixelRatio: options.devicePixelRatio,
       ownerDocument: canvas.ownerDocument,
-      alpha: true,
+      alpha: this.allowTransparency,
     });
     this.vendored.attach(canvas);
     this.vendored.updateTheme(this.toWebGLTheme(this.theme));
@@ -134,6 +136,10 @@ export class WebGLRenderer implements ITerminalRenderer {
   setTheme(theme: ITheme): void {
     this.theme = { ...this.theme, ...theme };
     this.vendored.updateTheme(this.toWebGLTheme(this.theme));
+  }
+
+  setAllowTransparency(allowTransparency: boolean): void {
+    this.allowTransparency = allowTransparency;
   }
 
   setFontSize(fontSize: number): void {
@@ -325,6 +331,7 @@ export class WebGLRenderer implements ITerminalRenderer {
       scrollbackLength,
       scrollbarOpacity,
       scrollbarWidth: this.scrollbarWidth,
+      allowTransparency: this.allowTransparency,
     };
   }
 

@@ -31,7 +31,7 @@ export interface ITerminalOptions {
 
   // Link handling
   // Called when a link is clicked. Return true to prevent default link handling.
-  // If not provided, links will use window.open() which may be blocked in webviews.
+  // If not provided, links use the click event's owning window to open a new tab, which may be blocked in webviews.
   onLinkClick?: (url: string, event: MouseEvent) => boolean;
 
   // Internal: Ghostty WASM instance (optional, for test isolation)

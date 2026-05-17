@@ -115,6 +115,7 @@ export interface RenderInput {
   scrollbackLength: number;
   scrollbarOpacity: number;
   scrollbarWidth: number;
+  allowTransparency: boolean;
 }
 
 export interface Renderer {

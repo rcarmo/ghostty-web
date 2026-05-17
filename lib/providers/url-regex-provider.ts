@@ -83,7 +83,7 @@ export class UrlRegexProvider implements ILinkProvider {
           activate: (event) => {
             // Open link if Ctrl/Cmd is pressed
             if (event.ctrlKey || event.metaKey) {
-              window.open(url, '_blank', 'noopener,noreferrer');
+              openLinkFromEvent(event, url);
             }
           },
         });
@@ -129,7 +129,11 @@ export class UrlRegexProvider implements ILinkProvider {
 /**
  * Minimal terminal interface required by UrlRegexProvider
  */
-export interface ITerminalForUrlProvider {
+export function openLinkFromEvent(event: MouseEvent, url: string): void {
+  event.view?.open(url, '_blank', 'noopener,noreferrer');
+}
+
+interface ITerminalForUrlProvider {
   buffer: {
     active: {
       getLine(y: number): IBufferLineForUrlProvider | undefined;

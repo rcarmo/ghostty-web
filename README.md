@@ -44,7 +44,7 @@ const term = new Terminal({
 
 When `renderer: 'webgl'` is requested, `ghostty-web` checks for `webgl2` support on a throwaway probe canvas before constructing the renderer. If WebGL2 is unavailable, or if WebGL initialization fails after binding a context, initialization safely falls back to the default Canvas2D renderer on a fresh canvas. The WebGL path is currently experimental: it uses a vendored adapter from `0xBigBoss/ghostty-webgl` and preserves the same terminal-facing renderer contract, but Canvas2D remains the production default.
 
-The WebGL adapter mirrors the Canvas renderer contract for selection, hyperlinks, decorations/search highlights, cursor blink, IME preedit overlays, scrollback viewports, theme colors (including common CSS color forms), font changes, DPR changes, and scrollbar width. Both renderers are hardened for iframe/embedded browsing contexts by deriving DOM, timer, animation-frame, and device-pixel-ratio state from the terminal canvas' owner document/window instead of assuming globals. WebGL uses conservative full-row uploads for correctness and an RGBA glyph atlas for better WebKit/WKWebView compatibility. Kitty graphics and geometric box/block rendering remain Canvas-only for now; choose Canvas when those features are required.
+The WebGL adapter mirrors the Canvas renderer contract for selection, hyperlinks, decorations/search highlights, cursor blink, IME preedit overlays, scrollback viewports, theme colors (including common CSS color forms), font changes, DPR changes, transparency, and scrollbar width. Both renderers are hardened for iframe/embedded browsing contexts by deriving DOM, timer, animation-frame, link-opening, clipboard fallback, and device-pixel-ratio state from the terminal canvas' owner document/window instead of assuming globals. WebGL uses conservative full-row uploads for correctness and an RGBA glyph atlas for better WebKit/WKWebView compatibility. Kitty graphics and geometric box/block rendering remain Canvas-only for now; choose Canvas when those features are required.
 
 The sections below cover the main integration and development workflows.
 
@@ -70,8 +70,10 @@ Version `0.9.1` adds the experimental WebGL renderer path and hardens the shared
 
 - Canvas remains the default renderer; WebGL2 is explicit opt-in via `new Terminal({ renderer: 'webgl' })` with safe Canvas fallback
 - terminal/rendering code is event-driven rather than a perpetual frame loop, with explicit wakeups for writes, scrolls, cursor blink, selections, hover underlines, theme changes, clear/reset, and runtime option changes
-- Canvas, Terminal, SelectionManager, and WebGL paths use the terminal canvas' owner browsing context for DOM nodes, timers, animation frames, font measurement, clipboard fallbacks, and DPR rather than assuming global `window`/`document`
-- WebGL now tracks DPR changes, owner-document font measurement, runtime scrollbar width, decorations/search highlights, cursor blink, IME preedit, and scrollback viewport parity
+- Canvas, Terminal, SelectionManager, and WebGL paths use the terminal canvas' owner browsing context for DOM nodes, timers, animation frames, font measurement, clipboard fallbacks, link opening, and DPR rather than assuming global `window`/`document`
+- WebGL now tracks DPR changes, owner-document font measurement, runtime scrollbar width, transparency, decorations/search highlights, cursor blink, IME preedit, and scrollback viewport parity
+- CSS theme color parsing is shared in spirit between renderer and WASM color config paths, including hex alpha forms, `rgb(...)`/`rgba(...)`, percentage channels, and browser-normalized named colors
+- link activation supports `onLinkClick`, uses owner-window default opening, and guards async hover/click lookups against stale results after mouse movement or disposal
 - lifecycle cleanup is symmetric for document/canvas listeners, context-loss listeners, timers, animation frames, and renderer resources
 - Canvas-only features remain documented: kitty graphics and geometric box/block rendering are still not implemented in the WebGL path
 
@@ -176,7 +178,7 @@ Ghostty-web automatically detects and makes clickable:
 - **OSC 8 hyperlinks** - Explicit terminal escape sequences (e.g., from `ls --hyperlink`)
 - **Plain text URLs** - Common protocols detected via regex (https, http, mailto, ssh, git, ftp, tel, magnet)
 
-URLs are detected on hover and can be opened with Ctrl/Cmd+Click.
+URLs are detected on hover and can be opened with Ctrl/Cmd+Click. Default link activation uses the click event's owning window, which is safer for iframes and embedded webviews than assuming the global `window`.
 
 ```typescript
 // URL detection works automatically after opening terminal
@@ -186,6 +188,20 @@ await term.open(container);
 term.write('Visit https://github.com for code\r\n');
 term.write('Contact mailto:support@example.com\r\n');
 ```
+
+Override default activation with `onLinkClick`. Return `true` to prevent the built-in open behavior:
+
+```typescript
+const term = new Terminal({
+  onLinkClick(url, event) {
+    event.preventDefault();
+    showInAppLinkPreview(url);
+    return true;
+  },
+});
+```
+
+Async hover and click lookups are guarded so stale results cannot overwrite newer hover state or activate after disposal.
 
 **Custom Link Providers**
 
@@ -208,6 +224,22 @@ term.registerLinkProvider(myProvider);
 ```
 
 See [AGENTS.md](AGENTS.md) for development guide and code patterns.
+
+### Themes and Transparency
+
+Themes accept common CSS color forms for renderer colors and Ghostty/WASM color config, including `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, `rgb(...)`, `rgba(...)`, percentage channels, and browser-normalized named colors. Alpha is used by renderers where applicable; the WASM config receives RGB values.
+
+```typescript
+const term = new Terminal({
+  allowTransparency: true,
+  theme: {
+    background: 'rgba(30, 30, 30, 0.65)',
+    foreground: 'hsl(0 0% 90%)',
+  },
+});
+```
+
+`allowTransparency` can also be changed at runtime; the active renderer is updated and repainted.
 
 ### Custom Fonts
 
