@@ -75,11 +75,15 @@ export class CellBuffer {
   }
 
   resize(cols: number, rows: number): void {
+    if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols < 1 || rows < 1) return;
+    cols = Math.floor(cols);
+    rows = Math.floor(rows);
     if (cols === this.cols && rows === this.rows) return;
     this.cols = cols;
     this.rows = rows;
 
     const totalBytes = cols * rows * CELL_STRIDE;
+    if (!Number.isSafeInteger(totalBytes) || totalBytes <= 0) return;
     this.data = new ArrayBuffer(totalBytes);
     this.u8 = new Uint8Array(this.data);
     this.view = new DataView(this.data);
@@ -94,12 +98,19 @@ export class CellBuffer {
   }
 
   update(input: RenderInput, atlas: GlyphAtlas, forceFullUpload: boolean): void {
-    if (input.cols !== this.cols || input.rows !== this.rows) {
-      this.resize(input.cols, input.rows);
+    if (!Number.isFinite(input.cols) || !Number.isFinite(input.rows) || input.cols < 1 || input.rows < 1) {
+      return;
     }
+    const rows = Math.floor(input.rows);
+    const cols = Math.floor(input.cols);
+    const expectedCells = rows * cols;
+    if (!Number.isSafeInteger(expectedCells) || input.viewportCells.length < expectedCells) return;
 
-    const rows = input.rows;
-    const cols = input.cols;
+    if (cols !== this.cols || rows !== this.rows) {
+      this.resize(cols, rows);
+    }
+    if (cols !== this.cols || rows !== this.rows) return;
+
     const rowFlags = input.rowFlags;
     const dirtyRows: number[] = [];
     const dirtyMask = ROW_DIRTY | ROW_HAS_SELECTION | ROW_HAS_HYPERLINK;

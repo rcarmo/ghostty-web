@@ -113,13 +113,12 @@ export class Terminal implements ITerminalCore {
   private isSuspended = false;
   private animationFrameId?: number;
   private forceNextRender = false;
-  private writeQueue: Uint8Array[] = [];
 
   // Addons
   private addons: ITerminalAddon[] = [];
 
   // Phase 1: Custom event handlers
-  private customKeyEventHandler?: (event: KeyboardEvent) => boolean;
+  private customKeyEventHandler?: (event: KeyboardEvent) => boolean | undefined;
   private boundBeforeInputHandler?: (event: InputEvent) => void;
   private boundCanvasMouseDownFocusHandler?: (event: MouseEvent) => void;
   private boundCanvasTouchEndFocusHandler?: (event: TouchEvent) => void;
@@ -827,7 +826,14 @@ export class Terminal implements ITerminalCore {
   resize(cols: number, rows: number): void {
     this.assertOpen();
 
-    if (cols === this.cols && rows === this.rows) {
+    if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols < 1 || rows < 1) {
+      throw new RangeError('Terminal dimensions must be positive finite numbers');
+    }
+
+    const nextCols = Math.floor(cols);
+    const nextRows = Math.floor(rows);
+
+    if (nextCols === this.cols && nextRows === this.rows) {
       return; // No change
     }
 
@@ -838,22 +844,15 @@ export class Terminal implements ITerminalCore {
     this.cancelRenderLoop();
 
     try {
-      // Update dimensions
-      this.cols = cols;
-      this.rows = rows;
-
-      // Resize WASM terminal (may reallocate buffers, invalidating TypedArray views)
-      this.wasmTerm!.resize(cols, rows);
+      // Resize WASM terminal first (may reallocate buffers, invalidating TypedArray views).
+      // Only update public dimensions after this succeeds so a failed resize does
+      // not leave Terminal dimensions out of sync with WASM state.
+      this.wasmTerm!.resize(nextCols, nextRows);
+      this.cols = nextCols;
+      this.rows = nextRows;
 
       // Resize renderer
-      this.renderer!.resize(cols, rows);
-
-      // Update canvas dimensions
-      const metrics = this.renderer!.getMetrics();
-      this.canvas!.width = metrics.width * cols;
-      this.canvas!.height = metrics.height * rows;
-      this.canvas!.style.width = `${metrics.width * cols}px`;
-      this.canvas!.style.height = `${metrics.height * rows}px`;
+      this.renderer!.resize(nextCols, nextRows);
 
       // Refresh WASM cell pixel dims after the resize. Cell metrics
       // typically don't change on a logical resize, but this handles
@@ -861,17 +860,15 @@ export class Terminal implements ITerminalCore {
       this.updateWasmPixelSize();
 
       // Fire resize event
-      this.resizeEmitter.fire({ cols, rows });
+      this.resizeEmitter.fire({ cols: nextCols, rows: nextRows });
 
       // Force full render
       this.renderer!.render(this.wasmTerm!, true, this.viewportY, this);
     } catch (e) {
       console.error('Terminal resize failed:', e);
+      return;
     }
 
-    // Flush any writes that were queued during resize, then schedule a
-    // render to pick up the new dimensions / flushed writes.
-    this.flushWriteQueue();
     if (!this.isSuspended) {
       this.requestRender();
     }
@@ -1039,7 +1036,21 @@ export class Terminal implements ITerminalCore {
    * The renderer paints these under text and above normal cell backgrounds.
    */
   public setDecorations(decorations: ITerminalDecoration[]): void {
-    this.renderer?.setDecorations(decorations);
+    const sanitized = decorations
+      .filter(
+        (decoration) =>
+          Number.isFinite(decoration.line) &&
+          Number.isFinite(decoration.column) &&
+          Number.isFinite(decoration.length) &&
+          decoration.length > 0
+      )
+      .map((decoration) => ({
+        ...decoration,
+        line: Math.floor(decoration.line),
+        column: Math.max(0, Math.floor(decoration.column)),
+        length: Math.floor(decoration.length),
+      }));
+    this.renderer?.setDecorations(sanitized);
     this.requestRender();
   }
 
@@ -1075,7 +1086,7 @@ export class Terminal implements ITerminalCore {
    * Returns true to prevent default handling
    */
   public attachCustomKeyEventHandler(
-    customKeyEventHandler: (event: KeyboardEvent) => boolean
+    customKeyEventHandler: (event: KeyboardEvent) => boolean | undefined
   ): void {
     this.customKeyEventHandler = customKeyEventHandler;
     // Update input handler if already created
@@ -1131,6 +1142,7 @@ export class Terminal implements ITerminalCore {
     if (!this.wasmTerm) {
       throw new Error('Terminal not open');
     }
+    if (!Number.isFinite(amount) || amount === 0) return;
 
     const scrollbackLength = this.getScrollbackLength();
     const maxScroll = scrollbackLength;
@@ -1161,6 +1173,7 @@ export class Terminal implements ITerminalCore {
    * @param amount Number of pages to scroll (positive = down, negative = up)
    */
   public scrollPages(amount: number): void {
+    if (!Number.isFinite(amount) || amount === 0) return;
     this.scrollLines(amount * this.rows);
   }
 
@@ -1197,6 +1210,7 @@ export class Terminal implements ITerminalCore {
    * @param line Line number (0 = top of scrollback, scrollbackLength = bottom)
    */
   public scrollToLine(line: number): void {
+    if (!Number.isFinite(line)) return;
     const scrollbackLength = this.getScrollbackLength();
     const newViewportY = Math.max(0, Math.min(scrollbackLength, line));
 
@@ -1218,7 +1232,7 @@ export class Terminal implements ITerminalCore {
    * @param targetY Target viewport Y position (in lines, can be fractional)
    */
   private smoothScrollTo(targetY: number): void {
-    if (!this.wasmTerm) return;
+    if (!this.wasmTerm || !Number.isFinite(targetY)) return;
 
     const scrollbackLength = this.getScrollbackLength();
     const maxScroll = scrollbackLength;
@@ -1332,9 +1346,8 @@ export class Terminal implements ITerminalCore {
     this.isOpen = false;
     this.isSuspended = false;
 
-    // Stop render loop and clear write queue
+    // Stop render loop
     this.cancelRenderLoop();
-    this.writeQueue.length = 0;
 
     // Stop smooth scroll animation
     this.cancelScrollAnimation();
@@ -1427,16 +1440,6 @@ export class Terminal implements ITerminalCore {
     if (this.scrollAnimationFrame !== undefined) {
       this.cancelAnimationFrame(this.scrollAnimationFrame);
       this.scrollAnimationFrame = undefined;
-    }
-  }
-
-  /**
-   * Flush any writes that were queued during resize
-   */
-  private flushWriteQueue(): void {
-    while (this.writeQueue.length > 0) {
-      const data = this.writeQueue.shift()!;
-      this.wasmTerm!.write(data);
     }
   }
 

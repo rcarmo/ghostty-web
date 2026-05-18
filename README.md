@@ -64,9 +64,9 @@ The sections below cover the main integration and development workflows.
 - ✅ FitAddon for responsive sizing
 - ✅ TypeScript declarations included
 
-## What's New in 0.9.1
+## What's New in 0.9.2
 
-Version `0.9.1` adds the experimental WebGL renderer path and hardens the shared renderer lifecycle on top of the upstream Ghostty ABI/render-state migration:
+Version `0.9.2` adds the experimental WebGL renderer path and hardens the shared renderer lifecycle on top of the upstream Ghostty ABI/render-state migration:
 
 - Canvas remains the default renderer; WebGL2 is explicit opt-in via `new Terminal({ renderer: 'webgl' })` with safe Canvas fallback
 - terminal/rendering code is event-driven rather than a perpetual frame loop, with explicit wakeups for writes, scrolls, cursor blink, selections, hover underlines, theme changes, clear/reset, and runtime option changes
@@ -74,6 +74,10 @@ Version `0.9.1` adds the experimental WebGL renderer path and hardens the shared
 - WebGL now tracks DPR changes, owner-document font measurement, runtime scrollbar width, transparency, decorations/search highlights, cursor blink, IME preedit, and scrollback viewport parity
 - CSS theme color parsing is shared in spirit between renderer and WASM color config paths, including hex alpha forms, `rgb(...)`/`rgba(...)`, percentage channels, and browser-normalized named colors
 - link activation supports `onLinkClick`, uses owner-window default opening, and guards async hover/click lookups against stale results after mouse movement or disposal
+- custom key handlers expose the full three-way behavior already implemented by `InputHandler`: `true` consumes, `false` bubbles, and `undefined` continues default terminal processing
+- public scroll/selection/decoration inputs and renderer/WebGL internals guard non-finite or invalid dimensions before feeding canvas, GL, or buffer math
+- resize handling keeps the active renderer as the sole canvas backing-store owner and only updates public dimensions after WASM resize succeeds
+- Ghostty WASM wrapper scratch allocations now check allocation failure and free temporary buffers through `finally` blocks across key encoding, writes, colors, modes, kitty graphics, and render-state getters
 - lifecycle cleanup is symmetric for document/canvas listeners, context-loss listeners, timers, animation frames, and renderer resources
 - Canvas-only features remain documented: kitty graphics and geometric box/block rendering are still not implemented in the WebGL path
 

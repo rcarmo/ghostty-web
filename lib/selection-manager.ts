@@ -278,10 +278,17 @@ export class SelectionManager {
    * xterm.js compatible API
    */
   select(column: number, row: number, length: number): void {
+    if (!Number.isFinite(column) || !Number.isFinite(row) || !Number.isFinite(length)) return;
+    if (length <= 0) {
+      this.clearSelection();
+      return;
+    }
+
     // Clamp to valid ranges
     const dims = this.wasmTerm.getDimensions();
-    row = Math.max(0, Math.min(row, dims.rows - 1));
-    column = Math.max(0, Math.min(column, dims.cols - 1));
+    row = Math.max(0, Math.min(Math.floor(row), dims.rows - 1));
+    column = Math.max(0, Math.min(Math.floor(column), dims.cols - 1));
+    length = Math.floor(length);
 
     // Calculate end position
     let endRow = row;
@@ -309,11 +316,12 @@ export class SelectionManager {
    * xterm.js compatible API
    */
   selectLines(start: number, end: number): void {
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return;
     const dims = this.wasmTerm.getDimensions();
 
     // Clamp to valid row ranges
-    start = Math.max(0, Math.min(start, dims.rows - 1));
-    end = Math.max(0, Math.min(end, dims.rows - 1));
+    start = Math.max(0, Math.min(Math.floor(start), dims.rows - 1));
+    end = Math.max(0, Math.min(Math.floor(end), dims.rows - 1));
 
     // Ensure start <= end
     if (start > end) {

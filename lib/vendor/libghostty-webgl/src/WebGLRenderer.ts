@@ -97,6 +97,9 @@ export class WebGLRenderer implements Renderer {
     if (!this.canvas || !this.gl) {
       throw new Error("WebGLRenderer is not attached");
     }
+    if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols < 1 || rows < 1) return;
+    cols = Math.floor(cols);
+    rows = Math.floor(rows);
     this.gridCols = cols;
     this.gridRows = rows;
 
@@ -155,6 +158,7 @@ export class WebGLRenderer implements Renderer {
   }
 
   setFontSize(size: number): void {
+    if (!Number.isFinite(size) || size <= 0) return;
     this.fontSize = size;
     this.metrics = this.measureFont();
     this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.dpr);
@@ -479,6 +483,10 @@ export class WebGLRenderer implements Renderer {
     scrollbarWidth: number,
   ): void {
     if (!this.canvas) return;
+    if (![opacity, scrollbackLength, viewportY, scrollbarWidth].every(Number.isFinite)) return;
+    scrollbarWidth = Math.max(0, scrollbarWidth);
+    if (scrollbarWidth <= 0) return;
+
     const cssWidth = this.gridCols * this.metrics.width;
     const cssHeight = this.gridRows * this.metrics.height;
     const padding = 4;
@@ -514,7 +522,8 @@ export class WebGLRenderer implements Renderer {
   }
 
   private getDevicePixelRatio(): number {
-    return this.fixedDevicePixelRatio ?? this.canvas?.ownerDocument.defaultView?.devicePixelRatio ?? 1;
+    const dpr = this.fixedDevicePixelRatio ?? this.canvas?.ownerDocument.defaultView?.devicePixelRatio ?? 1;
+    return Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
   }
 
   private measureFont(): CellMetrics {

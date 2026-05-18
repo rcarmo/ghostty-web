@@ -2309,7 +2309,6 @@ export declare class Terminal implements ITerminalCore {
     private isSuspended;
     private animationFrameId?;
     private forceNextRender;
-    private writeQueue;
     private addons;
     private customKeyEventHandler?;
     private boundBeforeInputHandler?;
@@ -2483,7 +2482,7 @@ export declare class Terminal implements ITerminalCore {
      * Attach a custom keyboard event handler
      * Returns true to prevent default handling
      */
-    attachCustomKeyEventHandler(customKeyEventHandler: (event: KeyboardEvent) => boolean): void;
+    attachCustomKeyEventHandler(customKeyEventHandler: (event: KeyboardEvent) => boolean | undefined): void;
     /**
      * Attach a custom wheel event handler (Phase 2)
      * Returns true to prevent default handling
@@ -2561,10 +2560,6 @@ export declare class Terminal implements ITerminalCore {
     private cancelAnimationFrame;
     private cancelRenderLoop;
     private cancelScrollAnimation;
-    /**
-     * Flush any writes that were queued during resize
-     */
-    private flushWriteQueue;
     /**
      * Schedule a single render on the next animation frame. No-op if one
      * is already pending or the terminal is closed/disposed.

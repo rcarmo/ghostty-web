@@ -68,9 +68,9 @@ export class GlyphAtlas {
 
   constructor(gl: WebGL2RenderingContext, fontSize: number, fontFamily: string, dpr: number) {
     this.gl = gl;
-    this.fontSize = fontSize;
+    this.fontSize = sanitizePositive(fontSize, 15);
     this.fontFamily = fontFamily;
-    this.dpr = dpr;
+    this.dpr = sanitizePositive(dpr, 1);
 
     const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
     // Keep atlas memory conservative for iOS/WKWebView. RGBA atlas storage is
@@ -140,9 +140,9 @@ export class GlyphAtlas {
   }
 
   reset(fontSize: number, fontFamily: string, dpr: number): void {
-    this.fontSize = fontSize;
+    this.fontSize = sanitizePositive(fontSize, this.fontSize);
     this.fontFamily = fontFamily;
-    this.dpr = dpr;
+    this.dpr = sanitizePositive(dpr, this.dpr);
     this.resetPages();
     this.glyphs.clear();
     this.useCounter = 0;
@@ -273,6 +273,12 @@ export class GlyphAtlas {
     const paddedH = height + PADDING * 2;
 
     const page = isColor ? this.colorPage : this.page;
+    if (paddedW > page.width || paddedH > page.height) {
+      return {
+        ...emptyMetrics(isColor),
+        shelfId: -1,
+      };
+    }
     const alloc = allocateRect(page, paddedW, paddedH);
     if (!alloc) {
       return null;
@@ -633,6 +639,10 @@ function isEmoji(grapheme: string): boolean {
       (codepoint >= 0x1f300 && codepoint <= 0x1faff) || (codepoint >= 0x2600 && codepoint <= 0x27bf)
     );
   }
+}
+
+function sanitizePositive(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 function createCanvas(width: number, height: number): HTMLCanvasElement | OffscreenCanvas {

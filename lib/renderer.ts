@@ -407,6 +407,10 @@ export class CanvasRenderer {
    * Resize canvas to fit terminal dimensions
    */
   public resize(cols: number, rows: number): void {
+    if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols < 1 || rows < 1) return;
+    cols = Math.floor(cols);
+    rows = Math.floor(rows);
+
     const cssWidth = cols * this.metrics.width;
     const cssHeight = rows * this.metrics.height;
 
@@ -1848,6 +1852,7 @@ export class CanvasRenderer {
    * Update font size
    */
   public setFontSize(size: number): void {
+    if (!Number.isFinite(size) || size <= 0) return;
     this.fontSize = size;
     this.fontStrings = this.buildFontStrings();
     this.metrics = this.measureFont();
@@ -1883,7 +1888,7 @@ export class CanvasRenderer {
   }
 
   public setScrollbarWidth(width: number): void {
-    this.scrollbarWidth = Math.max(0, width);
+    this.scrollbarWidth = Number.isFinite(width) ? Math.max(0, width) : 0;
   }
 
   /**
@@ -1987,6 +1992,7 @@ export class CanvasRenderer {
    * Set the currently hovered hyperlink ID for rendering underlines
    */
   public setHoveredHyperlinkId(hyperlinkId: number): void {
+    hyperlinkId = Number.isFinite(hyperlinkId) ? Math.max(0, Math.floor(hyperlinkId)) : 0;
     if (this.hoveredHyperlinkId === hyperlinkId) return;
     this.hoveredHyperlinkId = hyperlinkId;
     this.onRequestRender?.();
@@ -2004,11 +2010,12 @@ export class CanvasRenderer {
       endY: number;
     } | null
   ): void {
+    const sanitized = sanitizeLinkRange(range);
     // Coarse change check — link-detection is rate-limited upstream and
     // these setters are only called on hover transitions, so identity
     // comparison is enough to dedupe back-to-back clears.
-    if (this.hoveredLinkRange === range) return;
-    this.hoveredLinkRange = range;
+    if (this.hoveredLinkRange === sanitized) return;
+    this.hoveredLinkRange = sanitized;
     this.onRequestRender?.();
   }
 
@@ -2148,4 +2155,22 @@ export class CanvasRenderer {
     this.overlayCanvas = null;
     this.overlayCtx = null;
   }
+}
+
+function sanitizeLinkRange(
+  range: {
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+  } | null
+): { startX: number; startY: number; endX: number; endY: number } | null {
+  if (!range) return null;
+  if (![range.startX, range.startY, range.endX, range.endY].every(Number.isFinite)) return null;
+  return {
+    startX: Math.max(0, Math.floor(range.startX)),
+    startY: Math.max(0, Math.floor(range.startY)),
+    endX: Math.max(0, Math.floor(range.endX)),
+    endY: Math.max(0, Math.floor(range.endY)),
+  };
 }

@@ -367,7 +367,7 @@ python3 -m http.server
 - Tests actually pass before hang
 - Use `bun test lib/specific.test.ts` to limit scope
 
-### 4. **WASM Memory Buffer Invalidation**
+### 4. **WASM Scratch Allocation and Memory Buffer Invalidation**
 
 ```typescript
 // ❌ WRONG - buffer may become invalid
@@ -381,6 +381,13 @@ private getBuffer(): ArrayBuffer {
 }
 const view = new Uint8Array(this.getBuffer(), ptr, size);
 ```
+
+When allocating WASM scratch buffers:
+
+- Check for `0` allocation failures before constructing typed-array views.
+- Free all temporary buffers/handles in `finally` blocks.
+- Return safe defaults for read helpers when scratch allocation fails.
+- Only update JS-side public state after the WASM mutation succeeds.
 
 ### 5. **PTY Server Required for Interactive Demos**
 
@@ -402,6 +409,7 @@ The demo serves HTTP and WebSocket traffic from the same origin, so reverse prox
 - When adding visible state changes, wake the event-driven renderer with `requestRender()` or `requestFullRender()` rather than relying on a perpetual frame loop
 - Guard async UI lookups (link hover/click, providers, etc.) with request ids or disposal checks so stale promises cannot mutate disposed/newer state
 - Keep Canvas/WebGL runtime option parity where practical (`theme`, cursor, font, decorations, transparency, scrollbar width, DPR)
+- Validate public numeric inputs and renderer-boundary dimensions before they reach canvas/WebGL buffer allocation or viewport math
 
 ### 7. **Canvas Rendering Requires Container Resize**
 
@@ -452,6 +460,7 @@ await document.fonts.ready;
 3. Check font metrics and DPR on the active renderer
 4. Check color conversion in both renderer and WASM config paths when theme colors affect cell defaults
 5. Check whether the state change explicitly wakes the event-driven renderer
+6. Check numeric inputs for `NaN`/`Infinity` before they reach viewport, selection, decoration, or WebGL upload paths
 
 ### Add Keyboard Shortcut
 

@@ -93,9 +93,10 @@ export class WebGLRenderer implements ITerminalRenderer {
   }
 
   resize(cols: number, rows: number): void {
-    this.cols = cols;
-    this.rows = rows;
-    this.vendored.resize(cols, rows);
+    if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols < 1 || rows < 1) return;
+    this.cols = Math.floor(cols);
+    this.rows = Math.floor(rows);
+    this.vendored.resize(this.cols, this.rows);
   }
 
   render(
@@ -143,6 +144,7 @@ export class WebGLRenderer implements ITerminalRenderer {
   }
 
   setFontSize(fontSize: number): void {
+    if (!Number.isFinite(fontSize) || fontSize <= 0) return;
     this.options.fontSize = fontSize;
     this.vendored.setFontSize(fontSize);
   }
@@ -166,7 +168,7 @@ export class WebGLRenderer implements ITerminalRenderer {
   }
 
   setScrollbarWidth(width: number): void {
-    this.scrollbarWidth = Math.max(0, width);
+    this.scrollbarWidth = Number.isFinite(width) ? Math.max(0, width) : 0;
   }
 
   setSelectionManager(selectionManager: SelectionManager): void {
@@ -174,11 +176,11 @@ export class WebGLRenderer implements ITerminalRenderer {
   }
 
   setHoveredHyperlinkId(id: number | null): void {
-    this.hoveredHyperlinkId = id;
+    this.hoveredHyperlinkId = id !== null && Number.isFinite(id) ? Math.max(0, Math.floor(id)) : null;
   }
 
   setHoveredLinkRange(range: { startX: number; startY: number; endX: number; endY: number } | null): void {
-    this.hoveredLinkRange = range;
+    this.hoveredLinkRange = sanitizeLinkRange(range);
   }
 
   setDecorations(decorations: ITerminalDecoration[]): void {
@@ -209,9 +211,11 @@ export class WebGLRenderer implements ITerminalRenderer {
       return;
     }
     const metrics = this.getMetrics();
+    const safeCellX = Number.isFinite(cellX) ? Math.max(0, Math.floor(cellX)) : 0;
+    const safeCellY = Number.isFinite(cellY) ? Math.max(0, Math.floor(cellY)) : 0;
     this.preeditOverlay.textContent = text;
-    this.preeditOverlay.style.left = `${cellX * metrics.width}px`;
-    this.preeditOverlay.style.top = `${cellY * metrics.height}px`;
+    this.preeditOverlay.style.left = `${safeCellX * metrics.width}px`;
+    this.preeditOverlay.style.top = `${safeCellY * metrics.height}px`;
     this.preeditOverlay.style.font = `${this.options.fontSize ?? 15}px ${this.options.fontFamily ?? 'monospace'}`;
     this.preeditOverlay.style.color = this.theme.foreground;
     this.preeditOverlay.style.display = 'block';
@@ -450,6 +454,19 @@ export class WebGLRenderer implements ITerminalRenderer {
 
     return { r: 0, g: 0, b: 0, a: 1 };
   }
+}
+
+function sanitizeLinkRange(
+  range: { startX: number; startY: number; endX: number; endY: number } | null
+): { startX: number; startY: number; endX: number; endY: number } | null {
+  if (!range) return null;
+  if (![range.startX, range.startY, range.endX, range.endY].every(Number.isFinite)) return null;
+  return {
+    startX: Math.max(0, Math.floor(range.startX)),
+    startY: Math.max(0, Math.floor(range.startY)),
+    endX: Math.max(0, Math.floor(range.endX)),
+    endY: Math.max(0, Math.floor(range.endY)),
+  };
 }
 
 function parseCssColor(value: string): { r: number; g: number; b: number; a: number } | null {

@@ -91,4 +91,4 @@ const term = new Terminal({ renderer: 'webgl' });
 
 If WebGL2 is unavailable or initialization fails, `ghostty-web` falls back to Canvas. Both renderer paths use the terminal canvas' owner browsing context for DOM/timer/DPR/link-opening behavior, which makes embedded or iframe-hosted demos safer than relying on global `window`/`document`.
 
-The library also supports `allowTransparency: true` and an `onLinkClick(url, event)` override for hosts that want transparent backgrounds or in-app link handling instead of opening a new tab.
+The library also supports `allowTransparency: true` and an `onLinkClick(url, event)` override for hosts that want transparent backgrounds or in-app link handling instead of opening a new tab. Runtime renderer paths are event-driven and validate scroll/selection/decoration dimensions before updating canvas/WebGL state, which helps embedded hosts avoid stale or invalid UI state after rapid resizes or disposal.
