@@ -29,7 +29,9 @@ export interface ITerminalRenderer {
 
   setSelectionManager(selectionManager: SelectionManager): void;
   setHoveredHyperlinkId(id: number | null): void;
-  setHoveredLinkRange(range: { startX: number; startY: number; endX: number; endY: number } | null): void;
+  setHoveredLinkRange(
+    range: { startX: number; startY: number; endX: number; endY: number } | null
+  ): void;
   setDecorations(decorations: ITerminalDecoration[]): void;
   clearDecorations(): void;
 

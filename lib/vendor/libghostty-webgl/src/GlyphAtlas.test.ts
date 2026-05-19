@@ -1,16 +1,16 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { GlyphAtlas } from "./GlyphAtlas";
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { GlyphAtlas } from './GlyphAtlas';
 
 class FakeTexture {}
 
 class FakeCanvasContext2D {
-  font = "";
-  textBaseline = "alphabetic";
-  textAlign = "left";
-  fillStyle = "#fff";
+  font = '';
+  textBaseline = 'alphabetic';
+  textAlign = 'left';
+  fillStyle = '#fff';
 
   measureText(text: string): TextMetrics {
-    if (text === "TallGlyph") {
+    if (text === 'TallGlyph') {
       return {
         width: 8,
         actualBoundingBoxLeft: 0,
@@ -53,7 +53,7 @@ class FakeOffscreenCanvas {
   }
 
   getContext(type: string): OffscreenCanvasRenderingContext2D | null {
-    if (type !== "2d") return null;
+    if (type !== '2d') return null;
     return this.ctx as unknown as OffscreenCanvasRenderingContext2D;
   }
 }
@@ -114,7 +114,7 @@ class FakeGL {
   }
 }
 
-describe("GlyphAtlas", () => {
+describe('GlyphAtlas', () => {
   const previousOffscreen = (globalThis as any).OffscreenCanvas;
 
   beforeEach(() => {
@@ -125,9 +125,9 @@ describe("GlyphAtlas", () => {
     (globalThis as any).OffscreenCanvas = previousOffscreen;
   });
 
-  test("evicts least-recently-used shelf incrementally without texture rebuild", () => {
+  test('evicts least-recently-used shelf incrementally without texture rebuild', () => {
     const gl = new FakeGL();
-    const atlas = new GlyphAtlas(gl as unknown as WebGL2RenderingContext, 15, "monospace", 1);
+    const atlas = new GlyphAtlas(gl as unknown as WebGL2RenderingContext, 15, 'monospace', 1);
 
     const shelf = { id: 77, y: 0, height: 8, nextX: 64 };
     (atlas as any).page = {
@@ -139,10 +139,10 @@ describe("GlyphAtlas", () => {
     };
     (atlas as any).glyphs = new Map([
       [
-        "foo",
+        'foo',
         {
-          key: "foo",
-          grapheme: "λ",
+          key: 'foo',
+          grapheme: 'λ',
           bold: false,
           italic: false,
           isColor: false,
@@ -170,9 +170,9 @@ describe("GlyphAtlas", () => {
     expect(gl.texSubImage2DCalls).toBeGreaterThan(0);
   });
 
-  test("does not trigger full texture rebuild when atlas fills", () => {
+  test('does not trigger full texture rebuild when atlas fills', () => {
     const gl = new FakeGL();
-    const atlas = new GlyphAtlas(gl as unknown as WebGL2RenderingContext, 15, "monospace", 1);
+    const atlas = new GlyphAtlas(gl as unknown as WebGL2RenderingContext, 15, 'monospace', 1);
     const createTextureBaseline = gl.createTextureCalls;
 
     for (let i = 0; i < 1500; i++) {
@@ -183,9 +183,9 @@ describe("GlyphAtlas", () => {
     expect(gl.createTextureCalls).toBe(createTextureBaseline);
   });
 
-  test("keeps evicting shelves until a glyph can be added", () => {
+  test('keeps evicting shelves until a glyph can be added', () => {
     const gl = new FakeGL();
-    const atlas = new GlyphAtlas(gl as unknown as WebGL2RenderingContext, 15, "monospace", 1);
+    const atlas = new GlyphAtlas(gl as unknown as WebGL2RenderingContext, 15, 'monospace', 1);
     let addAttempts = 0;
     let evictions = 0;
 
@@ -199,8 +199,8 @@ describe("GlyphAtlas", () => {
       addAttempts += 1;
       if (addAttempts < 5) return null;
       return {
-        key: `${request.grapheme}|${request.bold ? "b" : ""}${request.italic ? "i" : ""}|${
-          request.isColor ? "c" : "m"
+        key: `${request.grapheme}|${request.bold ? 'b' : ''}${request.italic ? 'i' : ''}|${
+          request.isColor ? 'c' : 'm'
         }|1`,
         grapheme: request.grapheme,
         bold: request.bold,
@@ -224,16 +224,16 @@ describe("GlyphAtlas", () => {
       return evictions <= 4;
     };
 
-    const result = atlas.getGlyph("𐐷", false, false);
+    const result = atlas.getGlyph('𐐷', false, false);
 
     expect(result.width).toBe(1);
     expect(addAttempts).toBe(5);
     expect(evictions).toBe(4);
   });
 
-  test("evicts shelf with oldest newest-use timestamp", () => {
+  test('evicts shelf with oldest newest-use timestamp', () => {
     const gl = new FakeGL();
-    const atlas = new GlyphAtlas(gl as unknown as WebGL2RenderingContext, 15, "monospace", 1);
+    const atlas = new GlyphAtlas(gl as unknown as WebGL2RenderingContext, 15, 'monospace', 1);
     (atlas as any).page = {
       width: 64,
       height: 64,
@@ -246,10 +246,10 @@ describe("GlyphAtlas", () => {
     };
     (atlas as any).glyphs = new Map([
       [
-        "s1-old",
+        's1-old',
         {
-          key: "s1-old",
-          grapheme: "a",
+          key: 's1-old',
+          grapheme: 'a',
           bold: false,
           italic: false,
           isColor: false,
@@ -267,10 +267,10 @@ describe("GlyphAtlas", () => {
         },
       ],
       [
-        "s1-new",
+        's1-new',
         {
-          key: "s1-new",
-          grapheme: "b",
+          key: 's1-new',
+          grapheme: 'b',
           bold: false,
           italic: false,
           isColor: false,
@@ -288,10 +288,10 @@ describe("GlyphAtlas", () => {
         },
       ],
       [
-        "s2-mid",
+        's2-mid',
         {
-          key: "s2-mid",
-          grapheme: "c",
+          key: 's2-mid',
+          grapheme: 'c',
           bold: false,
           italic: false,
           isColor: false,
@@ -309,10 +309,10 @@ describe("GlyphAtlas", () => {
         },
       ],
       [
-        "s2-new",
+        's2-new',
         {
-          key: "s2-new",
-          grapheme: "d",
+          key: 's2-new',
+          grapheme: 'd',
           bold: false,
           italic: false,
           isColor: false,
@@ -335,9 +335,9 @@ describe("GlyphAtlas", () => {
     expect(shelf?.id).toBe(2);
   });
 
-  test("re-packs page when evictions cannot fit taller glyph into full short-shelf atlas", () => {
+  test('re-packs page when evictions cannot fit taller glyph into full short-shelf atlas', () => {
     const gl = new FakeGL();
-    const atlas = new GlyphAtlas(gl as unknown as WebGL2RenderingContext, 15, "monospace", 1);
+    const atlas = new GlyphAtlas(gl as unknown as WebGL2RenderingContext, 15, 'monospace', 1);
     (atlas as any).page = {
       width: 32,
       height: 24,
@@ -350,10 +350,10 @@ describe("GlyphAtlas", () => {
     };
     (atlas as any).glyphs = new Map([
       [
-        "short-1",
+        'short-1',
         {
-          key: "short-1",
-          grapheme: "a",
+          key: 'short-1',
+          grapheme: 'a',
           bold: false,
           italic: false,
           isColor: false,
@@ -371,10 +371,10 @@ describe("GlyphAtlas", () => {
         },
       ],
       [
-        "short-2",
+        'short-2',
         {
-          key: "short-2",
-          grapheme: "b",
+          key: 'short-2',
+          grapheme: 'b',
           bold: false,
           italic: false,
           isColor: false,
@@ -393,7 +393,7 @@ describe("GlyphAtlas", () => {
       ],
     ]);
 
-    const result = atlas.getGlyph("TallGlyph", false, false);
+    const result = atlas.getGlyph('TallGlyph', false, false);
 
     expect(result.width).toBeGreaterThan(0);
     expect(result.height).toBeGreaterThan(0);

@@ -82,7 +82,7 @@ export class GlyphAtlas {
     const atlasTexture = gl.createTexture();
     const colorTexture = gl.createTexture();
     if (!atlasTexture || !colorTexture) {
-      throw new Error("Failed to create glyph atlas textures");
+      throw new Error('Failed to create glyph atlas textures');
     }
     this.atlasTexture = atlasTexture;
     this.colorTexture = colorTexture;
@@ -104,10 +104,10 @@ export class GlyphAtlas {
 
     this.canvas = createCanvas(1, 1);
     this.colorCanvas = createCanvas(1, 1);
-    const ctx = this.canvas.getContext("2d");
-    const colorCtx = this.colorCanvas.getContext("2d");
+    const ctx = this.canvas.getContext('2d');
+    const colorCtx = this.colorCanvas.getContext('2d');
     if (!ctx || !colorCtx) {
-      throw new Error("Failed to get 2D context for glyph atlas");
+      throw new Error('Failed to get 2D context for glyph atlas');
     }
     this.ctx = ctx;
     this.colorCtx = colorCtx;
@@ -203,7 +203,7 @@ export class GlyphAtlas {
   private prewarmAscii(): void {
     for (let code = ASCII_START; code <= ASCII_END; code++) {
       const char = String.fromCharCode(code);
-      const baseRequest: Omit<GlyphRequest, "bold" | "italic" | "isColor"> = {
+      const baseRequest: Omit<GlyphRequest, 'bold' | 'italic' | 'isColor'> = {
         grapheme: char,
         pinned: true,
       };
@@ -241,12 +241,12 @@ export class GlyphAtlas {
     const canvas = isColor ? this.colorCanvas : this.canvas;
 
     const fontSizePx = this.fontSize * this.dpr;
-    const style = `${italic ? "italic " : ""}${bold ? "bold " : ""}${fontSizePx}px ${
+    const style = `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${fontSizePx}px ${
       this.fontFamily
     }`;
     ctx.font = style;
-    ctx.textBaseline = "alphabetic";
-    ctx.textAlign = "left";
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
 
     const metrics = ctx.measureText(grapheme);
     let left = metrics.actualBoundingBoxLeft ?? 0;
@@ -255,7 +255,8 @@ export class GlyphAtlas {
     let descent = metrics.actualBoundingBoxDescent ?? fontSizePx * 0.2;
     if (![left, right, ascent, descent].every(Number.isFinite)) {
       left = 0;
-      right = Number.isFinite(metrics.width) && metrics.width > 0 ? metrics.width : fontSizePx * 0.6;
+      right =
+        Number.isFinite(metrics.width) && metrics.width > 0 ? metrics.width : fontSizePx * 0.6;
       ascent = fontSizePx * 0.8;
       descent = fontSizePx * 0.2;
     }
@@ -288,9 +289,9 @@ export class GlyphAtlas {
     canvas.height = paddedH;
     ctx.clearRect(0, 0, paddedW, paddedH);
     ctx.font = style;
-    ctx.textBaseline = "alphabetic";
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#ffffff";
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffffff';
 
     const bearingX = -left;
     const bearingY = ascent;
@@ -323,7 +324,7 @@ export class GlyphAtlas {
         paddedH,
         gl.RGBA,
         gl.UNSIGNED_BYTE,
-        imageData.data,
+        imageData.data
       );
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
     } else {
@@ -344,7 +345,7 @@ export class GlyphAtlas {
         paddedH,
         gl.RGBA,
         gl.UNSIGNED_BYTE,
-        alpha,
+        alpha
       );
     }
 
@@ -429,7 +430,7 @@ export class GlyphAtlas {
         shelf.height,
         gl.RGBA,
         gl.UNSIGNED_BYTE,
-        zero,
+        zero
       );
       return;
     }
@@ -448,7 +449,7 @@ export class GlyphAtlas {
       shelf.height,
       gl.RGBA,
       gl.UNSIGNED_BYTE,
-      zero,
+      zero
     );
   }
 
@@ -460,10 +461,10 @@ export class GlyphAtlas {
 
     const requestKey = this.makeKey(request);
     const pinnedEntries = currentEntries.filter(
-      (entry) => entry.pinned && entry.key !== requestKey,
+      (entry) => entry.pinned && entry.key !== requestKey
     );
     const nonPinnedEntries = currentEntries.filter(
-      (entry) => !entry.pinned && entry.key !== requestKey,
+      (entry) => !entry.pinned && entry.key !== requestKey
     );
 
     for (const [key, entry] of this.glyphs.entries()) {
@@ -484,7 +485,7 @@ export class GlyphAtlas {
           isColor: entry.isColor,
           pinned: entry.pinned,
         },
-        entry.lastUsed,
+        entry.lastUsed
       );
     }
 
@@ -500,7 +501,7 @@ export class GlyphAtlas {
           isColor: entry.isColor,
           pinned: entry.pinned,
         },
-        entry.lastUsed,
+        entry.lastUsed
       );
     }
 
@@ -551,7 +552,7 @@ export class GlyphAtlas {
     const atlasTexture = this.gl.createTexture();
     const colorTexture = this.gl.createTexture();
     if (!atlasTexture || !colorTexture) {
-      throw new Error("Failed to recreate glyph atlas textures");
+      throw new Error('Failed to recreate glyph atlas textures');
     }
     this.atlasTexture = atlasTexture;
     this.colorTexture = colorTexture;
@@ -559,8 +560,8 @@ export class GlyphAtlas {
   }
 
   private makeKey(request: GlyphRequest): string {
-    return `${request.grapheme}|${request.bold ? "b" : ""}${request.italic ? "i" : ""}|${
-      request.isColor ? "c" : "m"
+    return `${request.grapheme}|${request.bold ? 'b' : ''}${request.italic ? 'i' : ''}|${
+      request.isColor ? 'c' : 'm'
     }|${this.dpr}`;
   }
 }
@@ -568,7 +569,7 @@ export class GlyphAtlas {
 function allocateRect(
   page: AtlasPage,
   width: number,
-  height: number,
+  height: number
 ): { x: number; y: number; shelfId: number } | null {
   for (const shelf of page.shelves) {
     if (shelf.height >= height && page.width - shelf.nextX >= width) {
@@ -649,33 +650,41 @@ function createCanvas(width: number, height: number): HTMLCanvasElement | Offscr
   // Unit tests install a fake OffscreenCanvas with deterministic text metrics.
   // Keep using it there, while preferring DOM canvas only for real WebKit where
   // WKWebView has proven more reliable with DOM-backed glyph rasterization.
-  if (typeof OffscreenCanvas !== "undefined" && !isNativeFunction(OffscreenCanvas)) {
+  if (typeof OffscreenCanvas !== 'undefined' && !isNativeFunction(OffscreenCanvas)) {
     return new OffscreenCanvas(width, height);
   }
-  if (shouldPreferDOMCanvas() && typeof document !== "undefined" && document.createElement) {
-    const canvas = document.createElement("canvas");
+  if (shouldPreferDOMCanvas() && typeof document !== 'undefined' && document.createElement) {
+    const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     return canvas;
   }
-  if (typeof document !== "undefined" && document.createElement && typeof OffscreenCanvas === "undefined") {
-    const canvas = document.createElement("canvas");
+  if (
+    typeof document !== 'undefined' &&
+    document.createElement &&
+    typeof OffscreenCanvas === 'undefined'
+  ) {
+    const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     return canvas;
   }
-  if (typeof OffscreenCanvas !== "undefined") {
+  if (typeof OffscreenCanvas !== 'undefined') {
     return new OffscreenCanvas(width, height);
   }
-  throw new Error("No canvas implementation available for glyph atlas");
+  throw new Error('No canvas implementation available for glyph atlas');
 }
 
 function isNativeFunction(value: unknown): boolean {
-  return typeof value === "function" && Function.prototype.toString.call(value).includes("[native code]");
+  return (
+    typeof value === 'function' && Function.prototype.toString.call(value).includes('[native code]')
+  );
 }
 
 function shouldPreferDOMCanvas(): boolean {
-  if (typeof navigator === "undefined") return false;
+  if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent;
-  return /AppleWebKit/i.test(ua) && !/(Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS|HappyDOM)/i.test(ua);
+  return (
+    /AppleWebKit/i.test(ua) && !/(Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS|HappyDOM)/i.test(ua)
+  );
 }

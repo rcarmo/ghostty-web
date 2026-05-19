@@ -10,7 +10,12 @@ import type { ITerminalRenderer } from './renderer-contract';
 import type { SelectionManager } from './selection-manager';
 import type { GhosttyCell } from './types';
 import { WebGLRenderer as VendoredWebGLRenderer } from './vendor/libghostty-webgl/src/WebGLRenderer';
-import { DirtyState, ROW_DIRTY, ROW_HAS_HYPERLINK, ROW_HAS_SELECTION } from './vendor/libghostty-webgl/src/types';
+import {
+  DirtyState,
+  ROW_DIRTY,
+  ROW_HAS_HYPERLINK,
+  ROW_HAS_SELECTION,
+} from './vendor/libghostty-webgl/src/types';
 import type {
   DecorationRange,
   RenderInput,
@@ -39,7 +44,8 @@ export class WebGLRenderer implements ITerminalRenderer {
   private selectionManager?: SelectionManager;
   private onRequestRender?: () => void;
   private hoveredHyperlinkId: number | null = null;
-  private hoveredLinkRange: { startX: number; startY: number; endX: number; endY: number } | null = null;
+  private hoveredLinkRange: { startX: number; startY: number; endX: number; endY: number } | null =
+    null;
   private decorations: ITerminalDecoration[] = [];
   private preeditOverlay?: HTMLDivElement;
   private cursorVisible = true;
@@ -111,7 +117,13 @@ export class WebGLRenderer implements ITerminalRenderer {
       this.resize(dims.cols, dims.rows);
     }
 
-    const input = this.buildRenderInput(buffer, forceAll, viewportY, scrollbackProvider, scrollbarOpacity);
+    const input = this.buildRenderInput(
+      buffer,
+      forceAll,
+      viewportY,
+      scrollbackProvider,
+      scrollbarOpacity
+    );
     this.vendored.render(input);
   }
 
@@ -176,10 +188,13 @@ export class WebGLRenderer implements ITerminalRenderer {
   }
 
   setHoveredHyperlinkId(id: number | null): void {
-    this.hoveredHyperlinkId = id !== null && Number.isFinite(id) ? Math.max(0, Math.floor(id)) : null;
+    this.hoveredHyperlinkId =
+      id !== null && Number.isFinite(id) ? Math.max(0, Math.floor(id)) : null;
   }
 
-  setHoveredLinkRange(range: { startX: number; startY: number; endX: number; endY: number } | null): void {
+  setHoveredLinkRange(
+    range: { startX: number; startY: number; endX: number; endY: number } | null
+  ): void {
     this.hoveredLinkRange = sanitizeLinkRange(range);
   }
 
@@ -347,7 +362,11 @@ export class WebGLRenderer implements ITerminalRenderer {
     scrollbackLength: number,
     scrollbackProvider: IScrollbackProvider | undefined,
     viewport: GhosttyCell[] | undefined
-  ): { cellAt: (col: number) => GhosttyCell | undefined; graphemeRow: number | null; isDirty: boolean } {
+  ): {
+    cellAt: (col: number) => GhosttyCell | undefined;
+    graphemeRow: number | null;
+    isDirty: boolean;
+  } {
     if (viewportY > 0) {
       if (viewportRow < viewportY && scrollbackProvider) {
         const scrollbackOffset = scrollbackLength - viewportY + viewportRow;

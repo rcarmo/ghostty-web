@@ -1,7 +1,7 @@
-import { describe, expect, test } from "bun:test";
-import { CellBuffer } from "./CellBuffer";
-import type { GlyphAtlas } from "./GlyphAtlas";
-import { DirtyState, type GhosttyCell, ROW_DIRTY, type RenderInput } from "./types";
+import { describe, expect, test } from 'bun:test';
+import { CellBuffer } from './CellBuffer';
+import type { GlyphAtlas } from './GlyphAtlas';
+import { DirtyState, type GhosttyCell, ROW_DIRTY, type RenderInput } from './types';
 
 class FakeWebGLBuffer {}
 
@@ -43,7 +43,7 @@ function createInput(): RenderInput {
     cols: 2,
     rows: 1,
     viewportCells: cells,
-    graphemeRows: [["क्"]],
+    graphemeRows: [['क्']],
     rowFlags: new Uint8Array([ROW_DIRTY]),
     dirtyState: DirtyState.PARTIAL,
     selectionRange: null,
@@ -51,7 +51,7 @@ function createInput(): RenderInput {
     cursorX: 0,
     cursorY: 0,
     cursorVisible: false,
-    cursorStyle: "block",
+    cursorStyle: 'block',
     theme: {
       foreground: { r: 255, g: 255, b: 255, a: 1 },
       background: { r: 0, g: 0, b: 0, a: 1 },
@@ -67,8 +67,8 @@ function createInput(): RenderInput {
   };
 }
 
-describe("CellBuffer", () => {
-  test("uses pre-resolved grapheme rows without calling legacy callback", () => {
+describe('CellBuffer', () => {
+  test('uses pre-resolved grapheme rows without calling legacy callback', () => {
     const gl = new FakeGL() as unknown as WebGL2RenderingContext;
     const buffer = new CellBuffer(gl);
     const input = createInput();
@@ -76,7 +76,7 @@ describe("CellBuffer", () => {
     let callbackCalls = 0;
     input.getGraphemeString = () => {
       callbackCalls += 1;
-      return "SHOULD_NOT_BE_USED";
+      return 'SHOULD_NOT_BE_USED';
     };
 
     const atlasCalls: string[] = [];
@@ -100,10 +100,10 @@ describe("CellBuffer", () => {
     buffer.update(input, atlas, false);
 
     expect(callbackCalls).toBe(0);
-    expect(atlasCalls).toContain("क्");
+    expect(atlasCalls).toContain('क्');
   });
 
-  test("falls back per-row when forced full upload sees sparse grapheme rows", () => {
+  test('falls back per-row when forced full upload sees sparse grapheme rows', () => {
     const gl = new FakeGL() as unknown as WebGL2RenderingContext;
     const buffer = new CellBuffer(gl);
     const cells = [
@@ -116,7 +116,7 @@ describe("CellBuffer", () => {
       cols: 2,
       rows: 2,
       viewportCells: cells,
-      graphemeRows: [["क्"]],
+      graphemeRows: [['क्']],
       rowFlags: new Uint8Array([ROW_DIRTY, 0]),
       dirtyState: DirtyState.PARTIAL,
       selectionRange: null,
@@ -124,7 +124,7 @@ describe("CellBuffer", () => {
       cursorX: 0,
       cursorY: 0,
       cursorVisible: false,
-      cursorStyle: "block",
+      cursorStyle: 'block',
       theme: {
         foreground: { r: 255, g: 255, b: 255, a: 1 },
         background: { r: 0, g: 0, b: 0, a: 1 },
@@ -137,7 +137,7 @@ describe("CellBuffer", () => {
       viewportY: 0,
       scrollbackLength: 0,
       scrollbarOpacity: 0,
-      getGraphemeString: (row, col) => (row === 1 && col === 0 ? "क्ष" : ""),
+      getGraphemeString: (row, col) => (row === 1 && col === 0 ? 'क्ष' : ''),
     };
 
     const atlasCalls: string[] = [];
@@ -160,11 +160,11 @@ describe("CellBuffer", () => {
 
     buffer.update(input, atlas, true);
 
-    expect(atlasCalls).toContain("क्");
-    expect(atlasCalls).toContain("क्ष");
+    expect(atlasCalls).toContain('क्');
+    expect(atlasCalls).toContain('क्ष');
   });
 
-  test("skips legacy row scans for sparse grapheme rows on forced full upload", () => {
+  test('skips legacy row scans for sparse grapheme rows on forced full upload', () => {
     const gl = new FakeGL() as unknown as WebGL2RenderingContext;
     const buffer = new CellBuffer(gl);
 
@@ -181,7 +181,7 @@ describe("CellBuffer", () => {
       cursorX: 0,
       cursorY: 0,
       cursorVisible: false,
-      cursorStyle: "block",
+      cursorStyle: 'block',
       theme: {
         foreground: { r: 255, g: 255, b: 255, a: 1 },
         background: { r: 0, g: 0, b: 0, a: 1 },
@@ -196,19 +196,19 @@ describe("CellBuffer", () => {
       scrollbarOpacity: 0,
       getGraphemeString: () => {
         callbackCalls += 1;
-        return "SHOULD_NOT_BE_USED";
+        return 'SHOULD_NOT_BE_USED';
       },
     };
 
     let legacyRowScans = 0;
     (buffer as any).resolveLegacyGraphemeRow = () => {
       legacyRowScans += 1;
-      return ["unexpected", "unexpected"];
+      return ['unexpected', 'unexpected'];
     };
 
     const atlas = {
       getGlyph: () => {
-        throw new Error("getGlyph should not be called for ASCII spaces");
+        throw new Error('getGlyph should not be called for ASCII spaces');
       },
     } as unknown as GlyphAtlas;
 

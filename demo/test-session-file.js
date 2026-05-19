@@ -126,7 +126,9 @@ async function run() {
     if (fs.existsSync(sessionFilePath)) {
       const content = fs.readFileSync(sessionFilePath, 'utf8');
       const lines = content.split('\n').filter(Boolean);
-      const kv = Object.fromEntries(lines.map((l) => l.split('=').map((s, i) => (i === 0 ? s : l.slice(l.indexOf('=') + 1)))));
+      const kv = Object.fromEntries(
+        lines.map((l) => l.split('=').map((s, i) => (i === 0 ? s : l.slice(l.indexOf('=') + 1))))
+      );
 
       try {
         assert.strictEqual(kv.session_name, `ghostty-web-${pid}`, 'session_name');

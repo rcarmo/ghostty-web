@@ -5,9 +5,9 @@
  * See PLAN.md for implementation details.
  */
 
-export { WebGLRenderer } from "./WebGLRenderer";
-export { CellBuffer } from "./CellBuffer";
-export { GlyphAtlas } from "./GlyphAtlas";
+export { WebGLRenderer } from './WebGLRenderer';
+export { CellBuffer } from './CellBuffer';
+export { GlyphAtlas } from './GlyphAtlas';
 export type {
   CellMetrics,
   CursorStyle,
@@ -18,4 +18,4 @@ export type {
   RenderInput,
   Renderer,
   TerminalTheme,
-} from "./types";
+} from './types';

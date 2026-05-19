@@ -1,5 +1,5 @@
-import type { GlyphAtlas, GlyphMetrics } from "./GlyphAtlas";
-import { profileDuration, profileStart } from "./profile";
+import type { GlyphAtlas, GlyphMetrics } from './GlyphAtlas';
+import { profileDuration, profileStart } from './profile';
 import {
   CellFlags,
   type DecorationRange,
@@ -11,7 +11,7 @@ import {
   ROW_HAS_SELECTION,
   type RenderInput,
   type TerminalTheme,
-} from "./types";
+} from './types';
 
 const CELL_STRIDE = 32;
 const GLYPH_COLOR_ATLAS = 0x01;
@@ -56,7 +56,7 @@ export class CellBuffer {
     this.gl = gl;
     const buffer = gl.createBuffer();
     if (!buffer) {
-      throw new Error("Failed to create WebGL buffer");
+      throw new Error('Failed to create WebGL buffer');
     }
     this.buffer = buffer;
   }
@@ -94,11 +94,16 @@ export class CellBuffer {
 
   // Debug: enable verbose cell logging via window flag
   private static shouldDebugCells(): boolean {
-    return typeof window !== "undefined" && (window as any).BOOTTY_DEBUG_CELLS === true;
+    return typeof window !== 'undefined' && (window as any).BOOTTY_DEBUG_CELLS === true;
   }
 
   update(input: RenderInput, atlas: GlyphAtlas, forceFullUpload: boolean): void {
-    if (!Number.isFinite(input.cols) || !Number.isFinite(input.rows) || input.cols < 1 || input.rows < 1) {
+    if (
+      !Number.isFinite(input.cols) ||
+      !Number.isFinite(input.rows) ||
+      input.cols < 1 ||
+      input.rows < 1
+    ) {
       return;
     }
     const rows = Math.floor(input.rows);
@@ -131,13 +136,13 @@ export class CellBuffer {
     if (CellBuffer.shouldDebugCells() && input.dirtyState === DirtyState.FULL) {
       for (let row = 0; row < Math.min(3, rows); row++) {
         const rowBase = row * cols;
-        let text = "";
+        let text = '';
         for (let col = 0; col < cols; col++) {
           const cell = input.viewportCells[rowBase + col];
           if (cell && cell.codepoint > SPACE_CODEPOINT) {
             text += String.fromCodePoint(cell.codepoint);
           } else {
-            text += " ";
+            text += ' ';
           }
         }
         console.log(`[webgl-cellbuffer] row ${row}: "${text.trimEnd()}"`);
@@ -154,7 +159,7 @@ export class CellBuffer {
       this.writeRow(row, input, atlas, graphemeRows[row], sparseLegacyFallback);
     }
 
-    profileDuration("bootty:webgl:cellbuffer-write", writeStart, {
+    profileDuration('bootty:webgl:cellbuffer-write', writeStart, {
       cols,
       rows,
       dirtyRows: dirtyRows.length,
@@ -181,7 +186,7 @@ export class CellBuffer {
         this.gl.bufferSubData(
           this.gl.ARRAY_BUFFER,
           offset,
-          this.u8.subarray(offset, offset + byteLength),
+          this.u8.subarray(offset, offset + byteLength)
         );
         dirtyRanges += 1;
         uploadedBytes += byteLength;
@@ -198,7 +203,7 @@ export class CellBuffer {
       }
       flushRange(rangeStart, rangeEnd);
     }
-    profileDuration("bootty:webgl:cellbuffer-upload", uploadStart, {
+    profileDuration('bootty:webgl:cellbuffer-upload', uploadStart, {
       cols,
       rows,
       dirtyRows: dirtyRows.length,
@@ -215,7 +220,7 @@ export class CellBuffer {
     input: RenderInput,
     atlas: GlyphAtlas,
     graphemeRow: ReadonlyArray<string | undefined> | undefined,
-    sparseLegacyFallback: ((viewportRow: number, col: number) => string) | undefined,
+    sparseLegacyFallback: ((viewportRow: number, col: number) => string) | undefined
   ): void {
     const cols = input.cols;
     const rowOffset = row * cols * CELL_STRIDE;
@@ -290,7 +295,7 @@ export class CellBuffer {
       let glyphFlags = 0;
       let atlasMetrics: GlyphMetrics | null = null;
       if (cellSpan > 0 && resolved.fgA > 0 && !(cell.flags & CellFlags.INVISIBLE)) {
-        let grapheme = "";
+        let grapheme = '';
         let hasGlyph = false;
         if (cell.grapheme_len > 0) {
           const preResolved = graphemeRow?.[col];
@@ -299,7 +304,7 @@ export class CellBuffer {
               ? preResolved
               : sparseLegacyFallback
                 ? sparseLegacyFallback(row, col)
-                : "";
+                : '';
           if (grapheme.length === 1) {
             hasGlyph = grapheme.charCodeAt(0) > SPACE_CODEPOINT;
           } else {
@@ -344,17 +349,17 @@ export class CellBuffer {
       this.view.setUint32(
         offset + 16,
         packU8x4(resolved.fgR, resolved.fgG, resolved.fgB, resolved.fgA),
-        true,
+        true
       );
       this.view.setUint32(
         offset + 20,
         packU8x4(resolved.bgR, resolved.bgG, resolved.bgB, resolved.bgA),
-        true,
+        true
       );
       this.view.setUint32(
         offset + 24,
         packU8x4(resolved.decoR, resolved.decoG, resolved.decoB, resolved.decoA),
-        true,
+        true
       );
 
       this.view.setUint32(offset + 28, 0, true);
@@ -368,7 +373,7 @@ export class CellBuffer {
     const rows = input.rows;
     const legacyRows: Array<Array<string | undefined> | undefined> = Array.from(
       { length: rows },
-      () => undefined,
+      () => undefined
     );
     for (const row of dirtyRows) {
       const rowData = this.resolveLegacyGraphemeRow(input, row);
@@ -381,7 +386,7 @@ export class CellBuffer {
 
   private resolveLegacyGraphemeRow(
     input: RenderInput,
-    row: number,
+    row: number
   ): Array<string | undefined> | undefined {
     if (!input.getGraphemeString) {
       return undefined;
@@ -419,7 +424,7 @@ function resolveCellColors(
   isSelected: boolean,
   isHovered: boolean,
   decoration: DecorationRange | null,
-  out: ResolvedCellColors,
+  out: ResolvedCellColors
 ): void {
   let fgR = cell.fg_r;
   let fgG = cell.fg_g;
@@ -527,7 +532,7 @@ function resolveCellColors(
 function findDecoration(
   decorations: readonly DecorationRange[],
   absoluteLine: number,
-  column: number,
+  column: number
 ): DecorationRange | null {
   for (let i = decorations.length - 1; i >= 0; i--) {
     const decoration = decorations[i];

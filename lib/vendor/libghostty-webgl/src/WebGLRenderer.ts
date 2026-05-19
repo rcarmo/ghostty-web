@@ -1,15 +1,15 @@
-import debug from "debug";
-import { CellBuffer } from "./CellBuffer";
-import { GlyphAtlas } from "./GlyphAtlas";
-import { profileDuration, profileStart } from "./profile";
-import type { CellMetrics, RenderInput, Renderer, TerminalTheme } from "./types";
+import debug from 'debug';
+import { CellBuffer } from './CellBuffer';
+import { GlyphAtlas } from './GlyphAtlas';
+import { profileDuration, profileStart } from './profile';
+import type { CellMetrics, RenderInput, Renderer, TerminalTheme } from './types';
 
 // Namespaced debug loggers
-const log = debug("bootty:webgl");
-import { backgroundFragmentSource, backgroundVertexSource } from "./shaders/background";
-import { decorationFragmentSource, decorationVertexSource } from "./shaders/decoration";
-import { glyphFragmentSource, glyphVertexSource } from "./shaders/glyph";
-import { solidFragmentSource, solidVertexSource } from "./shaders/solid";
+const log = debug('bootty:webgl');
+import { backgroundFragmentSource, backgroundVertexSource } from './shaders/background';
+import { decorationFragmentSource, decorationVertexSource } from './shaders/decoration';
+import { glyphFragmentSource, glyphVertexSource } from './shaders/glyph';
+import { solidFragmentSource, solidVertexSource } from './shaders/solid';
 
 const CELL_STRIDE = 32;
 const MAX_CONTEXT_FAILURES = 3;
@@ -55,10 +55,10 @@ export class WebGLRenderer implements Renderer {
   private forceFullUpload = true;
 
   constructor(options: WebGLRendererOptions = {}) {
-    log("WebGLRenderer constructor called");
+    log('WebGLRenderer constructor called');
     this.options = options;
     this.fontSize = options.fontSize ?? 15;
-    this.fontFamily = options.fontFamily ?? "monospace";
+    this.fontFamily = options.fontFamily ?? 'monospace';
     this.fixedDevicePixelRatio = options.devicePixelRatio;
     this.dpr = this.getDevicePixelRatio();
     this.metrics = this.measureFont();
@@ -74,28 +74,28 @@ export class WebGLRenderer implements Renderer {
   }
 
   attach(canvas: HTMLCanvasElement): void {
-    log("attach() called");
+    log('attach() called');
     this.canvas = canvas;
     this.options.ownerDocument = canvas.ownerDocument;
     this.dpr = this.getDevicePixelRatio();
-    const gl = canvas.getContext("webgl2", {
+    const gl = canvas.getContext('webgl2', {
       antialias: this.options.antialias ?? false,
       alpha: this.options.alpha ?? true,
       premultipliedAlpha: true,
     });
     if (!gl) {
-      throw new Error("WebGL2 is not available");
+      throw new Error('WebGL2 is not available');
     }
     this.gl = gl;
     this.contextValid = true;
     this.initResources();
-    canvas.addEventListener("webglcontextlost", this.handleContextLost, false);
-    canvas.addEventListener("webglcontextrestored", this.handleContextRestored, false);
+    canvas.addEventListener('webglcontextlost', this.handleContextLost, false);
+    canvas.addEventListener('webglcontextrestored', this.handleContextRestored, false);
   }
 
   resize(cols: number, rows: number): void {
     if (!this.canvas || !this.gl) {
-      throw new Error("WebGLRenderer is not attached");
+      throw new Error('WebGLRenderer is not attached');
     }
     if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols < 1 || rows < 1) return;
     cols = Math.floor(cols);
@@ -138,7 +138,7 @@ export class WebGLRenderer implements Renderer {
     const drawStart = profileStart();
     this.drawFramePasses(input, instanceCount);
     this.drawOverlays(input);
-    profileDuration("bootty:webgl:draw", drawStart, {
+    profileDuration('bootty:webgl:draw', drawStart, {
       cols: input.cols,
       rows: input.rows,
       instanceCount,
@@ -146,7 +146,7 @@ export class WebGLRenderer implements Renderer {
       scrollbarOpacity: input.scrollbarOpacity,
     });
 
-    profileDuration("bootty:webgl:render", renderStart, {
+    profileDuration('bootty:webgl:render', renderStart, {
       cols: input.cols,
       rows: input.rows,
       instanceCount,
@@ -178,7 +178,7 @@ export class WebGLRenderer implements Renderer {
 
   getCanvas(): HTMLCanvasElement {
     if (!this.canvas) {
-      throw new Error("WebGLRenderer is not attached");
+      throw new Error('WebGLRenderer is not attached');
     }
     return this.canvas;
   }
@@ -200,8 +200,8 @@ export class WebGLRenderer implements Renderer {
 
   dispose(): void {
     if (this.canvas) {
-      this.canvas.removeEventListener("webglcontextlost", this.handleContextLost);
-      this.canvas.removeEventListener("webglcontextrestored", this.handleContextRestored);
+      this.canvas.removeEventListener('webglcontextlost', this.handleContextLost);
+      this.canvas.removeEventListener('webglcontextrestored', this.handleContextRestored);
     }
     this.releaseResources();
     this.gl = undefined;
@@ -216,7 +216,7 @@ export class WebGLRenderer implements Renderer {
 
     const quadVbo = gl.createBuffer();
     if (!quadVbo) {
-      throw new Error("Failed to create quad buffer");
+      throw new Error('Failed to create quad buffer');
     }
     this.quadVbo = quadVbo;
     gl.bindBuffer(gl.ARRAY_BUFFER, quadVbo);
@@ -226,27 +226,27 @@ export class WebGLRenderer implements Renderer {
     this.glyphAtlas = new GlyphAtlas(gl, this.fontSize, this.fontFamily, this.dpr);
 
     this.background = this.createProgramInfo(backgroundVertexSource, backgroundFragmentSource, [
-      "u_cellSize",
-      "u_gridSize",
+      'u_cellSize',
+      'u_gridSize',
     ]);
     this.glyph = this.createProgramInfo(glyphVertexSource, glyphFragmentSource, [
-      "u_cellSize",
-      "u_gridSize",
-      "u_atlasSize",
-      "u_baseline",
-      "u_atlas",
-      "u_colorAtlas",
+      'u_cellSize',
+      'u_gridSize',
+      'u_atlasSize',
+      'u_baseline',
+      'u_atlas',
+      'u_colorAtlas',
     ]);
     this.decoration = this.createProgramInfo(decorationVertexSource, decorationFragmentSource, [
-      "u_cellSize",
-      "u_gridSize",
-      "u_baseline",
+      'u_cellSize',
+      'u_gridSize',
+      'u_baseline',
     ]);
     this.solid = this.createProgramInfo(
       solidVertexSource,
       solidFragmentSource,
-      ["u_rectOrigin", "u_rectSize", "u_canvasSize", "u_color"],
-      true,
+      ['u_rectOrigin', 'u_rectSize', 'u_canvasSize', 'u_color'],
+      true
     );
 
     this.forceFullUpload = true;
@@ -284,7 +284,7 @@ export class WebGLRenderer implements Renderer {
   private prepareFrame(input: RenderInput): boolean {
     if (!this.contextValid || !this.gl || !this.canvas) return false;
 
-    const currentDpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : this.dpr;
+    const currentDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : this.dpr;
     if (currentDpr !== this.dpr) {
       this.setDevicePixelRatio(currentDpr);
     }
@@ -303,7 +303,7 @@ export class WebGLRenderer implements Renderer {
 
     const cellBufferStart = profileStart();
     this.cellBuffer.update(input, this.glyphAtlas, this.forceFullUpload);
-    profileDuration("bootty:webgl:cellbuffer-update", cellBufferStart, {
+    profileDuration('bootty:webgl:cellbuffer-update', cellBufferStart, {
       cols: input.cols,
       rows: input.rows,
       dirtyState: input.dirtyState,
@@ -376,12 +376,17 @@ export class WebGLRenderer implements Renderer {
       this.drawSolidRect(
         { x: originX + cursorSize.offsetX, y: originY + cursorSize.offsetY },
         { width: cursorSize.width, height: cursorSize.height },
-        this.theme.cursor,
+        this.theme.cursor
       );
     }
 
     if (input.scrollbarWidth > 0 && input.scrollbarOpacity > 0 && input.scrollbackLength > 0) {
-      this.drawScrollbar(input.scrollbarOpacity, input.scrollbackLength, input.viewportY, input.scrollbarWidth);
+      this.drawScrollbar(
+        input.scrollbarOpacity,
+        input.scrollbackLength,
+        input.viewportY,
+        input.scrollbarWidth
+      );
     }
   }
 
@@ -389,16 +394,16 @@ export class WebGLRenderer implements Renderer {
     vertexSource: string,
     fragmentSource: string,
     uniformNames: string[],
-    solid = false,
+    solid = false
   ): ProgramInfo {
     if (!this.gl || !this.quadVbo) {
-      throw new Error("WebGLRenderer is not initialized");
+      throw new Error('WebGLRenderer is not initialized');
     }
     const gl = this.gl;
     const program = createProgram(gl, vertexSource, fragmentSource);
     const vao = gl.createVertexArray();
     if (!vao) {
-      throw new Error("Failed to create VAO");
+      throw new Error('Failed to create VAO');
     }
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVbo);
@@ -407,7 +412,7 @@ export class WebGLRenderer implements Renderer {
 
     if (!solid) {
       if (!this.cellBuffer) {
-        throw new Error("CellBuffer not initialized");
+        throw new Error('CellBuffer not initialized');
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, this.cellBuffer.handle);
       gl.enableVertexAttribArray(1);
@@ -456,7 +461,7 @@ export class WebGLRenderer implements Renderer {
   private drawSolidRect(
     origin: { x: number; y: number },
     size: { width: number; height: number },
-    color: { r: number; g: number; b: number; a: number },
+    color: { r: number; g: number; b: number; a: number }
   ): void {
     if (!this.gl || !this.solid || !this.canvas) return;
     const gl = this.gl;
@@ -471,7 +476,7 @@ export class WebGLRenderer implements Renderer {
       (color.r / 255) * a,
       (color.g / 255) * a,
       (color.b / 255) * a,
-      a,
+      a
     );
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
@@ -480,7 +485,7 @@ export class WebGLRenderer implements Renderer {
     opacity: number,
     scrollbackLength: number,
     viewportY: number,
-    scrollbarWidth: number,
+    scrollbarWidth: number
   ): void {
     if (!this.canvas) return;
     if (![opacity, scrollbackLength, viewportY, scrollbarWidth].every(Number.isFinite)) return;
@@ -512,34 +517,35 @@ export class WebGLRenderer implements Renderer {
     this.drawSolidRect(
       { x: toPx(scrollbarX), y: toPx(padding) },
       { width: toPx(scrollbarWidth), height: toPx(trackHeight) },
-      trackColor,
+      trackColor
     );
     this.drawSolidRect(
       { x: toPx(scrollbarX), y: toPx(thumbY) },
       { width: toPx(scrollbarWidth), height: toPx(thumbHeight) },
-      thumbColor,
+      thumbColor
     );
   }
 
   private getDevicePixelRatio(): number {
-    const dpr = this.fixedDevicePixelRatio ?? this.canvas?.ownerDocument.defaultView?.devicePixelRatio ?? 1;
+    const dpr =
+      this.fixedDevicePixelRatio ?? this.canvas?.ownerDocument.defaultView?.devicePixelRatio ?? 1;
     return Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
   }
 
   private measureFont(): CellMetrics {
     const ownerDocument = this.options.ownerDocument ?? this.canvas?.ownerDocument;
     const canvas =
-      typeof OffscreenCanvas !== "undefined"
+      typeof OffscreenCanvas !== 'undefined'
         ? new OffscreenCanvas(1, 1)
         : ownerDocument
-          ? ownerDocument.createElement("canvas")
+          ? ownerDocument.createElement('canvas')
           : null;
-    const ctx = canvas?.getContext("2d") ?? null;
+    const ctx = canvas?.getContext('2d') ?? null;
     if (!ctx) {
       return { width: this.fontSize, height: this.fontSize, baseline: this.fontSize };
     }
     ctx.font = `${this.fontSize}px ${this.fontFamily}`;
-    const metrics = ctx.measureText("M");
+    const metrics = ctx.measureText('M');
     const width = Math.ceil(metrics.width);
     const ascent = metrics.actualBoundingBoxAscent || this.fontSize * 0.8;
     const descent = metrics.actualBoundingBoxDescent || this.fontSize * 0.2;
@@ -581,14 +587,14 @@ export class WebGLRenderer implements Renderer {
 function createShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type);
   if (!shader) {
-    throw new Error("Failed to create shader");
+    throw new Error('Failed to create shader');
   }
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     const info = gl.getShaderInfoLog(shader);
     gl.deleteShader(shader);
-    throw new Error(`Shader compile failed: ${info ?? "unknown error"}`);
+    throw new Error(`Shader compile failed: ${info ?? 'unknown error'}`);
   }
   return shader;
 }
@@ -596,13 +602,13 @@ function createShader(gl: WebGL2RenderingContext, type: number, source: string):
 function createProgram(
   gl: WebGL2RenderingContext,
   vertexSource: string,
-  fragmentSource: string,
+  fragmentSource: string
 ): WebGLProgram {
   const vs = createShader(gl, gl.VERTEX_SHADER, vertexSource);
   const fs = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
   const program = gl.createProgram();
   if (!program) {
-    throw new Error("Failed to create program");
+    throw new Error('Failed to create program');
   }
   gl.attachShader(program, vs);
   gl.attachShader(program, fs);
@@ -612,24 +618,24 @@ function createProgram(
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
     const info = gl.getProgramInfoLog(program);
     gl.deleteProgram(program);
-    throw new Error(`Program link failed: ${info ?? "unknown error"}`);
+    throw new Error(`Program link failed: ${info ?? 'unknown error'}`);
   }
   return program;
 }
 
 function computeCursorSizePx(
-  style: "block" | "underline" | "bar",
+  style: 'block' | 'underline' | 'bar',
   metrics: CellMetrics,
-  dpr: number,
+  dpr: number
 ): { width: number; height: number; offsetX: number; offsetY: number } {
   const cellWidth = metrics.width * dpr;
   const cellHeight = metrics.height * dpr;
   switch (style) {
-    case "underline": {
+    case 'underline': {
       const height = Math.max(2 * dpr, metrics.height * 0.15 * dpr);
       return { width: cellWidth, height, offsetX: 0, offsetY: cellHeight - height };
     }
-    case "bar": {
+    case 'bar': {
       const width = Math.max(2 * dpr, metrics.width * 0.15 * dpr);
       return { width, height: cellHeight, offsetX: 0, offsetY: 0 };
     }

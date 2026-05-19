@@ -752,7 +752,9 @@ cpWss.on('connection', (ws) => {
         }
         const lines = session.buffer.capture();
         const ms = Date.now();
-        reply(`OK|ghostty-web|CAPTURE_PANE|epoch_ms=${ms}|lines=${lines.length}\n${lines.join('\n')}`);
+        reply(
+          `OK|ghostty-web|CAPTURE_PANE|epoch_ms=${ms}|lines=${lines.length}\n${lines.join('\n')}`
+        );
         break;
       }
 
@@ -834,7 +836,13 @@ function getSessionFilePath() {
   const pid = process.pid;
   const dir =
     process.platform === 'win32'
-      ? path.join(process.env.LOCALAPPDATA || path.join(homedir(), 'AppData', 'Local'), 'ghostty', 'control-plane', 'web', 'sessions')
+      ? path.join(
+          process.env.LOCALAPPDATA || path.join(homedir(), 'AppData', 'Local'),
+          'ghostty',
+          'control-plane',
+          'web',
+          'sessions'
+        )
       : path.join(homedir(), '.local', 'share', 'ghostty', 'control-plane', 'web', 'sessions');
   return path.join(dir, `ghostty-web-${pid}.session`);
 }
@@ -844,13 +852,14 @@ function writeSessionFile(port) {
   const filePath = getSessionFilePath();
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
-  const content = [
-    `session_name=ghostty-web-${pid}`,
-    `safe_session_name=ghostty-web`,
-    `pid=${pid}`,
-    `ws_url=ws://localhost:${port}/cp`,
-    `port=${port}`,
-  ].join('\n') + '\n';
+  const content =
+    [
+      `session_name=ghostty-web-${pid}`,
+      `safe_session_name=ghostty-web`,
+      `pid=${pid}`,
+      `ws_url=ws://localhost:${port}/cp`,
+      `port=${port}`,
+    ].join('\n') + '\n';
   fs.writeFileSync(filePath, content, 'utf8');
 }
 

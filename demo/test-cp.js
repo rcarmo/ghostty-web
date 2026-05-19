@@ -60,11 +60,18 @@ function startServer() {
 /** Kill the server process and wait for it to exit. */
 function stopServer(child) {
   return new Promise((resolve) => {
-    if (child.exitCode !== null) { resolve(); return; }
+    if (child.exitCode !== null) {
+      resolve();
+      return;
+    }
     child.once('exit', resolve);
     child.kill('SIGTERM');
     // Force-kill after 3s
-    setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, 3000);
+    setTimeout(() => {
+      try {
+        child.kill('SIGKILL');
+      } catch {}
+    }, 3000);
   });
 }
 
@@ -83,7 +90,10 @@ function openWs(url) {
 /** Close a WebSocket and wait for it to finish. */
 function closeWs(ws) {
   return new Promise((resolve) => {
-    if (ws.readyState === WebSocket.CLOSED) { resolve(); return; }
+    if (ws.readyState === WebSocket.CLOSED) {
+      resolve();
+      return;
+    }
     ws.once('close', resolve);
     ws.close();
   });
@@ -203,14 +213,17 @@ async function runTests(child) {
       const b64Noop = Buffer.from('\n').toString('base64');
       cp.send(`INPUT|test|${b64Noop}`);
       // Drain the QUEUED reply without waiting
-      await new Promise(r => cp.once('message', r));
+      await new Promise((r) => cp.once('message', r));
 
       // Poll TAIL until hello-cp-test appears or timeout (up to 5s)
       let found = false;
       for (let i = 0; i < 10; i++) {
         await sleep(500);
         const tailReply = await sendAndReceive(cp, 'TAIL|100');
-        if (tailReply.includes('hello-cp-test')) { found = true; break; }
+        if (tailReply.includes('hello-cp-test')) {
+          found = true;
+          break;
+        }
       }
       assert.ok(found, 'Expected hello-cp-test in TAIL output within 5 seconds');
     } finally {

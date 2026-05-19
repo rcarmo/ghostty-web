@@ -337,7 +337,11 @@ export class Terminal implements ITerminalCore {
 
     if (value.startsWith('#')) {
       const hex = value.slice(1);
-      const expand = (text: string) => text.split('').map((ch) => ch + ch).join('');
+      const expand = (text: string) =>
+        text
+          .split('')
+          .map((ch) => ch + ch)
+          .join('');
       const rgb = hex.length === 3 || hex.length === 4 ? expand(hex.slice(0, 3)) : hex.slice(0, 6);
       if (rgb.length !== 6 || !/^[0-9a-f]{6}$/i.test(rgb)) return null;
       return {
@@ -376,7 +380,9 @@ export class Terminal implements ITerminalCore {
   }
 
   private parseCssColorChannel(value: string): number {
-    const parsed = value.endsWith('%') ? (Number.parseFloat(value) / 100) * 255 : Number.parseFloat(value);
+    const parsed = value.endsWith('%')
+      ? (Number.parseFloat(value) / 100) * 255
+      : Number.parseFloat(value);
     if (!Number.isFinite(parsed)) return 0;
     return Math.max(0, Math.min(255, Math.round(parsed)));
   }
@@ -545,7 +551,10 @@ export class Terminal implements ITerminalCore {
         try {
           this.renderer = new WebGLRenderer(this.canvas, rendererOptions);
         } catch (error) {
-          console.warn('WebGL renderer initialization failed; falling back to CanvasRenderer', error);
+          console.warn(
+            'WebGL renderer initialization failed; falling back to CanvasRenderer',
+            error
+          );
           // WebGL construction may have already bound the original canvas to a
           // WebGL context before failing. A canvas cannot later switch to 2D, so
           // replace it before creating the CanvasRenderer fallback.
@@ -1412,7 +1421,9 @@ export class Terminal implements ITerminalCore {
    * Cancel the render loop
    */
   private getOwnerWindow(): Window | undefined {
-    return this.element?.ownerDocument.defaultView ?? this.canvas?.ownerDocument.defaultView ?? undefined;
+    return (
+      this.element?.ownerDocument.defaultView ?? this.canvas?.ownerDocument.defaultView ?? undefined
+    );
   }
 
   private scheduleAnimationFrame(callback: FrameRequestCallback): number {

@@ -7,7 +7,7 @@ export interface CellMetrics {
   baseline: number;
 }
 
-export type CursorStyle = "block" | "underline" | "bar";
+export type CursorStyle = 'block' | 'underline' | 'bar';
 
 export interface RGBA {
   r: number;

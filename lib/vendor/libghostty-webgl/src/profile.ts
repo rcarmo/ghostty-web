@@ -12,9 +12,9 @@ interface ProfileHook {
 }
 
 function getProfileHook(): ProfileHook | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
   const hook = (window as unknown as { __BOOTTY_PROFILE__?: ProfileHook }).__BOOTTY_PROFILE__;
-  if (!hook || hook.enabled !== true || typeof hook.record !== "function") {
+  if (!hook || hook.enabled !== true || typeof hook.record !== 'function') {
     return null;
   }
   return hook;
@@ -22,7 +22,7 @@ function getProfileHook(): ProfileHook | null {
 
 function getNow(hook?: ProfileHook | null): number {
   if (hook?.now) return hook.now();
-  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
     return performance.now();
   }
   return Date.now();
@@ -30,7 +30,7 @@ function getNow(hook?: ProfileHook | null): number {
 
 export function profileEvent(
   name: string,
-  data?: Record<string, string | number | boolean | null>,
+  data?: Record<string, string | number | boolean | null>
 ): void {
   const hook = getProfileHook();
   if (!hook) return;
@@ -46,7 +46,7 @@ export function profileStart(): number | null {
 export function profileDuration(
   name: string,
   start: number | null,
-  data?: Record<string, string | number | boolean | null>,
+  data?: Record<string, string | number | boolean | null>
 ): void {
   if (start === null) return;
   const hook = getProfileHook();
