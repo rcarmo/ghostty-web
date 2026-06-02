@@ -7,7 +7,8 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { CanvasRenderer, DEFAULT_THEME } from './renderer';
+import { CanvasRenderer, DEFAULT_THEME, type IRenderable } from './renderer';
+import { type GhosttyCell, KittyImageFormat, type KittyPlacementInfo } from './types';
 
 describe('CanvasRenderer', () => {
   describe('Default Theme', () => {
@@ -60,6 +61,95 @@ describe('CanvasRenderer', () => {
       expect(DEFAULT_THEME.background).toMatch(hexPattern);
       expect(DEFAULT_THEME.cursor).toMatch(hexPattern);
     });
+  });
+});
+
+describe('CanvasRenderer – kitty graphics', () => {
+  function makeCell(overrides: Partial<GhosttyCell> = {}): GhosttyCell {
+    return {
+      codepoint: 32,
+      width: 1,
+      grapheme_len: 0,
+      fg_r: 212,
+      fg_g: 212,
+      fg_b: 212,
+      bg_r: 30,
+      bg_g: 30,
+      bg_b: 30,
+      fgIsDefault: true,
+      bgIsDefault: true,
+      flags: 0,
+      hyperlink_id: 0,
+      ...overrides,
+    } as GhosttyCell;
+  }
+
+  function makeRenderable(placement: KittyPlacementInfo): IRenderable {
+    const line = Array.from({ length: 10 }, () => makeCell());
+    const pixels = {
+      width: 1,
+      height: 1,
+      format: KittyImageFormat.RGBA,
+      data: new Uint8Array([255, 0, 0, 255]),
+    };
+    return {
+      getLine: () => line,
+      getCursor: () => ({ x: 0, y: 0, visible: false }),
+      getDimensions: () => ({ cols: 10, rows: 5 }),
+      isRowDirty: () => false,
+      clearDirty: () => {},
+      getKittyGraphics: () => 1,
+      iterPlacements: function* () {
+        yield placement;
+      },
+      getKittyImagePixels: () => pixels,
+    };
+  }
+
+  test('direct kitty placements move with the viewport when scrolling', () => {
+    const canvas = document.createElement('canvas');
+    const renderer = new CanvasRenderer(canvas, { devicePixelRatio: 1 });
+    const drawImageCalls: unknown[][] = [];
+    (renderer as any).ctx.drawImage = (...args: unknown[]) => drawImageCalls.push(args);
+    const originalImageData = (globalThis as any).ImageData;
+    (globalThis as any).ImageData = class {
+      constructor(
+        public data: Uint8ClampedArray,
+        public width: number,
+        public height: number
+      ) {}
+    };
+
+    try {
+      renderer.render(
+        makeRenderable({
+          imageId: 1,
+          pixelWidth: 8,
+          pixelHeight: 16,
+          gridCols: 1,
+          gridRows: 1,
+          viewportCol: 2,
+          viewportRow: 3,
+          viewportVisible: true,
+          sourceX: 0,
+          sourceY: 0,
+          sourceWidth: 1,
+          sourceHeight: 1,
+          isVirtual: false,
+        }),
+        true,
+        2,
+        { getScrollbackLength: () => 2, getScrollbackLine: () => null }
+      );
+
+      const compositeCall = drawImageCalls.at(-1)!;
+      const metrics = (renderer as any).metrics;
+      expect(compositeCall[5]).toBe(2 * metrics.width);
+      expect(compositeCall[6]).toBe((3 - 2) * metrics.height);
+    } finally {
+      (globalThis as any).ImageData = originalImageData;
+      renderer.dispose();
+    }
   });
 });
 

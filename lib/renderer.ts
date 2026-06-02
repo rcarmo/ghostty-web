@@ -470,7 +470,7 @@ export class CanvasRenderer {
     // kittyDamagedRows (rows where a placement was added/removed/moved/
     // re-decoded, so the text underneath needs repainting to clear stale
     // image pixels).
-    this.precomputeKittyState(buffer, dims.rows);
+    this.precomputeKittyState(buffer, dims.rows, Math.floor(viewportY));
     const scrollbackLength = scrollbackProvider ? scrollbackProvider.getScrollbackLength() : 0;
 
     // Check if buffer needs full redraw (e.g., screen change between normal/alternate)
@@ -1681,7 +1681,11 @@ export class CanvasRenderer {
    * Also caches the storage handle for renderPlaceholderCell so the
    * per-cell hot path doesn't have to re-resolve it.
    */
-  private precomputeKittyState(buffer: IRenderable, dimsRows: number): void {
+  private precomputeKittyState(
+    buffer: IRenderable,
+    dimsRows: number,
+    viewportYOffset: number
+  ): void {
     this.kittyVirtualPlacements.clear();
     this.currentDirectPlacements = [];
     this.kittyDamagedRows.clear();
@@ -1707,17 +1711,19 @@ export class CanvasRenderer {
             this.kittyVirtualPlacements.set(p.imageId, p);
             continue;
           }
-          this.currentDirectPlacements.push(p);
+          const visiblePlacement =
+            viewportYOffset === 0 ? p : { ...p, viewportRow: p.viewportRow - viewportYOffset };
+          this.currentDirectPlacements.push(visiblePlacement);
           const pixels = buffer.getKittyImagePixels?.(graphics, p.imageId);
           const sig = {
-            viewportCol: p.viewportCol,
-            viewportRow: p.viewportRow,
-            pixelWidth: p.pixelWidth,
-            pixelHeight: p.pixelHeight,
-            sourceX: p.sourceX,
-            sourceY: p.sourceY,
-            sourceWidth: p.sourceWidth,
-            sourceHeight: p.sourceHeight,
+            viewportCol: visiblePlacement.viewportCol,
+            viewportRow: visiblePlacement.viewportRow,
+            pixelWidth: visiblePlacement.pixelWidth,
+            pixelHeight: visiblePlacement.pixelHeight,
+            sourceX: visiblePlacement.sourceX,
+            sourceY: visiblePlacement.sourceY,
+            sourceWidth: visiblePlacement.sourceWidth,
+            sourceHeight: visiblePlacement.sourceHeight,
             imgWidth: pixels?.width ?? 0,
             imgHeight: pixels?.height ?? 0,
             imgFormat: pixels?.format ?? (0 as KittyImageFormat),
