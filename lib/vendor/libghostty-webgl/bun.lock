@@ -1,0 +1,29 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "@0xbigboss/libghostty-webgl",
+      "dependencies": {
+        "debug": "^4.4.3",
+      },
+      "devDependencies": {
+        "@types/debug": "^4.1.13",
+      },
+      "peerDependencies": {
+        "@0xbigboss/ghostty-web": ">=0.4.0",
+      },
+    },
+  },
+  "packages": {
+    "@0xbigboss/ghostty-web": ["@0xbigboss/ghostty-web@0.5.0", "", {}, "sha512-CQWyGy+26eK/nJPkab7gGZwd1CDJ29hfz+IzAZPD4V7mCxWN8emT1oHbEEzvil+6/WLU3k29yfDeV89whS64BA=="],
+
+    "@types/debug": ["@types/debug@4.1.13", "", { "dependencies": { "@types/ms": "*" } }, "sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw=="],
+
+    "@types/ms": ["@types/ms@2.1.0", "", {}, "sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA=="],
+
+    "debug": ["debug@4.4.3", "", { "dependencies": { "ms": "^2.1.3" }, "peerDependencies": { "supports-color": "*" }, "optionalPeers": ["supports-color"] }, "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA=="],
+
+    "ms": ["ms@2.1.3", "", {}, "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="],
+  }
+}

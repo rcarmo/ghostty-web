@@ -1,53 +1,68 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "organizeImports": {
-    "enabled": true
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "suspicious": {
-        "noExplicitAny": "off",
-        "noControlCharactersInRegex": "off"
-      },
-      "style": {
-        "noNonNullAssertion": "off",
-        "noInferrableTypes": "off",
-        "useTemplate": "off",
-        "useNodejsImportProtocol": "off",
-        "noUselessElse": "off",
-        "noUnusedTemplateLiteral": "off",
-        "useSingleVarDeclarator": "off",
-        "noParameterAssign": "off"
-      },
-      "complexity": {
-        "useOptionalChain": "off"
-      },
-      "correctness": {
-        "noSwitchDeclarations": "off"
-      }
-    }
-  },
-  "formatter": {
-    "enabled": false
-  },
-  "javascript": {
-    "formatter": {
-      "enabled": false
-    }
-  },
-  "files": {
-    "ignore": [
-      "node_modules",
-      "dist",
-      "coverage",
-      "*.wasm",
-      ".git",
-      ".vite",
-      ".tools",
-      "bun.lock",
-      "lib/vendor/cf-wasm-png"
-    ]
-  }
+	"$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+	"assist": { "actions": { "source": { "organizeImports": "off" } } },
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noControlCharactersInRegex": "off",
+				"noGlobalIsNan": "off",
+				"noTsIgnore": "off",
+				"useIterableCallbackReturn": "off"
+			},
+			"style": {
+				"noNonNullAssertion": "off",
+				"noInferrableTypes": "off",
+				"useTemplate": "off",
+				"useNodejsImportProtocol": "off",
+				"noUselessElse": "off",
+				"noUnusedTemplateLiteral": "off",
+				"useSingleVarDeclarator": "off",
+				"noParameterAssign": "off",
+				"useConst": "off"
+			},
+			"complexity": {
+				"useOptionalChain": "off",
+				"noUselessEscapeInRegex": "off",
+				"useArrowFunction": "off",
+				"useLiteralKeys": "off"
+			},
+			"correctness": {
+				"noSwitchDeclarations": "off",
+				"noUnknownTypeSelector": "off",
+				"noUnusedFunctionParameters": "off",
+				"noUnusedImports": "off",
+				"noUnusedPrivateClassMembers": "off",
+				"noUnusedVariables": "off",
+				"useParseIntRadix": "off"
+			},
+			"a11y": {
+				"useButtonType": "off"
+			}
+		}
+	},
+	"formatter": {
+		"enabled": false
+	},
+	"javascript": {
+		"formatter": {
+			"enabled": false
+		}
+	},
+	"files": {
+		"includes": [
+			"**",
+			"!**/node_modules",
+			"!**/dist",
+			"!**/coverage",
+			"!**/*.wasm",
+			"!**/.git",
+			"!**/.vite",
+			"!**/.tools",
+			"!**/bun.lock",
+			"!**/lib/vendor/cf-wasm-png"
+		]
+	}
 }
