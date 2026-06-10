@@ -28,6 +28,7 @@ export interface ITerminalOptions {
   // Scrolling options
   smoothScrollDuration?: number; // Duration in ms for smooth scroll animation (default: 100, 0 = instant)
   scrollbarWidth?: number; // 0 = hidden, default: 8
+  scrollSensitivity?: number; // Wheel/trackpad scroll-speed multiplier (default: 1)
 
   // Link handling
   // Called when a link is clicked. Return true to prevent default link handling.

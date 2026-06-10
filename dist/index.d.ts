@@ -1528,6 +1528,7 @@ export declare interface ITerminalOptions {
     disableStdin?: boolean;
     smoothScrollDuration?: number;
     scrollbarWidth?: number;
+    scrollSensitivity?: number;
     onLinkClick?: (url: string, event: MouseEvent) => boolean;
     ghostty?: Ghostty;
 }

@@ -435,7 +435,24 @@ function resolveCellColors(
   let fgIsDefault = cell.fgIsDefault ?? (fgR === 0 && fgG === 0 && fgB === 0);
   let bgIsDefault = cell.bgIsDefault ?? (bgR === 0 && bgG === 0 && bgB === 0);
 
-  if (cell.flags & CellFlags.INVERSE) {
+  // Resolve default colors to the concrete theme colors *before* applying the
+  // inverse swap. Otherwise an inverted cell whose original foreground was the
+  // default (e.g. a reverse-video cursor or selection drawn with default
+  // colors) would swap an unresolved (0,0,0) sentinel into the background and
+  // then paint it transparent/black instead of theme.foreground.
+  if (fgIsDefault) {
+    fgR = theme.foreground.r;
+    fgG = theme.foreground.g;
+    fgB = theme.foreground.b;
+  }
+  if (bgIsDefault) {
+    bgR = theme.background.r;
+    bgG = theme.background.g;
+    bgB = theme.background.b;
+  }
+
+  const isInverse = (cell.flags & CellFlags.INVERSE) !== 0;
+  if (isInverse) {
     const tmpR = fgR;
     const tmpG = fgG;
     const tmpB = fgB;
@@ -450,19 +467,17 @@ function resolveCellColors(
     bgIsDefault = tmpDefault;
   }
 
-  if (fgIsDefault) {
-    fgR = theme.foreground.r;
-    fgG = theme.foreground.g;
-    fgB = theme.foreground.b;
-  }
-
   if (!isSelected && decoration?.foreground) {
     fgR = decoration.foreground.r;
     fgG = decoration.foreground.g;
     fgB = decoration.foreground.b;
   }
 
-  let fgA = fgIsDefault ? clampAlpha(theme.foreground.a) * 255 : 255;
+  // An inverse cell's colors are concrete after the swap above, so both its
+  // foreground and background are fully opaque. Only a non-inverse cell with a
+  // default background stays transparent (bgA = 0) so the line-level
+  // background can show through.
+  let fgA = fgIsDefault && !isInverse ? clampAlpha(theme.foreground.a) * 255 : 255;
   if (decoration?.foreground && !isSelected) {
     fgA = clampAlpha(decoration.foreground.a) * 255;
   }
@@ -472,7 +487,7 @@ function resolveCellColors(
     fgA = Math.round(fgA * 0.5);
   }
 
-  let bgA = bgIsDefault ? 0 : 255;
+  let bgA = bgIsDefault && !isInverse ? 0 : 255;
   if (!isSelected && decoration?.background) {
     bgR = decoration.background.r;
     bgG = decoration.background.g;
