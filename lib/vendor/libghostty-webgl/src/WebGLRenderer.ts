@@ -330,7 +330,14 @@ export class WebGLRenderer implements Renderer {
     }
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    if (!input.allowTransparency && this.background) {
+    // Always run the cell-background pass, even with transparency enabled.
+    // The background fragment shader discards fragments whose resolved
+    // background alpha is 0, so cells with a default background stay
+    // transparent and let whatever is behind the canvas show through. Skipping
+    // the whole pass under transparency also dropped cells with an *explicit*
+    // background (e.g. selections, reverse-video blocks, themed regions),
+    // making them invisible over a transparent canvas.
+    if (this.background) {
       gl.useProgram(this.background.program);
       gl.bindVertexArray(this.background.vao);
       gl.uniform2f(this.background.uniforms.u_cellSize, cellSize.width, cellSize.height);
