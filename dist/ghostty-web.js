@@ -7024,8 +7024,13 @@ class kg {
    * Internal write implementation (extracted from write())
    */
   writeInternal(A, g) {
-    var I;
-    this.wasmTerm.write(A), this.processTerminalResponses(), typeof A == "string" && A.includes("\x07") ? this.bellEmitter.fire() : A instanceof Uint8Array && A.includes(7) && this.bellEmitter.fire(), (I = this.linkDetector) == null || I.invalidateCache(), this.viewportY !== 0 && this.scrollToBottom(), typeof A == "string" && A.includes("\x1B]") && this.checkForTitleChange(A), g && this.scheduleAnimationFrame(g), this.requestRender();
+    var Q;
+    const I = this.viewportY !== 0 ? this.getScrollbackLength() : 0;
+    if (this.wasmTerm.write(A), this.processTerminalResponses(), typeof A == "string" && A.includes("\x07") ? this.bellEmitter.fire() : A instanceof Uint8Array && A.includes(7) && this.bellEmitter.fire(), (Q = this.linkDetector) == null || Q.invalidateCache(), this.viewportY !== 0) {
+      const C = this.getScrollbackLength() - I;
+      C > 0 && (this.viewportY = Math.min(this.getScrollbackLength(), this.viewportY + C), this.scrollEmitter.fire(Math.floor(this.viewportY)));
+    }
+    typeof A == "string" && A.includes("\x1B]") && this.checkForTitleChange(A), g && this.scheduleAnimationFrame(g), this.requestRender();
   }
   /**
    * Write data with newline
