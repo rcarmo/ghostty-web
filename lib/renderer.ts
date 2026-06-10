@@ -821,21 +821,23 @@ export class CanvasRenderer {
       bg_b = cell.bg_b;
 
     if (cell.flags & CellFlags.INVERSE) {
-      // When inverted, background becomes foreground
-      bg_r = cell.fg_r;
-      bg_g = cell.fg_g;
-      bg_b = cell.fg_b;
-    }
-
-    // Cells with the default bg let the line-level theme.background fill
-    // (drawn earlier in renderLine) show through. Cells with an explicit
-    // bg — including literal RGB(0,0,0) — get painted here. The cell's
-    // bgIsDefault flag carries the GhosttyStyleColor tag from upstream;
-    // we cannot infer it from the RGB triple because (0,0,0) is a valid
-    // explicit color (programs emit it for "true black" backgrounds, e.g.
-    // letterboxed image renderings).
-    const useThemeBg = cell.flags & CellFlags.INVERSE ? cell.fgIsDefault : cell.bgIsDefault;
-    if (!useThemeBg) {
+      // When inverted, the cell's background becomes its foreground. A default
+      // foreground resolves to theme.foreground here (not the line-level
+      // background) so the inverted block is actually painted — e.g. a
+      // reverse-video cursor or selection drawn with default colors. Without
+      // this, such a cell would be skipped below and render invisibly.
+      this.ctx.fillStyle = cell.fgIsDefault
+        ? this.theme.foreground
+        : this.rgbToCSS(cell.fg_r, cell.fg_g, cell.fg_b);
+      this.ctx.fillRect(cellX, cellY, cellWidth, this.metrics.height);
+    } else if (!cell.bgIsDefault) {
+      // Non-inverse cells with the default bg let the line-level
+      // theme.background fill (drawn earlier in renderLine) show through.
+      // Cells with an explicit bg — including literal RGB(0,0,0) — get painted
+      // here. The cell's bgIsDefault flag carries the GhosttyStyleColor tag
+      // from upstream; we cannot infer it from the RGB triple because (0,0,0)
+      // is a valid explicit color (programs emit it for "true black"
+      // backgrounds, e.g. letterboxed image renderings).
       this.ctx.fillStyle = this.rgbToCSS(bg_r, bg_g, bg_b);
       this.ctx.fillRect(cellX, cellY, cellWidth, this.metrics.height);
     }
@@ -925,11 +927,17 @@ export class CanvasRenderer {
           fg_b = cell.bg_b;
         }
 
-        // Same reasoning as the bg path: only fall back to theme.foreground
-        // when the cell has the default fg (tag NONE), not when its explicit
-        // RGB happens to be (0,0,0).
+        // Same reasoning as the bg path: only fall back to a theme color when
+        // the cell has the default color (tag NONE), not when its explicit RGB
+        // happens to be (0,0,0). For an inverse cell the glyph is drawn in the
+        // background color, so a default resolves to theme.background; for a
+        // normal cell it resolves to theme.foreground.
         const useThemeFg = cell.flags & CellFlags.INVERSE ? cell.bgIsDefault : cell.fgIsDefault;
-        fillColor = useThemeFg ? this.theme.foreground : this.rgbToCSS(fg_r, fg_g, fg_b);
+        fillColor = useThemeFg
+          ? cell.flags & CellFlags.INVERSE
+            ? this.theme.background
+            : this.theme.foreground
+          : this.rgbToCSS(fg_r, fg_g, fg_b);
       }
     }
     this.ctx.fillStyle = fillColor;
