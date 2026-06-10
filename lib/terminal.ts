@@ -169,6 +169,7 @@ export class Terminal implements ITerminalCore {
       convertEol: options.convertEol ?? false,
       disableStdin: options.disableStdin ?? false,
       smoothScrollDuration: options.smoothScrollDuration ?? 100, // Default: 100ms smooth scroll
+      scrollSensitivity: options.scrollSensitivity ?? 1, // Wheel/trackpad scroll-speed multiplier
       renderer: options.renderer ?? 'canvas',
     };
 
@@ -1953,6 +1954,9 @@ export class Terminal implements ITerminalCore {
         // Fallback: assume pixel mode with legacy divisor
         deltaLines = e.deltaY / 33;
       }
+
+      // Apply the configured scroll-speed multiplier (default 1).
+      deltaLines *= this.options.scrollSensitivity ?? 1;
 
       // Use smooth scrolling for any amount (no rounding needed)
       if (deltaLines !== 0) {
