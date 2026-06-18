@@ -13,6 +13,7 @@ export interface ITerminalOptions {
   scrollback?: number; // Default: 1000
   fontSize?: number; // Default: 15
   fontFamily?: string; // Default: 'monospace'
+  fontWeight?: number; // Default: 400; bold derived as min(fontWeight + 200, 900)
   allowTransparency?: boolean;
   /**
    * Rendering backend selection.

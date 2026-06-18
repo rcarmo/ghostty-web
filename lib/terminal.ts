@@ -165,6 +165,7 @@ export class Terminal implements ITerminalCore {
       scrollback: options.scrollback ?? 10000,
       fontSize: options.fontSize ?? 15,
       fontFamily: options.fontFamily ?? 'monospace',
+      fontWeight: options.fontWeight ?? 400,
       allowTransparency: options.allowTransparency ?? false,
       convertEol: options.convertEol ?? false,
       disableStdin: options.disableStdin ?? false,
@@ -274,6 +275,13 @@ export class Terminal implements ITerminalCore {
         }
         break;
 
+      case 'fontWeight':
+        if (this.renderer) {
+          this.renderer.setFontWeight(this.options.fontWeight ?? 400);
+          this.handleFontChange();
+        }
+        break;
+
       case 'scrollbarWidth':
         if (this.renderer) {
           this.renderer.setScrollbarWidth(this.options.scrollbarWidth ?? 8);
@@ -300,6 +308,12 @@ export class Terminal implements ITerminalCore {
    * Handle font changes (fontSize or fontFamily)
    * Updates canvas size to match new font metrics and forces a full re-render
    */
+  remeasureFont(): void {
+    if (!this.renderer) return;
+    this.renderer.remeasureFont();
+    this.handleFontChange();
+  }
+
   private handleFontChange(): void {
     if (!this.renderer || !this.wasmTerm || !this.canvas) return;
 
@@ -542,6 +556,7 @@ export class Terminal implements ITerminalCore {
       const rendererOptions = {
         fontSize: this.options.fontSize,
         fontFamily: this.options.fontFamily,
+        fontWeight: this.options.fontWeight,
         cursorStyle: this.options.cursorStyle,
         cursorBlink: this.options.cursorBlink,
         theme: this.options.theme,

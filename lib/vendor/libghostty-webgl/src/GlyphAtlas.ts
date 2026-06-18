@@ -52,6 +52,7 @@ export class GlyphAtlas {
   private gl: WebGL2RenderingContext;
   private fontSize: number;
   private fontFamily: string;
+  private fontWeight: number;
   private dpr: number;
   private atlasSize: number;
   private colorAtlasSize: number;
@@ -66,10 +67,11 @@ export class GlyphAtlas {
   private colorCanvas: HTMLCanvasElement | OffscreenCanvas;
   private colorCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-  constructor(gl: WebGL2RenderingContext, fontSize: number, fontFamily: string, dpr: number) {
+  constructor(gl: WebGL2RenderingContext, fontSize: number, fontFamily: string, fontWeight: number, dpr: number) {
     this.gl = gl;
     this.fontSize = sanitizePositive(fontSize, 15);
     this.fontFamily = fontFamily;
+    this.fontWeight = fontWeight;
     this.dpr = sanitizePositive(dpr, 1);
 
     const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
@@ -139,9 +141,10 @@ export class GlyphAtlas {
     this.resetPages();
   }
 
-  reset(fontSize: number, fontFamily: string, dpr: number): void {
+  reset(fontSize: number, fontFamily: string, fontWeight: number, dpr: number): void {
     this.fontSize = sanitizePositive(fontSize, this.fontSize);
     this.fontFamily = fontFamily;
+    this.fontWeight = fontWeight;
     this.dpr = sanitizePositive(dpr, this.dpr);
     this.resetPages();
     this.glyphs.clear();
@@ -241,9 +244,8 @@ export class GlyphAtlas {
     const canvas = isColor ? this.colorCanvas : this.canvas;
 
     const fontSizePx = this.fontSize * this.dpr;
-    const style = `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${fontSizePx}px ${
-      this.fontFamily
-    }`;
+    const weight = bold ? Math.min(this.fontWeight + 200, 900) : this.fontWeight;
+    const style = `${italic ? 'italic ' : ''}${weight} ${fontSizePx}px ${this.fontFamily}`;
     ctx.font = style;
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'left';

@@ -81,6 +81,7 @@ export class WebGLRenderer implements ITerminalRenderer {
     this.vendored = new VendoredWebGLRenderer({
       fontSize: options.fontSize,
       fontFamily: options.fontFamily,
+      fontWeight: options.fontWeight,
       devicePixelRatio: options.devicePixelRatio,
       ownerDocument: canvas.ownerDocument,
       alpha: this.allowTransparency,
@@ -164,6 +165,16 @@ export class WebGLRenderer implements ITerminalRenderer {
   setFontFamily(fontFamily: string): void {
     this.options.fontFamily = fontFamily;
     this.vendored.setFontFamily(fontFamily);
+  }
+
+  setFontWeight(weight: number): void {
+    if (!Number.isFinite(weight) || weight < 1 || weight > 1000) return;
+    this.options.fontWeight = weight;
+    this.vendored.setFontWeight(weight);
+  }
+
+  remeasureFont(): void {
+    this.vendored.remeasureFont();
   }
 
   setCursorStyle(style: 'block' | 'underline' | 'bar'): void {

@@ -3,6 +3,7 @@ export declare class CanvasRenderer {
     private ctx;
     private fontSize;
     private fontFamily;
+    private fontWeight;
     private cursorStyle;
     private cursorBlink;
     private theme;
@@ -84,7 +85,8 @@ export declare class CanvasRenderer {
     private getDevicePixelRatio;
     private measureFont;
     /**
-     * Remeasure font metrics (call after font loads or changes)
+     * Remeasure font metrics (call after font loads or changes).
+     * Rebuilds cached font strings so Canvas2D picks up newly-loaded font files.
      */
     remeasureFont(): void;
     private rgbToCSS;
@@ -219,6 +221,7 @@ export declare class CanvasRenderer {
      * Update font family
      */
     setFontFamily(family: string): void;
+    setFontWeight(weight: number): void;
     /**
      * Update cursor style
      */
@@ -1517,6 +1520,7 @@ export declare interface ITerminalOptions {
     scrollback?: number;
     fontSize?: number;
     fontFamily?: string;
+    fontWeight?: number;
     allowTransparency?: boolean;
     /**
      * Rendering backend selection.
@@ -1550,6 +1554,8 @@ declare interface ITerminalRenderer {
     setAllowTransparency(allowTransparency: boolean): void;
     setFontSize(fontSize: number): void;
     setFontFamily(fontFamily: string): void;
+    setFontWeight(weight: number): void;
+    remeasureFont(): void;
     setCursorStyle(style: 'block' | 'underline' | 'bar'): void;
     setCursorBlink(blink: boolean): void;
     setScrollbarWidth(width: number): void;
@@ -2036,6 +2042,7 @@ export declare class OSC8LinkProvider implements ILinkProvider {
 export declare interface RendererOptions {
     fontSize?: number;
     fontFamily?: string;
+    fontWeight?: number;
     cursorStyle?: 'block' | 'underline' | 'bar';
     cursorBlink?: boolean;
     theme?: ITheme;
@@ -2344,6 +2351,7 @@ export declare class Terminal implements ITerminalCore {
      * Handle font changes (fontSize or fontFamily)
      * Updates canvas size to match new font metrics and forces a full re-render
      */
+    remeasureFont(): void;
     private handleFontChange;
     /**
      * Parse a CSS color string to 0xRRGGBB format.
