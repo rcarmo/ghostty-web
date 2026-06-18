@@ -23,6 +23,8 @@ export interface ITerminalRenderer {
   setAllowTransparency(allowTransparency: boolean): void;
   setFontSize(fontSize: number): void;
   setFontFamily(fontFamily: string): void;
+  setFontWeight(weight: number): void;
+  remeasureFont(): void;
   setCursorStyle(style: 'block' | 'underline' | 'bar'): void;
   setCursorBlink(blink: boolean): void;
   setScrollbarWidth(width: number): void;

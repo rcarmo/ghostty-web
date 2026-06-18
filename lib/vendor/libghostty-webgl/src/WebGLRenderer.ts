@@ -23,6 +23,7 @@ interface ProgramInfo {
 export interface WebGLRendererOptions {
   fontSize?: number;
   fontFamily?: string;
+  fontWeight?: number;
   devicePixelRatio?: number;
   antialias?: boolean;
   alpha?: boolean;
@@ -36,6 +37,7 @@ export class WebGLRenderer implements Renderer {
   private options: WebGLRendererOptions;
   private fontSize: number;
   private fontFamily: string;
+  private fontWeight: number;
   private dpr: number;
   private fixedDevicePixelRatio?: number;
   private metrics: CellMetrics;
@@ -59,6 +61,7 @@ export class WebGLRenderer implements Renderer {
     this.options = options;
     this.fontSize = options.fontSize ?? 15;
     this.fontFamily = options.fontFamily ?? 'monospace';
+    this.fontWeight = options.fontWeight ?? 400;
     this.fixedDevicePixelRatio = options.devicePixelRatio;
     this.dpr = this.getDevicePixelRatio();
     this.metrics = this.measureFont();
@@ -161,14 +164,28 @@ export class WebGLRenderer implements Renderer {
     if (!Number.isFinite(size) || size <= 0) return;
     this.fontSize = size;
     this.metrics = this.measureFont();
-    this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.dpr);
+    this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr);
     this.forceFullUpload = true;
   }
 
   setFontFamily(family: string): void {
     this.fontFamily = family;
     this.metrics = this.measureFont();
-    this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.dpr);
+    this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr);
+    this.forceFullUpload = true;
+  }
+
+  setFontWeight(weight: number): void {
+    if (!Number.isFinite(weight) || weight < 1 || weight > 1000) return;
+    this.fontWeight = weight;
+    this.metrics = this.measureFont();
+    this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr);
+    this.forceFullUpload = true;
+  }
+
+  remeasureFont(): void {
+    this.metrics = this.measureFont();
+    this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr);
     this.forceFullUpload = true;
   }
 
@@ -223,7 +240,7 @@ export class WebGLRenderer implements Renderer {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
 
     this.cellBuffer = new CellBuffer(gl);
-    this.glyphAtlas = new GlyphAtlas(gl, this.fontSize, this.fontFamily, this.dpr);
+    this.glyphAtlas = new GlyphAtlas(gl, this.fontSize, this.fontFamily, this.fontWeight, this.dpr);
 
     this.background = this.createProgramInfo(backgroundVertexSource, backgroundFragmentSource, [
       'u_cellSize',
@@ -551,7 +568,7 @@ export class WebGLRenderer implements Renderer {
     if (!ctx) {
       return { width: this.fontSize, height: this.fontSize, baseline: this.fontSize };
     }
-    ctx.font = `${this.fontSize}px ${this.fontFamily}`;
+    ctx.font = `${this.fontWeight} ${this.fontSize}px ${this.fontFamily}`;
     const metrics = ctx.measureText('M');
     const width = Math.ceil(metrics.width);
     const ascent = metrics.actualBoundingBoxAscent || this.fontSize * 0.8;
@@ -564,7 +581,7 @@ export class WebGLRenderer implements Renderer {
   private setDevicePixelRatio(dpr: number): void {
     this.dpr = dpr;
     this.metrics = this.measureFont();
-    this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.dpr);
+    this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr);
     if (this.gridCols > 0 && this.gridRows > 0) {
       this.resize(this.gridCols, this.gridRows);
     }

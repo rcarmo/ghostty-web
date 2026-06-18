@@ -62,6 +62,7 @@ export const DEFAULT_SCROLLBAR_WIDTH = 8;
 export interface RendererOptions {
   fontSize?: number; // Default: 15
   fontFamily?: string; // Default: 'monospace'
+  fontWeight?: number; // Default: 400
   cursorStyle?: 'block' | 'underline' | 'bar'; // Default: 'block'
   cursorBlink?: boolean; // Default: false
   theme?: ITheme;
@@ -144,6 +145,7 @@ export class CanvasRenderer {
   private ctx: CanvasRenderingContext2D;
   private fontSize: number;
   private fontFamily: string;
+  private fontWeight: number;
   private cursorStyle: 'block' | 'underline' | 'bar';
   private cursorBlink: boolean;
   private theme: Required<ITheme>;
@@ -299,6 +301,7 @@ export class CanvasRenderer {
     // Apply options
     this.fontSize = options.fontSize ?? 15;
     this.fontFamily = options.fontFamily ?? 'monospace';
+    this.fontWeight = options.fontWeight ?? 400;
     this.cursorStyle = options.cursorStyle ?? 'block';
     this.cursorBlink = options.cursorBlink ?? false;
     this.theme = { ...DEFAULT_THEME, ...options.theme };
@@ -333,12 +336,13 @@ export class CanvasRenderer {
         return `"${trimmed}"`;
       })
       .join(', ');
+    const boldWeight = Math.min(this.fontWeight + 200, 900);
     const base = `${this.fontSize}px ${quotedFamily}`;
     return {
-      plain: base,
-      bold: `bold ${base}`,
-      italic: `italic ${base}`,
-      boldItalic: `bold italic ${base}`,
+      plain: `${this.fontWeight} ${base}`,
+      bold: `${boldWeight} ${base}`,
+      italic: `italic ${this.fontWeight} ${base}`,
+      boldItalic: `italic ${boldWeight} ${base}`,
     };
   }
 
@@ -387,9 +391,11 @@ export class CanvasRenderer {
   }
 
   /**
-   * Remeasure font metrics (call after font loads or changes)
+   * Remeasure font metrics (call after font loads or changes).
+   * Rebuilds cached font strings so Canvas2D picks up newly-loaded font files.
    */
   public remeasureFont(): void {
+    this.fontStrings = this.buildFontStrings();
     this.metrics = this.measureFont();
   }
 
@@ -2107,6 +2113,13 @@ export class CanvasRenderer {
    */
   public setFontFamily(family: string): void {
     this.fontFamily = family;
+    this.fontStrings = this.buildFontStrings();
+    this.metrics = this.measureFont();
+  }
+
+  public setFontWeight(weight: number): void {
+    if (!Number.isFinite(weight) || weight < 1 || weight > 1000) return;
+    this.fontWeight = weight;
     this.fontStrings = this.buildFontStrings();
     this.metrics = this.measureFont();
   }
