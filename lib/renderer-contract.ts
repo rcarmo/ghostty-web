@@ -41,4 +41,13 @@ export interface ITerminalRenderer {
   clearPreedit(): void;
   attachOverlayTo(parent: HTMLElement): void;
   setOnRequestRender(onRequestRender: () => void): void;
+
+  /**
+   * WebGL-only: install a custom post-process fragment shader as a final
+   * composite pass, or null to render directly again. Undefined on
+   * CanvasRenderer — check for presence before calling. See
+   * WebGLRenderer.setPostProcessShader (lib/webgl-renderer.ts) for the
+   * shader contract.
+   */
+  setPostProcessShader?(fragmentSource: string | null): void;
 }

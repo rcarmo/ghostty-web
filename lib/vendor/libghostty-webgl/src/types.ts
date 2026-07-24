@@ -131,4 +131,5 @@ export interface Renderer {
   readonly charHeight: number;
   clear(): void;
   dispose(): void;
+  setPostProcessShader(fragmentSource: string | null): void;
 }

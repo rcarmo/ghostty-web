@@ -257,6 +257,11 @@ export class WebGLRenderer implements ITerminalRenderer {
     this.onRequestRender = onRequestRender;
   }
 
+  /** See VendoredWebGLRenderer.setPostProcessShader for the shader contract. */
+  setPostProcessShader(fragmentSource: string | null): void {
+    this.vendored.setPostProcessShader(fragmentSource);
+  }
+
   private startCursorBlink(): void {
     if (this.cursorBlinkInterval !== undefined) return;
     const view = this.canvas.ownerDocument.defaultView;

@@ -9,6 +9,10 @@ const log = debug('bootty:webgl');
 import { backgroundFragmentSource, backgroundVertexSource } from './shaders/background';
 import { decorationFragmentSource, decorationVertexSource } from './shaders/decoration';
 import { glyphFragmentSource, glyphVertexSource } from './shaders/glyph';
+import {
+  passthroughPostProcessFragmentSource,
+  postProcessVertexSource,
+} from './shaders/postprocess';
 import { solidFragmentSource, solidVertexSource } from './shaders/solid';
 
 const CELL_STRIDE = 32;
@@ -18,6 +22,17 @@ interface ProgramInfo {
   program: WebGLProgram;
   vao: WebGLVertexArrayObject;
   uniforms: Record<string, WebGLUniformLocation>;
+}
+
+// Post-process uniforms are looked up leniently (missing → null, not an
+// error): a caller's fragment shader is free to ignore u_resolution/u_time if
+// its effect doesn't need them.
+interface PostProcessProgramInfo {
+  program: WebGLProgram;
+  vao: WebGLVertexArrayObject;
+  uScene: WebGLUniformLocation | null;
+  uResolution: WebGLUniformLocation | null;
+  uTime: WebGLUniformLocation | null;
 }
 
 export interface WebGLRendererOptions {
@@ -55,6 +70,18 @@ export class WebGLRenderer implements Renderer {
   private contextValid = false;
   private contextLossCount = 0;
   private forceFullUpload = true;
+
+  // Post-processing (see setPostProcessShader). Lazily allocated: the scene
+  // FBO and blit program only exist once a consumer opts in, so terminals
+  // that never touch this feature pay zero extra GPU memory or draw calls.
+  private sceneFramebuffer?: WebGLFramebuffer;
+  private sceneTexture?: WebGLTexture;
+  private sceneWidth = 0;
+  private sceneHeight = 0;
+  private postProcessProgram?: PostProcessProgramInfo;
+  private customPostProcessSource: string | null = null;
+  private postProcessActive = false;
+  private readonly postProcessStartTime = nowMs();
 
   constructor(options: WebGLRendererOptions = {}) {
     log('WebGLRenderer constructor called');
@@ -122,6 +149,9 @@ export class WebGLRenderer implements Renderer {
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.cellBuffer?.resize(cols, rows);
     this.forceFullUpload = true;
+    if (this.postProcessActive) {
+      this.resizeSceneFramebuffer(this.canvas.width, this.canvas.height);
+    }
   }
 
   render(input: RenderInput): void {
@@ -139,8 +169,17 @@ export class WebGLRenderer implements Renderer {
 
     const instanceCount = input.cols * input.rows;
     const drawStart = profileStart();
+    const gl = this.gl!;
+    const usePostProcess = this.postProcessActive && !!this.sceneFramebuffer;
+    if (usePostProcess) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFramebuffer!);
+    }
     this.drawFramePasses(input, instanceCount);
     this.drawOverlays(input);
+    if (usePostProcess) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this.blitScene();
+    }
     profileDuration('bootty:webgl:draw', drawStart, {
       cols: input.cols,
       rows: input.rows,
@@ -158,6 +197,47 @@ export class WebGLRenderer implements Renderer {
 
   updateTheme(theme: TerminalTheme): void {
     this.theme = theme;
+  }
+
+  /**
+   * Install (or clear) a custom post-process fragment shader, run as a final
+   * fullscreen composite pass after the terminal's own background/glyph/
+   * decoration/cursor/scrollbar passes.
+   *
+   * Once any non-null shader is installed, rendering switches from "draw
+   * straight to the canvas" to "draw to an offscreen scene texture, then
+   * composite via this shader" — an extra same-context texture sample + draw
+   * call per frame, not a cross-context canvas copy, so it doesn't pay the
+   * GPU/driver synchronization cost of copying a *live, separately-rendering*
+   * WebGL canvas into another context (which is what made an earlier
+   * external-overlay prototype visibly stall typing in btmux). Passing null
+   * reverts to the zero-overhead direct-to-canvas path.
+   *
+   * Shader contract (GLSL ES 3.00):
+   *   in vec2 v_uv;              // 0..1, already oriented to match the terminal grid
+   *   uniform sampler2D u_scene; // the rendered terminal frame
+   *   uniform vec2 u_resolution; // scene texture size in device pixels (optional)
+   *   uniform float u_time;      // seconds since this shader was installed (optional)
+   *   out vec4 fragColor;
+   *
+   * u_resolution/u_time are looked up leniently — omit them if unused.
+   * Compile/link failures are logged and fall back to an unmodified
+   * passthrough composite rather than losing terminal output.
+   */
+  setPostProcessShader(fragmentSource: string | null): void {
+    if (fragmentSource === this.customPostProcessSource) return;
+    this.customPostProcessSource = fragmentSource;
+
+    if (fragmentSource === null) {
+      this.postProcessActive = false;
+      return;
+    }
+
+    this.postProcessActive = true;
+    if (this.canvas) {
+      this.resizeSceneFramebuffer(this.canvas.width, this.canvas.height);
+    }
+    this.compilePostProcessProgram(fragmentSource);
   }
 
   setFontSize(size: number): void {
@@ -267,6 +347,15 @@ export class WebGLRenderer implements Renderer {
     );
 
     this.forceFullUpload = true;
+
+    // Context-restore path: if a post-process shader was active before the
+    // context was lost, bring it back along with everything else.
+    if (this.customPostProcessSource !== null) {
+      if (this.canvas) {
+        this.resizeSceneFramebuffer(this.canvas.width, this.canvas.height);
+      }
+      this.compilePostProcessProgram(this.customPostProcessSource);
+    }
   }
 
   private releaseResources(): void {
@@ -290,12 +379,144 @@ export class WebGLRenderer implements Renderer {
     this.cellBuffer = undefined;
     this.glyphAtlas?.dispose();
     this.glyphAtlas = undefined;
+
+    this.disposeSceneFramebuffer();
+    this.disposePostProcessProgram();
   }
 
   private deleteProgramInfo(info: ProgramInfo | undefined): void {
     if (!this.gl || !info) return;
     this.gl.deleteVertexArray(info.vao);
     this.gl.deleteProgram(info.program);
+  }
+
+  private resizeSceneFramebuffer(width: number, height: number): void {
+    if (!this.gl) return;
+    if (width <= 0 || height <= 0) return;
+    if (this.sceneFramebuffer && this.sceneWidth === width && this.sceneHeight === height) return;
+    const gl = this.gl;
+
+    this.disposeSceneFramebuffer();
+
+    const texture = gl.createTexture();
+    if (!texture) {
+      log('failed to create scene texture');
+      return;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    const framebuffer = gl.createFramebuffer();
+    if (!framebuffer) {
+      log('failed to create scene framebuffer');
+      gl.deleteTexture(texture);
+      return;
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+      log('scene framebuffer incomplete, status=%s', status);
+      gl.deleteFramebuffer(framebuffer);
+      gl.deleteTexture(texture);
+      return;
+    }
+
+    this.sceneTexture = texture;
+    this.sceneFramebuffer = framebuffer;
+    this.sceneWidth = width;
+    this.sceneHeight = height;
+  }
+
+  private disposeSceneFramebuffer(): void {
+    const gl = this.gl;
+    if (!gl) return;
+    if (this.sceneFramebuffer) {
+      gl.deleteFramebuffer(this.sceneFramebuffer);
+      this.sceneFramebuffer = undefined;
+    }
+    if (this.sceneTexture) {
+      gl.deleteTexture(this.sceneTexture);
+      this.sceneTexture = undefined;
+    }
+    this.sceneWidth = 0;
+    this.sceneHeight = 0;
+  }
+
+  private compilePostProcessProgram(fragmentSource: string): void {
+    if (!this.gl || !this.quadVbo) return;
+    const gl = this.gl;
+
+    let program: WebGLProgram;
+    try {
+      program = createProgram(gl, postProcessVertexSource, fragmentSource);
+    } catch (err) {
+      log('custom post-process shader failed to compile, falling back to passthrough: %s', err);
+      try {
+        program = createProgram(gl, postProcessVertexSource, passthroughPostProcessFragmentSource);
+      } catch (fallbackErr) {
+        log('passthrough post-process shader failed to compile: %s', fallbackErr);
+        return;
+      }
+    }
+
+    const vao = gl.createVertexArray();
+    if (!vao) {
+      log('failed to create post-process VAO');
+      gl.deleteProgram(program);
+      return;
+    }
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVbo);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+
+    this.disposePostProcessProgram();
+    this.postProcessProgram = {
+      program,
+      vao,
+      uScene: gl.getUniformLocation(program, 'u_scene'),
+      uResolution: gl.getUniformLocation(program, 'u_resolution'),
+      uTime: gl.getUniformLocation(program, 'u_time'),
+    };
+  }
+
+  private disposePostProcessProgram(): void {
+    const gl = this.gl;
+    if (!gl || !this.postProcessProgram) return;
+    gl.deleteVertexArray(this.postProcessProgram.vao);
+    gl.deleteProgram(this.postProcessProgram.program);
+    this.postProcessProgram = undefined;
+  }
+
+  // Composite the offscreen scene texture onto the currently-bound
+  // framebuffer (the visible canvas — caller has already bound it). Assumes
+  // sceneFramebuffer/postProcessProgram exist; render() only calls this when
+  // usePostProcess is true, which implies both were successfully created.
+  private blitScene(): void {
+    if (!this.gl || !this.canvas || !this.sceneTexture || !this.postProcessProgram) return;
+    const gl = this.gl;
+    const info = this.postProcessProgram;
+
+    // No clear needed first: the fullscreen quad below covers every pixel of
+    // the viewport unconditionally.
+    gl.disable(gl.BLEND);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+
+    gl.useProgram(info.program);
+    gl.bindVertexArray(info.vao);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.sceneTexture);
+    if (info.uScene) gl.uniform1i(info.uScene, 0);
+    if (info.uResolution) gl.uniform2f(info.uResolution, this.canvas.width, this.canvas.height);
+    if (info.uTime) gl.uniform1f(info.uTime, (nowMs() - this.postProcessStartTime) / 1000);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
   private prepareFrame(input: RenderInput): boolean {
@@ -606,6 +827,10 @@ export class WebGLRenderer implements Renderer {
       this.contextValid = false;
     }
   };
+}
+
+function nowMs(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
 function createShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
