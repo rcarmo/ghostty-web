@@ -81,7 +81,7 @@ export class WebGLRenderer implements Renderer {
   private postProcessProgram?: PostProcessProgramInfo;
   private customPostProcessSource: string | null = null;
   private postProcessActive = false;
-  private readonly postProcessStartTime = nowMs();
+  private postProcessStartTime = nowMs();
 
   constructor(options: WebGLRendererOptions = {}) {
     log('WebGLRenderer constructor called');
@@ -233,6 +233,12 @@ export class WebGLRenderer implements Renderer {
       return;
     }
 
+    // Reset so u_time actually measures "seconds since this shader was
+    // installed" as documented, rather than carrying over accumulated time
+    // from whenever this renderer was constructed (which starves any
+    // u_time-driven animation like a ramp — it'd see a huge value and jump
+    // straight to its end state on the very next frame).
+    this.postProcessStartTime = nowMs();
     this.postProcessActive = true;
     if (this.canvas) {
       this.resizeSceneFramebuffer(this.canvas.width, this.canvas.height);
@@ -351,6 +357,7 @@ export class WebGLRenderer implements Renderer {
     // Context-restore path: if a post-process shader was active before the
     // context was lost, bring it back along with everything else.
     if (this.customPostProcessSource !== null) {
+      this.postProcessStartTime = nowMs();
       if (this.canvas) {
         this.resizeSceneFramebuffer(this.canvas.width, this.canvas.height);
       }

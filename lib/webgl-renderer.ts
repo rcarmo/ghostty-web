@@ -257,9 +257,32 @@ export class WebGLRenderer implements ITerminalRenderer {
     this.onRequestRender = onRequestRender;
   }
 
-  /** See VendoredWebGLRenderer.setPostProcessShader for the shader contract. */
+  /**
+   * See VendoredWebGLRenderer.setPostProcessShader for the shader contract.
+   *
+   * Wakes the terminal for one fresh frame: ghostty-web only repaints on its
+   * own event-driven wake points (PTY writes, cursor blink, etc — see
+   * Terminal.requestRender), so an idle terminal wouldn't otherwise pick up
+   * a shader swap until the next unrelated wake, which could be up to a
+   * cursor-blink-interval away. A single wake is enough for a static effect;
+   * an animated one (e.g. a shader whose u_time drives a ramp) needs the
+   * caller to keep calling requestRender() for the animation's duration —
+   * see requestRender below.
+   */
   setPostProcessShader(fragmentSource: string | null): void {
     this.vendored.setPostProcessShader(fragmentSource);
+    this.onRequestRender?.();
+  }
+
+  /**
+   * Force a render on the next frame. Exposed so callers driving a
+   * u_time-based post-process animation (e.g. a ramp in/out) can pump
+   * continuous frames while the terminal is otherwise idle and wouldn't
+   * repaint on its own — call this once per requestAnimationFrame tick for
+   * the animation's duration.
+   */
+  requestRender(): void {
+    this.onRequestRender?.();
   }
 
   private startCursorBlink(): void {

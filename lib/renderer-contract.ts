@@ -50,4 +50,13 @@ export interface ITerminalRenderer {
    * shader contract.
    */
   setPostProcessShader?(fragmentSource: string | null): void;
+
+  /**
+   * WebGL-only: force a render on the next frame. Undefined on
+   * CanvasRenderer. Needed to pump continuous frames for a u_time-driven
+   * post-process animation (e.g. a ramp) while the terminal is otherwise
+   * idle and wouldn't repaint on its own — see
+   * WebGLRenderer.requestRender (lib/webgl-renderer.ts).
+   */
+  requestRender?(): void;
 }
