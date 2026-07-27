@@ -212,6 +212,56 @@ describe('SelectionManager', () => {
       term.dispose();
     });
 
+    test('copyOnSelect false suppresses automatic copy but preserves explicit copy', async () => {
+      if (!container) return;
+
+      const term = await createIsolatedTerminal({
+        cols: 80,
+        rows: 24,
+        copyOnSelect: false,
+      });
+      term.open(container);
+      term.write('Hello World\r\n');
+
+      const scrollbackLen = term.wasmTerm!.getScrollbackLength();
+      setSelectionAbsolute(term, 0, scrollbackLen, 4, scrollbackLen);
+
+      const selMgr = (term as any).selectionManager;
+      const copied: string[] = [];
+      selMgr.copyToClipboard = (text: string) => copied.push(text);
+      selMgr.isSelecting = true;
+      selMgr.dragThresholdMet = true;
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+      expect(copied).toEqual([]);
+      expect(term.copySelection()).toBe(true);
+      expect(copied).toEqual(['Hello']);
+
+      term.dispose();
+    });
+
+    test('copyOnSelect defaults to automatic copy', async () => {
+      if (!container) return;
+
+      const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+      term.open(container);
+      term.write('Hello World\r\n');
+
+      const scrollbackLen = term.wasmTerm!.getScrollbackLength();
+      setSelectionAbsolute(term, 0, scrollbackLen, 4, scrollbackLen);
+
+      const selMgr = (term as any).selectionManager;
+      const copied: string[] = [];
+      selMgr.copyToClipboard = (text: string) => copied.push(text);
+      selMgr.isSelecting = true;
+      selMgr.dragThresholdMet = true;
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+
+      expect(copied).toEqual(['Hello']);
+
+      term.dispose();
+    });
+
     test('getSelection extracts multi-line text', async () => {
       if (!container) return;
 

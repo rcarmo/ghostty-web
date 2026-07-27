@@ -534,21 +534,51 @@ describe('InputHandler', () => {
       expect(dataReceived[0].charCodeAt(0)).toBe(0x1a);
     });
 
-    test('Cmd+C allows copy (no data sent)', () => {
+    test('Cmd+C explicitly copies a terminal selection', () => {
+      let copyRequests = 0;
       const handler = new InputHandler(
         ghostty,
         container as any,
         (data) => dataReceived.push(data),
         () => {
           bellCalled = true;
+        },
+        undefined,
+        undefined,
+        undefined,
+        () => {
+          copyRequests++;
+          return true;
         }
       );
+      const event = createKeyEvent('KeyC', 'c', { meta: true });
 
-      simulateKey(container, createKeyEvent('KeyC', 'c', { meta: true }));
+      simulateKey(container, event);
 
-      // Cmd+C should NOT send data - it should allow copy operation
-      // SelectionManager handles the actual copying
+      expect(copyRequests).toBe(1);
       expect(dataReceived.length).toBe(0);
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    test('Cmd+C preserves native copy when the terminal has no selection', () => {
+      const handler = new InputHandler(
+        ghostty,
+        container as any,
+        (data) => dataReceived.push(data),
+        () => {
+          bellCalled = true;
+        },
+        undefined,
+        undefined,
+        undefined,
+        () => false
+      );
+      const event = createKeyEvent('KeyC', 'c', { meta: true });
+
+      simulateKey(container, event);
+
+      expect(dataReceived.length).toBe(0);
+      expect(event.preventDefault).not.toHaveBeenCalled();
     });
   });
 

@@ -143,6 +143,9 @@ const term = new Terminal({
   cols: 80,
   rows: 24,
   cursorBlink: true,
+  // Set false when the host wants selection without automatic clipboard writes.
+  // Explicit Cmd+C / copySelection() still copy the active selection.
+  copyOnSelect: true,
   theme: {
     background: '#1e1e1e',
     foreground: '#d4d4d4',

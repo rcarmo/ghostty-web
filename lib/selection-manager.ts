@@ -224,6 +224,12 @@ export class SelectionManager {
     return true;
   }
 
+  private copySelectionAutomatically(text: string): void {
+    if (this.terminal.options.copyOnSelect) {
+      this.copyToClipboard(text);
+    }
+  }
+
   /**
    * Copy the current selection to clipboard
    * @returns true if there was text to copy, false otherwise
@@ -633,7 +639,7 @@ export class SelectionManager {
         if (this.hasSelection()) {
           const text = this.getSelection();
           if (text) {
-            this.copyToClipboard(text);
+            this.copySelectionAutomatically(text);
             this.selectionChangedEmitter.fire();
           }
         }
@@ -658,7 +664,7 @@ export class SelectionManager {
 
           const text = this.getSelection();
           if (text) {
-            this.copyToClipboard(text);
+            this.copySelectionAutomatically(text);
             this.selectionChangedEmitter.fire();
           }
         }
@@ -699,7 +705,7 @@ export class SelectionManager {
 
           const text = this.getSelection();
           if (text) {
-            this.copyToClipboard(text);
+            this.copySelectionAutomatically(text);
             this.selectionChangedEmitter.fire();
           }
         }

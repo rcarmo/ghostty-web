@@ -169,6 +169,7 @@ export class Terminal implements ITerminalCore {
       allowTransparency: options.allowTransparency ?? false,
       convertEol: options.convertEol ?? false,
       disableStdin: options.disableStdin ?? false,
+      copyOnSelect: options.copyOnSelect ?? true,
       smoothScrollDuration: options.smoothScrollDuration ?? 100, // Default: 100ms smooth scroll
       scrollSensitivity: options.scrollSensitivity ?? 1, // Wheel/trackpad scroll-speed multiplier
       renderer: options.renderer ?? 'canvas',
