@@ -12,13 +12,22 @@ Or install directly from GitHub (includes pre-built dist files):
 
 ```bash
 # Latest from main branch
-npm install github:rcarmo/ghostty-web
+npm install github:junaid33/ghostty-web
 
-# Specific commit or branch
-npm install github:rcarmo/ghostty-web#commit-sha
+# Specific commit or branch (recommended for production)
+npm install github:junaid33/ghostty-web#commit-sha
 ```
 
 > **Note:** GitHub installs work without requiring Zig because the repository includes pre-built `dist/` files and `ghostty-vt.wasm`.
+
+### VibeGhost renderer hardening
+
+This fork carries the VibeGhost fixes in source and in the checked-in distribution:
+
+- correct Kitty image movement through historical viewports
+- one active viewport decode per terminal mutation and a bounded 256-row scrollback cache
+- empty public writes that do not force the viewport to the live bottom
+- selection invalidation wired to the event-driven render scheduler through public `requestRender()`
 
 ## Quick Start
 

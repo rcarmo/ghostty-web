@@ -85,6 +85,29 @@ describe('SelectionManager', () => {
 
       term.dispose();
     });
+
+    test('selection invalidation wakes the event-driven terminal renderer', async () => {
+      if (!container) return;
+
+      const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+      term.open(container);
+      const selMgr = (term as any).selectionManager;
+      const terminalInternal = term as any;
+      terminalInternal.cancelRenderLoop();
+      const originalSchedule = terminalInternal.scheduleAnimationFrame;
+      let renderWakes = 0;
+      terminalInternal.scheduleAnimationFrame = () => {
+        renderWakes++;
+        return 123;
+      };
+
+      selMgr.requestRender();
+
+      expect(renderWakes).toBe(1);
+      terminalInternal.animationFrameId = undefined;
+      terminalInternal.scheduleAnimationFrame = originalSchedule;
+      term.dispose();
+    });
   });
 
   describe('Selection with absolute coordinates', () => {

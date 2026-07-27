@@ -385,6 +385,13 @@ export class GhosttyTerminal {
   /** Cell pool for zero-allocation rendering */
   private cellPool: GhosttyCell[] = [];
 
+  /** Active viewport decoded once per terminal mutation. */
+  private viewportCache: GhosttyCell[] | null = null;
+
+  /** Mutation-invalidated LRU for expensive historical row decoding. */
+  private readonly scrollbackLineCache = new Map<number, GhosttyCell[]>();
+  private static readonly SCROLLBACK_LINE_CACHE_LIMIT = 256;
+
   /**
    * Cell pixel dimensions last pushed to the WASM terminal via
    * ghostty_terminal_resize. Zero means "unknown / disabled" — kitty
@@ -758,6 +765,7 @@ export class GhosttyTerminal {
   write(data: string | Uint8Array): void {
     const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
     if (bytes.length === 0) return;
+    this.invalidateCellCaches();
     const ptr = this.exports.ghostty_wasm_alloc_u8_array(bytes.length);
     if (ptr === 0) throw new Error('Failed to allocate terminal write buffer');
     try {
@@ -779,6 +787,7 @@ export class GhosttyTerminal {
       this.cellWidthPx,
       this.cellHeightPx
     );
+    this.invalidateCellCaches();
     this.initCellPool();
   }
 
@@ -1032,9 +1041,11 @@ export class GhosttyTerminal {
     this.cellWidthPx = w;
     this.cellHeightPx = h;
     this.exports.ghostty_terminal_resize(this.handle, this._cols, this._rows, w, h);
+    this.invalidateCellCaches();
   }
 
   free(): void {
+    this.invalidateCellCaches();
     if (this.callbackRegistry) {
       this.callbackRegistry.instancesByHandle.delete(this.handle);
       this.callbackRegistry = undefined;
@@ -1068,6 +1079,7 @@ export class GhosttyTerminal {
     try {
       this.writeConfigToPtr(configPtr, config);
       setColors(this.handle, configPtr);
+      this.invalidateCellCaches();
     } finally {
       this.exports.ghostty_wasm_free_u8_array(configPtr, GHOSTTY_CONFIG_SIZE);
     }
@@ -1316,6 +1328,7 @@ export class GhosttyTerminal {
    * cached layout map for direct memory access.
    */
   getViewport(): GhosttyCell[] {
+    if (this.viewportCache) return this.viewportCache;
     this.update();
 
     // Pre-zero the pool so cells we don't visit (iterator ends early, or
@@ -1525,7 +1538,8 @@ export class GhosttyTerminal {
 
     this.rowDirtyCache = dirtyCache;
     this.rowWrapCache = wrapCache;
-    return this.cellPool;
+    this.viewportCache = this.cellPool;
+    return this.viewportCache;
   }
 
   /**
@@ -1651,7 +1665,22 @@ export class GhosttyTerminal {
    * The text-extraction tests that drove this commit only check codepoints.
    */
   getScrollbackLine(offset: number): GhosttyCell[] | null {
-    return this.readGridLine(PointTag.HISTORY, offset);
+    const cached = this.scrollbackLineCache.get(offset);
+    if (cached) {
+      this.scrollbackLineCache.delete(offset);
+      this.scrollbackLineCache.set(offset, cached);
+      return cached;
+    }
+
+    const line = this.readGridLine(PointTag.HISTORY, offset);
+    if (line) {
+      this.scrollbackLineCache.set(offset, line);
+      if (this.scrollbackLineCache.size > GhosttyTerminal.SCROLLBACK_LINE_CACHE_LIMIT) {
+        const oldest = this.scrollbackLineCache.keys().next().value;
+        if (oldest !== undefined) this.scrollbackLineCache.delete(oldest);
+      }
+    }
+    return line;
   }
 
   /**
@@ -2062,6 +2091,11 @@ export class GhosttyTerminal {
   // ==========================================================================
   // Private helpers
   // ==========================================================================
+
+  private invalidateCellCaches(): void {
+    this.viewportCache = null;
+    this.scrollbackLineCache.clear();
+  }
 
   private initCellPool(): void {
     const total = this._cols * this._rows;

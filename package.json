@@ -34,10 +34,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/rcarmo/ghostty-web.git"
+    "url": "https://github.com/junaid33/ghostty-web.git"
   },
-  "bugs": "https://github.com/rcarmo/ghostty-web/issues",
-  "homepage": "https://github.com/rcarmo/ghostty-web#readme",
+  "bugs": "https://github.com/junaid33/ghostty-web/issues",
+  "homepage": "https://github.com/junaid33/ghostty-web#readme",
   "license": "MIT",
   "author": "Coder",
   "publishConfig": {

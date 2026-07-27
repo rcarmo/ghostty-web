@@ -295,6 +295,68 @@ describe('Terminal', () => {
       term.dispose();
     });
 
+    test('empty public writes preserve a historical viewport', async () => {
+      const term = await createIsolatedTerminal();
+      term.open(container!);
+      (term as any).viewportY = 5;
+
+      term.write('');
+      term.write(new Uint8Array());
+
+      expect(term.getViewportY()).toBe(5);
+      term.dispose();
+    });
+
+    test('active viewport decoding is reused until terminal mutation', async () => {
+      const term = await createIsolatedTerminal();
+      term.open(container!);
+      const wasmTerm = term.wasmTerm as any;
+      const originalPopulateHandle = wasmTerm.populateHandle.bind(wasmTerm);
+      let populateCalls = 0;
+      wasmTerm.populateHandle = (...args: unknown[]) => {
+        populateCalls++;
+        return originalPopulateHandle(...args);
+      };
+
+      term.write('first');
+      wasmTerm.getLine(0);
+      const callsAfterFirstDecode = populateCalls;
+      expect(callsAfterFirstDecode).toBeGreaterThan(0);
+
+      wasmTerm.getLine(1);
+      expect(populateCalls).toBe(callsAfterFirstDecode);
+
+      term.write('second');
+      wasmTerm.getLine(0);
+      expect(populateCalls).toBeGreaterThan(callsAfterFirstDecode);
+
+      term.dispose();
+    });
+
+    test('scrollback row cache is bounded and invalidated by writes', async () => {
+      const term = await createIsolatedTerminal();
+      term.open(container!);
+      const wasmTerm = term.wasmTerm as any;
+      let reads = 0;
+      wasmTerm.readGridLine = () => {
+        reads++;
+        return [];
+      };
+
+      wasmTerm.getScrollbackLine(7);
+      wasmTerm.getScrollbackLine(7);
+      expect(reads).toBe(1);
+
+      term.write('invalidate');
+      wasmTerm.getScrollbackLine(7);
+      expect(reads).toBe(2);
+
+      for (let offset = 0; offset < 300; offset++) wasmTerm.getScrollbackLine(offset);
+      expect(wasmTerm.scrollbackLineCache.size).toBe(256);
+
+      term.dispose();
+    });
+
     test('writeln() adds newline', async () => {
       const term = await createIsolatedTerminal();
       term.open(container!);

@@ -129,7 +129,9 @@ describe('CanvasRenderer – kitty graphics', () => {
           gridCols: 1,
           gridRows: 1,
           viewportCol: 2,
-          viewportRow: 3,
+          // Ghostty reports the live placement above the viewport. Moving two
+          // rows into history brings that placement to visible row zero.
+          viewportRow: -2,
           viewportVisible: true,
           sourceX: 0,
           sourceY: 0,
@@ -145,7 +147,7 @@ describe('CanvasRenderer – kitty graphics', () => {
       const compositeCall = drawImageCalls.at(-1)!;
       const metrics = (renderer as any).metrics;
       expect(compositeCall[5]).toBe(2 * metrics.width);
-      expect(compositeCall[6]).toBe((3 - 2) * metrics.height);
+      expect(compositeCall[6]).toBe((-2 + 2) * metrics.height);
     } finally {
       (globalThis as any).ImageData = originalImageData;
       renderer.dispose();

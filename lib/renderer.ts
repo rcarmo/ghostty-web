@@ -1726,7 +1726,7 @@ export class CanvasRenderer {
             continue;
           }
           const visiblePlacement =
-            viewportYOffset === 0 ? p : { ...p, viewportRow: p.viewportRow - viewportYOffset };
+            viewportYOffset === 0 ? p : { ...p, viewportRow: p.viewportRow + viewportYOffset };
           this.currentDirectPlacements.push(visiblePlacement);
           const pixels = buffer.getKittyImagePixels?.(graphics, p.imageId);
           const sig = {

@@ -741,6 +741,11 @@ export class Terminal implements ITerminalCore {
    * Internal write implementation (extracted from write())
    */
   private writeInternal(data: string | Uint8Array, callback?: () => void): void {
+    if ((typeof data === 'string' ? data.length : data.byteLength) === 0) {
+      if (callback) this.scheduleAnimationFrame(callback);
+      return;
+    }
+
     // Note: We intentionally do NOT clear selection on write - most modern terminals
     // preserve selection when new data arrives. Selection is cleared by user actions
     // like clicking or typing, not by incoming data.
@@ -1506,7 +1511,7 @@ export class Terminal implements ITerminalCore {
    * loop with self-cancel logic vs. ad-hoc rAF scheduling). We picked
    * this shape for simplicity.
    */
-  private requestRender(): void {
+  public requestRender(): void {
     if (this.animationFrameId !== undefined) return;
     if (this.isDisposed || !this.isOpen || this.isSuspended) return;
     this.animationFrameId = this.scheduleAnimationFrame(this.renderTick);
