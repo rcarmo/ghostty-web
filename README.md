@@ -28,6 +28,7 @@ This fork carries the VibeGhost fixes in source and in the checked-in distributi
 - one active viewport decode per terminal mutation and a bounded 256-row scrollback cache
 - empty public writes that do not force the viewport to the live bottom
 - selection invalidation wired to the event-driven render scheduler through public `requestRender()`
+- public render/response hooks for integrations that write through `wasmTerm`
 
 ## Quick Start
 

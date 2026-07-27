@@ -2239,7 +2239,7 @@ export class Terminal implements ITerminalCore {
    * when multiple queries are processed in a single write() call (e.g., when
    * buffered data is written all at once during terminal initialization).
    */
-  private processTerminalResponses(): void {
+  public processTerminalResponses(): void {
     if (!this.wasmTerm) return;
 
     // Read all pending responses from the WASM terminal

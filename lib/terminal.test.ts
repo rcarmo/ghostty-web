@@ -201,6 +201,12 @@ describe('Terminal', () => {
 
       term.dispose();
     });
+
+    test('exposes direct-WASM integration hooks', async () => {
+      const term = await createIsolatedTerminal();
+      expect(typeof term.requestRender).toBe('function');
+      expect(typeof term.processTerminalResponses).toBe('function');
+    });
   });
 
   describe('Events', () => {
