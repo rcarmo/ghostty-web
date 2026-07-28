@@ -125,6 +125,23 @@ export class SelectionManager {
   // ==========================================================================
 
   /**
+   * Rebind selection reads after Terminal.reset() replaces the WASM terminal.
+   * The SelectionManager and its DOM listeners outlive that replacement.
+   */
+  setWasmTerminal(wasmTerm: GhosttyTerminal): void {
+    const hadSelection = this.selectionStart !== null && this.selectionEnd !== null;
+    this.stopAutoScroll();
+    this.wasmTerm = wasmTerm;
+    this.selectionStart = null;
+    this.selectionEnd = null;
+    this.isSelecting = false;
+    this.dragThresholdMet = false;
+    this.mouseDownTarget = null;
+    this.dirtySelectionRows.clear();
+    if (hadSelection) this.selectionChangedEmitter.fire();
+  }
+
+  /**
    * Get the selected text as a string
    */
   getSelection(): string {

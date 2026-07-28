@@ -600,8 +600,10 @@ export class Terminal implements ITerminalCore {
       const renderer = this.renderer;
       const wasmTerm = this.wasmTerm;
       const mouseConfig: MouseTrackingConfig = {
-        hasMouseTracking: () => wasmTerm?.hasMouseTracking() ?? false,
-        hasSgrMouseMode: () => wasmTerm?.getMode(1006, false) ?? true, // SGR extended mode
+        // Terminal.reset() replaces the WASM terminal while InputHandler and
+        // this callback object stay alive, so resolve through the owner.
+        hasMouseTracking: () => this.wasmTerm?.hasMouseTracking() ?? false,
+        hasSgrMouseMode: () => this.wasmTerm?.getMode(1006, false) ?? true, // SGR extended mode
         getCellDimensions: () => ({
           width: renderer.charWidth,
           height: renderer.charHeight,
@@ -941,6 +943,7 @@ export class Terminal implements ITerminalCore {
     }
     const config = this.buildWasmConfig();
     this.wasmTerm = this.ghostty!.createTerminal(this.cols, this.rows, config);
+    this.selectionManager?.setWasmTerminal(this.wasmTerm);
 
     // The fresh WASM terminal starts with zero cell pixel dims, so CSI
     // 14/16/18 t and kitty graphics sizing would silently report zeros

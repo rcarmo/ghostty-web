@@ -425,6 +425,41 @@ describe('Terminal', () => {
       term.dispose();
     });
 
+    test('reset() rebinds selection and mouse mode reads to the new WASM terminal', async () => {
+      const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
+      term.open(container!);
+      term.write('Before reset');
+      term.select(0, 0, 6);
+
+      const internal = term as any;
+      const oldWasmTerm = internal.wasmTerm;
+      const selectionManager = internal.selectionManager;
+      const mouseConfig = internal.inputHandler.mouseConfig;
+      expect(selectionManager.wasmTerm).toBe(oldWasmTerm);
+
+      term.reset();
+
+      const newWasmTerm = internal.wasmTerm;
+      expect(newWasmTerm).not.toBe(oldWasmTerm);
+      expect(selectionManager.wasmTerm).toBe(newWasmTerm);
+      expect(term.hasSelection()).toBe(false);
+
+      let mouseModeReads = 0;
+      const originalHasMouseTracking = newWasmTerm.hasMouseTracking.bind(newWasmTerm);
+      newWasmTerm.hasMouseTracking = () => {
+        mouseModeReads++;
+        return originalHasMouseTracking();
+      };
+      expect(() => mouseConfig.hasMouseTracking()).not.toThrow();
+      expect(mouseModeReads).toBe(1);
+
+      term.write('After reset');
+      term.select(0, 0, 5);
+      expect(term.getSelection()).toBe('After');
+
+      term.dispose();
+    });
+
     test('focus() does not throw', async () => {
       const term = await createIsolatedTerminal();
       term.open(container!);
