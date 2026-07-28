@@ -38,11 +38,11 @@ var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescr
 	return e[e.ID = 1] = "ID", e[e.NUMBER = 2] = "NUMBER", e[e.WIDTH = 3] = "WIDTH", e[e.HEIGHT = 4] = "HEIGHT", e[e.FORMAT = 5] = "FORMAT", e[e.COMPRESSION = 6] = "COMPRESSION", e[e.DATA_PTR = 7] = "DATA_PTR", e[e.DATA_LEN = 8] = "DATA_LEN", e;
 }({}), C = /* @__PURE__ */ function(e) {
 	return e[e.RGB = 0] = "RGB", e[e.RGBA = 1] = "RGBA", e[e.PNG = 2] = "PNG", e[e.GRAY_ALPHA = 3] = "GRAY_ALPHA", e[e.GRAY = 4] = "GRAY", e;
-}({}), w = /* @__PURE__ */ function(e) {
-	return e[e.PRIMARY = 0] = "PRIMARY", e[e.ALTERNATE = 1] = "ALTERNATE", e;
-}({}), T = /* @__PURE__ */ function(e) {
-	return e[e.DIRTY = 1] = "DIRTY", e[e.RAW = 2] = "RAW", e[e.CELLS = 3] = "CELLS", e;
 }({}), ee = /* @__PURE__ */ function(e) {
+	return e[e.PRIMARY = 0] = "PRIMARY", e[e.ALTERNATE = 1] = "ALTERNATE", e;
+}({}), w = /* @__PURE__ */ function(e) {
+	return e[e.DIRTY = 1] = "DIRTY", e[e.RAW = 2] = "RAW", e[e.CELLS = 3] = "CELLS", e;
+}({}), T = /* @__PURE__ */ function(e) {
 	return e[e.DIRTY = 0] = "DIRTY", e;
 }({}), E = /* @__PURE__ */ function(e) {
 	return e[e.RAW = 1] = "RAW", e[e.STYLE = 2] = "STYLE", e[e.GRAPHEMES_LEN = 3] = "GRAPHEMES_LEN", e[e.GRAPHEMES_BUF = 4] = "GRAPHEMES_BUF", e[e.BG_COLOR = 5] = "BG_COLOR", e[e.FG_COLOR = 6] = "FG_COLOR", e;
@@ -844,7 +844,7 @@ var Te = new TextDecoder(), P = class e {
 			let a = 0;
 			for (; a < this._rows && this.exports.ghostty_render_state_row_iterator_next(this.rowIter);) {
 				let o = new DataView(this.memory.buffer);
-				this.exports.ghostty_render_state_row_get(this.rowIter, T.DIRTY, n), e[a] = o.getUint8(n) !== 0, this.exports.ghostty_render_state_row_get(this.rowIter, T.RAW, r);
+				this.exports.ghostty_render_state_row_get(this.rowIter, w.DIRTY, n), e[a] = o.getUint8(n) !== 0, this.exports.ghostty_render_state_row_get(this.rowIter, w.RAW, r);
 				let s = new DataView(this.memory.buffer).getBigUint64(r, !0);
 				this.exports.ghostty_row_get(s, te.WRAP_CONTINUATION, i), t[a] = new DataView(this.memory.buffer).getUint8(i) !== 0, a++;
 			}
@@ -857,7 +857,7 @@ var Te = new TextDecoder(), P = class e {
 		let e = this.exports.ghostty_wasm_alloc_u8_array(4);
 		new DataView(this.memory.buffer).setUint32(e, p.NONE, !0), this.exports.ghostty_render_state_set(this.renderHandle, h.DIRTY, e), this.exports.ghostty_wasm_free_u8_array(e, 4), this.populateHandle((e) => this.exports.ghostty_render_state_get(this.renderHandle, m.ROW_ITERATOR, e), this.rowIter);
 		let t = this.exports.ghostty_wasm_alloc_u8();
-		for (new DataView(this.memory.buffer).setUint8(t, 0); this.exports.ghostty_render_state_row_iterator_next(this.rowIter);) this.exports.ghostty_render_state_row_set(this.rowIter, ee.DIRTY, t);
+		for (new DataView(this.memory.buffer).setUint8(t, 0); this.exports.ghostty_render_state_row_iterator_next(this.rowIter);) this.exports.ghostty_render_state_row_set(this.rowIter, T.DIRTY, t);
 		this.exports.ghostty_wasm_free_u8(t), this.rowDirtyCache = null;
 	}
 	getViewport() {
@@ -868,9 +868,9 @@ var Te = new TextDecoder(), P = class e {
 		try {
 			let u = 0;
 			for (; u < this._rows && this.exports.ghostty_render_state_row_iterator_next(this.rowIter);) {
-				this.exports.ghostty_render_state_row_get(this.rowIter, T.DIRTY, n), c[u] = new DataView(this.memory.buffer).getUint8(n) !== 0, this.exports.ghostty_render_state_row_get(this.rowIter, T.RAW, r);
+				this.exports.ghostty_render_state_row_get(this.rowIter, w.DIRTY, n), c[u] = new DataView(this.memory.buffer).getUint8(n) !== 0, this.exports.ghostty_render_state_row_get(this.rowIter, w.RAW, r);
 				let d = new DataView(this.memory.buffer).getBigUint64(r, !0);
-				this.exports.ghostty_row_get(d, te.WRAP_CONTINUATION, i), l[u] = new DataView(this.memory.buffer).getUint8(i) !== 0, this.populateHandle((e) => this.exports.ghostty_render_state_row_get(this.rowIter, T.CELLS, e), this.rowCells);
+				this.exports.ghostty_row_get(d, te.WRAP_CONTINUATION, i), l[u] = new DataView(this.memory.buffer).getUint8(i) !== 0, this.populateHandle((e) => this.exports.ghostty_render_state_row_get(this.rowIter, w.CELLS, e), this.rowCells);
 				let f = 0;
 				for (; f < this._cols && this.exports.ghostty_render_state_row_cells_next(this.rowCells);) {
 					let n = this.cellPool[u * this._cols + f];
@@ -928,7 +928,7 @@ var Te = new TextDecoder(), P = class e {
 		this.markClean();
 	}
 	isAlternateScreen() {
-		return this.tGetU32(_.ACTIVE_SCREEN) === w.ALTERNATE;
+		return this.tGetU32(_.ACTIVE_SCREEN) === ee.ALTERNATE;
 	}
 	hasBracketedPaste() {
 		return this.getMode(2004, !1);
@@ -1126,7 +1126,7 @@ var Te = new TextDecoder(), P = class e {
 		if (e < 0 || e >= this._rows || t < 0 || t >= this._cols) return null;
 		this.update(), this.populateHandle((e) => this.exports.ghostty_render_state_get(this.renderHandle, m.ROW_ITERATOR, e), this.rowIter);
 		for (let t = 0; t <= e; t++) if (!this.exports.ghostty_render_state_row_iterator_next(this.rowIter)) return null;
-		if (this.populateHandle((e) => this.exports.ghostty_render_state_row_get(this.rowIter, T.CELLS, e), this.rowCells), this.exports.ghostty_render_state_row_cells_select(this.rowCells, t) !== 0) return null;
+		if (this.populateHandle((e) => this.exports.ghostty_render_state_row_get(this.rowIter, w.CELLS, e), this.rowCells), this.exports.ghostty_render_state_row_cells_select(this.rowCells, t) !== 0) return null;
 		let n = this.exports.ghostty_wasm_alloc_u8_array(4), r = 0;
 		try {
 			this.exports.ghostty_render_state_row_cells_get(this.rowCells, E.GRAPHEMES_LEN, n), r = new DataView(this.memory.buffer).getUint32(n, !0);
@@ -1226,7 +1226,7 @@ var Te = new TextDecoder(), P = class e {
 			hyperlink_id: 0,
 			grapheme_len: 0
 		};
-		this.nullCell = new I(n, 0);
+		this.nullCell = new je(n, 0);
 	}
 	get type() {
 		return this.bufferType;
@@ -1276,7 +1276,7 @@ var Te = new TextDecoder(), P = class e {
 		return this._isWrapped;
 	}
 	getCell(e) {
-		if (!(e < 0 || e >= this._length)) return e >= this.cells.length ? new I({
+		if (!(e < 0 || e >= this._length)) return e >= this.cells.length ? new je({
 			codepoint: 0,
 			fg_r: 0,
 			fg_g: 0,
@@ -1290,7 +1290,7 @@ var Te = new TextDecoder(), P = class e {
 			width: 1,
 			hyperlink_id: 0,
 			grapheme_len: 0
-		}, e) : new I(this.cells[e], e);
+		}, e) : new je(this.cells[e], e);
 	}
 	translateToString(e = !1, t = 0, n = this._length) {
 		let r = Math.max(0, Math.min(t, this._length)), i = Math.max(r, Math.min(n, this._length)), a = "";
@@ -1303,7 +1303,7 @@ var Te = new TextDecoder(), P = class e {
 		}
 		return e && (a = a.trimEnd()), a;
 	}
-}, I = class {
+}, je = class {
 	constructor(e, t) {
 		this.cell = e, this.x = t;
 	}
@@ -1362,7 +1362,7 @@ var Te = new TextDecoder(), P = class e {
 	isDim() {
 		return (this.cell.flags & A.FAINT) !== 0;
 	}
-}, je = {
+}, Me = {
 	KeyA: d.A,
 	KeyB: d.B,
 	KeyC: d.C,
@@ -1472,7 +1472,7 @@ var Te = new TextDecoder(), P = class e {
 	F22: d.F22,
 	F23: d.F23,
 	F24: d.F24
-}, Me = class e {
+}, Ne = class e {
 	static {
 		this.BEFORE_INPUT_IGNORE_MS = 100;
 	}
@@ -1488,7 +1488,7 @@ var Te = new TextDecoder(), P = class e {
 		this.compositionStartListener = this.handleCompositionStart.bind(this), e.addEventListener("compositionstart", this.compositionStartListener), this.compositionUpdateListener = this.handleCompositionUpdate.bind(this), e.addEventListener("compositionupdate", this.compositionUpdateListener), this.compositionEndListener = this.handleCompositionEnd.bind(this), e.addEventListener("compositionend", this.compositionEndListener), this.mousedownListener = this.handleMouseDown.bind(this), this.container.addEventListener("mousedown", this.mousedownListener), this.mouseupListener = this.handleMouseUp.bind(this), this.container.addEventListener("mouseup", this.mouseupListener), this.mousemoveListener = this.handleMouseMove.bind(this), this.container.addEventListener("mousemove", this.mousemoveListener), this.wheelListener = this.handleWheel.bind(this), this.container.addEventListener("wheel", this.wheelListener, { passive: !1 });
 	}
 	mapKeyCode(e) {
-		return je[e] ?? null;
+		return Me[e] ?? null;
 	}
 	extractModifiers(e) {
 		let t = f.NONE;
@@ -1816,7 +1816,7 @@ var Te = new TextDecoder(), P = class e {
 	isActive() {
 		return !this.isDisposed;
 	}
-}, Ne = class {
+}, Pe = class {
 	constructor(e) {
 		this.terminal = e, this.providers = [], this.linkCache = /* @__PURE__ */ new Map(), this.scannedRows = /* @__PURE__ */ new Set();
 	}
@@ -1867,7 +1867,7 @@ var Te = new TextDecoder(), P = class e {
 		for (let e of this.providers) e.dispose?.();
 		this.providers = [];
 	}
-}, Pe = class {
+}, Fe = class {
 	constructor(e) {
 		this.terminal = e;
 	}
@@ -1904,7 +1904,7 @@ var Te = new TextDecoder(), P = class e {
 					text: s,
 					range: c,
 					activate: (e) => {
-						(e.ctrlKey || e.metaKey) && Fe(e, s);
+						(e.ctrlKey || e.metaKey) && Ie(e, s);
 					}
 				});
 			}
@@ -1981,12 +1981,12 @@ var Te = new TextDecoder(), P = class e {
 	}
 	dispose() {}
 };
-function Fe(e, t) {
+function Ie(e, t) {
 	e.view?.open(t, "_blank", "noopener,noreferrer");
 }
 //#endregion
 //#region lib/providers/url-regex-provider.ts
-var Ie = class e {
+var Le = class e {
 	static {
 		this.URL_REGEX = /(?:https?:\/\/|mailto:|ftp:\/\/|ssh:\/\/|git:\/\/|tel:|magnet:|gemini:\/\/|gopher:\/\/|news:)[\w\-.~:\/?#@!$&*+,;=%]+/gi;
 	}
@@ -2020,7 +2020,7 @@ var Ie = class e {
 					}
 				},
 				activate: (e) => {
-					(e.ctrlKey || e.metaKey) && Le(e, n);
+					(e.ctrlKey || e.metaKey) && Re(e, n);
 				}
 			}), o = e.URL_REGEX.exec(a);
 		}
@@ -2041,10 +2041,10 @@ var Ie = class e {
 	}
 	dispose() {}
 };
-function Le(e, t) {
+function Re(e, t) {
 	e.view?.open(t, "_blank", "noopener,noreferrer");
 }
-var Re = new Map([
+var ze = new Map([
 	773,
 	781,
 	782,
@@ -2343,10 +2343,10 @@ var Re = new Map([
 	119363,
 	119364
 ].map((e, t) => [e, t]));
-function L(e) {
-	return Re.get(e) ?? -1;
+function Be(e) {
+	return ze.get(e) ?? -1;
 }
-var ze = "#4A90E2", R = {
+var Ve = "#4A90E2", I = {
 	foreground: "#d4d4d4",
 	background: "#1e1e1e",
 	cursor: "#ffffff",
@@ -2370,10 +2370,10 @@ var ze = "#4A90E2", R = {
 	brightCyan: "#29b8db",
 	brightWhite: "#ffffff"
 };
-function Be(e, t) {
+function He(e, t) {
 	return e.width === t.width && e.height === t.height && e.format === t.format && e.dataPtr === t.data.byteOffset && e.dataLen === t.data.length;
 }
-var Ve = class {
+var L = class {
 	constructor(e, t = {}) {
 		this.cursorVisible = !0, this.lastCursorPosition = {
 			x: 0,
@@ -2381,8 +2381,8 @@ var Ve = class {
 		}, this.onRequestRender = null, this.lastViewportY = 0, this.currentBuffer = null, this.kittyImageCache = /* @__PURE__ */ new Map(), this.kittyVirtualPlacements = /* @__PURE__ */ new Map(), this.currentDirectPlacements = [], this.lastKittyDirectSigs = /* @__PURE__ */ new Map(), this.kittyDamagedRows = /* @__PURE__ */ new Set(), this.currentRenderBuffer = null, this.currentKittyGraphics = null, this.currentSelectionCoords = null, this.hoveredHyperlinkId = 0, this.previousHoveredHyperlinkId = 0, this.hoveredLinkRange = null, this.previousHoveredLinkRange = null, this.decorations = [], this.previousDecorationRows = /* @__PURE__ */ new Set(), this.currentDecorationRows = /* @__PURE__ */ new Set(), this.currentScrollbackLength = 0, this.currentViewportY = 0, this.overlayCanvas = null, this.overlayCtx = null, this.canvas = e;
 		let n = e.getContext("2d", { alpha: t.allowTransparency ?? !1 });
 		if (!n) throw Error("Failed to get 2D rendering context");
-		this.ctx = n, this.fontSize = t.fontSize ?? 15, this.fontFamily = t.fontFamily ?? "monospace", this.cursorStyle = t.cursorStyle ?? "block", this.cursorBlink = t.cursorBlink ?? !1, this.theme = {
-			...R,
+		this.ctx = n, this.fontSize = t.fontSize ?? 15, this.fontFamily = t.fontFamily ?? "monospace", this.fontWeight = t.fontWeight ?? 400, this.cursorStyle = t.cursorStyle ?? "block", this.cursorBlink = t.cursorBlink ?? !1, this.theme = {
+			...I,
 			...t.theme
 		}, this.allowTransparency = t.allowTransparency ?? !1, this.fixedDevicePixelRatio = t.devicePixelRatio, this.devicePixelRatio = this.getDevicePixelRatio(), this.scrollbarWidth = t.scrollbarWidth ?? 8, this.fontStrings = this.buildFontStrings(), this.metrics = this.measureFont(), this.cursorBlink && this.startCursorBlink();
 	}
@@ -2390,12 +2390,12 @@ var Ve = class {
 		let e = this.fontFamily.split(",").map((e) => {
 			let t = e.trim();
 			return t.startsWith("\"") || t.startsWith("'") || !t.includes(" ") ? t : `"${t}"`;
-		}).join(", "), t = `${this.fontSize}px ${e}`;
+		}).join(", "), t = Math.min(this.fontWeight + 200, 900), n = `${this.fontSize}px ${e}`;
 		return {
-			plain: t,
-			bold: `bold ${t}`,
-			italic: `italic ${t}`,
-			boldItalic: `bold italic ${t}`
+			plain: `${this.fontWeight} ${n}`,
+			bold: `${t} ${n}`,
+			italic: `italic ${this.fontWeight} ${n}`,
+			boldItalic: `italic ${t} ${n}`
 		};
 	}
 	getFontString(e, t) {
@@ -2415,7 +2415,7 @@ var Ve = class {
 		};
 	}
 	remeasureFont() {
-		this.metrics = this.measureFont();
+		this.fontStrings = this.buildFontStrings(), this.metrics = this.measureFont();
 	}
 	rgbToCSS(e, t, n) {
 		return `rgb(${e}, ${t}, ${n})`;
@@ -2536,7 +2536,7 @@ var Ve = class {
 			return;
 		}
 		let o = this.getDecorationAt(t, n), s = e.bg_r, c = e.bg_g, l = e.bg_b;
-		e.flags & A.INVERSE && (s = e.fg_r, c = e.fg_g, l = e.fg_b), (e.flags & A.INVERSE ? e.fgIsDefault : e.bgIsDefault) || (this.ctx.fillStyle = this.rgbToCSS(s, c, l), this.ctx.fillRect(r, i, a, this.metrics.height)), o?.background && (this.ctx.fillStyle = o.background, this.ctx.fillRect(r, i, a, this.metrics.height));
+		e.flags & A.INVERSE ? (this.ctx.fillStyle = e.fgIsDefault ? this.theme.foreground : this.rgbToCSS(e.fg_r, e.fg_g, e.fg_b), this.ctx.fillRect(r, i, a, this.metrics.height)) : e.bgIsDefault || (this.ctx.fillStyle = this.rgbToCSS(s, c, l), this.ctx.fillRect(r, i, a, this.metrics.height)), o?.background && (this.ctx.fillStyle = o.background, this.ctx.fillRect(r, i, a, this.metrics.height));
 	}
 	getDecorationAt(e, t) {
 		if (this.decorations.length === 0) return null;
@@ -2563,7 +2563,7 @@ var Ve = class {
 			if (r?.foreground) c = r.foreground;
 			else {
 				let t = e.fg_r, n = e.fg_g, r = e.fg_b;
-				e.flags & A.INVERSE && (t = e.bg_r, n = e.bg_g, r = e.bg_b), c = (e.flags & A.INVERSE ? e.bgIsDefault : e.fgIsDefault) ? this.theme.foreground : this.rgbToCSS(t, n, r);
+				e.flags & A.INVERSE && (t = e.bg_r, n = e.bg_g, r = e.bg_b), c = (e.flags & A.INVERSE ? e.bgIsDefault : e.fgIsDefault) ? e.flags & A.INVERSE ? this.theme.background : this.theme.foreground : this.rgbToCSS(t, n, r);
 			}
 		}
 		this.ctx.fillStyle = c, e.flags & A.FAINT && (this.ctx.globalAlpha = .5);
@@ -2577,9 +2577,9 @@ var Ve = class {
 		}
 		e.flags & A.FAINT && (this.ctx.globalAlpha = 1);
 		let f = a + this.metrics.baseline + 2;
-		if (e.flags & A.UNDERLINE && this.drawHorizontalLine(i, f, o, c), e.flags & A.STRIKETHROUGH && this.drawHorizontalLine(i, a + this.metrics.height / 2, o, c), e.hyperlink_id > 0 && e.hyperlink_id === this.hoveredHyperlinkId && this.drawHorizontalLine(i, f, o, ze), this.hoveredLinkRange) {
+		if (e.flags & A.UNDERLINE && this.drawHorizontalLine(i, f, o, c), e.flags & A.STRIKETHROUGH && this.drawHorizontalLine(i, a + this.metrics.height / 2, o, c), e.hyperlink_id > 0 && e.hyperlink_id === this.hoveredHyperlinkId && this.drawHorizontalLine(i, f, o, Ve), this.hoveredLinkRange) {
 			let e = this.hoveredLinkRange;
-			(n === e.startY && t >= e.startX && (n < e.endY || t <= e.endX) || n > e.startY && n < e.endY || n === e.endY && t <= e.endX && (n > e.startY || t >= e.startX)) && this.drawHorizontalLine(i, f, o, ze);
+			(n === e.startY && t >= e.startX && (n < e.endY || t <= e.endX) || n > e.startY && n < e.endY || n === e.endY && t <= e.endX && (n > e.startY || t >= e.startX)) && this.drawHorizontalLine(i, f, o, Ve);
 		}
 	}
 	renderBlockChar(e, t, n, r) {
@@ -3116,7 +3116,7 @@ var Ve = class {
 	getOrDecodeKittyImage(e, t, n) {
 		let r = this.kittyImageCache.get(n), i = e.getKittyImagePixels?.(t, n);
 		if (!i) return r?.canvas ?? null;
-		if (r && Be(r, i)) return r.canvas;
+		if (r && He(r, i)) return r.canvas;
 		let a = this.decodeKittyImageToCanvas(i);
 		return a ? (this.kittyImageCache.set(n, {
 			canvas: a,
@@ -3132,11 +3132,11 @@ var Ve = class {
 		if (!r || i === null || !r.getGrapheme) return !1;
 		let a = r.getGrapheme(n, t);
 		if (!a || a.length < 3) return !1;
-		let o = L(a[1]), s = L(a[2]);
+		let o = Be(a[1]), s = Be(a[2]);
 		if (o < 0 || s < 0) return !1;
 		let c = e.fg_r << 16 | e.fg_g << 8 | e.fg_b, l = c;
 		if (a.length >= 4) {
-			let e = L(a[3]);
+			let e = Be(a[3]);
 			e >= 0 && (l = e << 24 | c);
 		}
 		let u = this.kittyVirtualPlacements.get(l);
@@ -3153,7 +3153,7 @@ var Ve = class {
 		if (!(!e || t === null || !e.getKittyImagePixels)) for (let n of this.currentDirectPlacements) {
 			let r = this.kittyImageCache.get(n.imageId), i = e.getKittyImagePixels(t, n.imageId);
 			if (i) {
-				if (!r || !Be(r, i)) {
+				if (!r || !He(r, i)) {
 					let e = this.decodeKittyImageToCanvas(i);
 					if (!e) continue;
 					r = {
@@ -3237,7 +3237,7 @@ var Ve = class {
 	}
 	setTheme(e) {
 		this.theme = {
-			...R,
+			...I,
 			...e
 		};
 	}
@@ -3255,6 +3255,9 @@ var Ve = class {
 	}
 	setFontFamily(e) {
 		this.fontFamily = e, this.fontStrings = this.buildFontStrings(), this.metrics = this.measureFont();
+	}
+	setFontWeight(e) {
+		!Number.isFinite(e) || e < 1 || e > 1e3 || (this.fontWeight = e, this.fontStrings = this.buildFontStrings(), this.metrics = this.measureFont());
 	}
 	setCursorStyle(e) {
 		this.cursorStyle = e;
@@ -3290,7 +3293,7 @@ var Ve = class {
 		e = Number.isFinite(e) ? Math.max(0, Math.floor(e)) : 0, this.hoveredHyperlinkId !== e && (this.hoveredHyperlinkId = e, this.onRequestRender?.());
 	}
 	setHoveredLinkRange(e) {
-		let t = He(e);
+		let t = Ue(e);
 		this.hoveredLinkRange !== t && (this.hoveredLinkRange = t, this.onRequestRender?.());
 	}
 	get charWidth() {
@@ -3332,7 +3335,7 @@ var Ve = class {
 		this.stopCursorBlink(), this.overlayCanvas && this.overlayCanvas.parentElement && this.overlayCanvas.parentElement.removeChild(this.overlayCanvas), this.overlayCanvas = null, this.overlayCtx = null;
 	}
 };
-function He(e) {
+function Ue(e) {
 	return !e || ![
 		e.startX,
 		e.startY,
@@ -3347,7 +3350,7 @@ function He(e) {
 }
 //#endregion
 //#region lib/selection-manager.ts
-var Ue = class e {
+var We = class e {
 	static {
 		this.AUTO_SCROLL_EDGE_SIZE = 30;
 	}
@@ -3741,7 +3744,7 @@ var Ue = class e {
 		}
 	}
 	requestRender() {}
-}, We = /* @__PURE__ */ o(((e, t) => {
+}, Ge = /* @__PURE__ */ o(((e, t) => {
 	var n = 1e3, r = n * 60, i = r * 60, a = i * 24, o = a * 7, s = a * 365.25;
 	t.exports = function(e, t) {
 		t ||= {};
@@ -3804,9 +3807,9 @@ var Ue = class e {
 		var i = t >= n * 1.5;
 		return Math.round(e / n) + " " + r + (i ? "s" : "");
 	}
-})), Ge = /* @__PURE__ */ o(((e, t) => {
+})), Ke = /* @__PURE__ */ o(((e, t) => {
 	function n(e) {
-		n.debug = n, n.default = n, n.coerce = c, n.disable = o, n.enable = i, n.enabled = s, n.humanize = We(), n.destroy = l, Object.keys(e).forEach((t) => {
+		n.debug = n, n.default = n, n.coerce = c, n.disable = o, n.enable = i, n.enabled = s, n.humanize = Ge(), n.destroy = l, Object.keys(e).forEach((t) => {
 			n[t] = e[t];
 		}), n.names = [], n.skips = [], n.formatters = {};
 		function t(e) {
@@ -3877,7 +3880,7 @@ var Ue = class e {
 		return n.enable(n.load()), n;
 	}
 	t.exports = n;
-})), Ke = /* @__PURE__ */ c((/* @__PURE__ */ o(((e, t) => {
+})), qe = /* @__PURE__ */ c((/* @__PURE__ */ o(((e, t) => {
 	e.formatArgs = r, e.save = i, e.load = a, e.useColors = n, e.storage = o(), e.destroy = (() => {
 		let e = !1;
 		return () => {
@@ -3917,7 +3920,7 @@ var Ue = class e {
 			return localStorage;
 		} catch {}
 	}
-	t.exports = Ge()(e);
+	t.exports = Ke()(e);
 	var { formatters: s } = t.exports;
 	s.j = function(e) {
 		try {
@@ -3927,23 +3930,23 @@ var Ue = class e {
 		}
 	};
 })))(), 1);
-function qe() {
+function Je() {
 	if (typeof window > "u") return null;
 	let e = window.__BOOTTY_PROFILE__;
 	return !e || e.enabled !== !0 || typeof e.record != "function" ? null : e;
 }
-function Je(e) {
+function Ye(e) {
 	return e?.now ? e.now() : typeof performance < "u" && typeof performance.now == "function" ? performance.now() : Date.now();
 }
-function z() {
-	let e = qe();
-	return e ? Je(e) : null;
+function R() {
+	let e = Je();
+	return e ? Ye(e) : null;
 }
-function B(e, t, n) {
+function z(e, t, n) {
 	if (t === null) return;
-	let r = qe();
+	let r = Je();
 	if (!r) return;
-	let i = Je(r);
+	let i = Ye(r);
 	r.record({
 		name: e,
 		ts: t,
@@ -3953,11 +3956,11 @@ function B(e, t, n) {
 }
 //#endregion
 //#region lib/vendor/libghostty-webgl/src/types.ts
-var Ye = {
+var Xe = {
 	NONE: 0,
 	PARTIAL: 1,
 	FULL: 2
-}, V = {
+}, B = {
 	BOLD: 1,
 	ITALIC: 2,
 	UNDERLINE: 4,
@@ -3966,14 +3969,14 @@ var Ye = {
 	INVISIBLE: 32,
 	BLINK: 64,
 	FAINT: 128
-}, H = 32, Xe = 1, Ze = 1, Qe = 2, $e = 4, U = {
+}, V = 32, Ze = 1, Qe = 1, $e = 2, et = 4, H = {
 	r: 74,
 	g: 144,
 	b: 226,
 	a: 255
-}, et = Array.from({ length: 128 }, (e, t) => String.fromCharCode(t)), W = 32, tt = [], nt = class e {
+}, tt = Array.from({ length: 128 }, (e, t) => String.fromCharCode(t)), U = 32, nt = [], rt = class e {
 	constructor(e) {
-		this.cols = 0, this.rows = 0, this.data = /* @__PURE__ */ new ArrayBuffer(0), this.u8 = new Uint8Array(), this.view = /* @__PURE__ */ new DataView(/* @__PURE__ */ new ArrayBuffer(0)), this.resolved = st(), this.gl = e;
+		this.cols = 0, this.rows = 0, this.data = /* @__PURE__ */ new ArrayBuffer(0), this.u8 = new Uint8Array(), this.view = /* @__PURE__ */ new DataView(/* @__PURE__ */ new ArrayBuffer(0)), this.resolved = ct(), this.gl = e;
 		let t = e.createBuffer();
 		if (!t) throw Error("Failed to create WebGL buffer");
 		this.buffer = t;
@@ -3987,7 +3990,7 @@ var Ye = {
 	resize(e, t) {
 		if (!Number.isFinite(e) || !Number.isFinite(t) || e < 1 || t < 1 || (e = Math.floor(e), t = Math.floor(t), e === this.cols && t === this.rows)) return;
 		this.cols = e, this.rows = t;
-		let n = e * t * H;
+		let n = e * t * V;
 		!Number.isSafeInteger(n) || n <= 0 || (this.data = new ArrayBuffer(n), this.u8 = new Uint8Array(this.data), this.view = new DataView(this.data), this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer), this.gl.bufferData(this.gl.ARRAY_BUFFER, n, this.gl.DYNAMIC_DRAW));
 	}
 	static shouldDebugCells() {
@@ -3998,29 +4001,29 @@ var Ye = {
 		let i = Math.floor(t.rows), a = Math.floor(t.cols), o = i * a;
 		if (!Number.isSafeInteger(o) || t.viewportCells.length < o || ((a !== this.cols || i !== this.rows) && this.resize(a, i), a !== this.cols || i !== this.rows)) return;
 		let s = t.rowFlags, c = [];
-		if (r || t.dirtyState === Ye.FULL) for (let e = 0; e < i; e++) c.push(e);
+		if (r || t.dirtyState === Xe.FULL) for (let e = 0; e < i; e++) c.push(e);
 		else for (let e = 0; e < i; e++) s[e] & 7 && c.push(e);
 		if (c.length === 0) return;
-		if (e.shouldDebugCells() && t.dirtyState === Ye.FULL) for (let e = 0; e < Math.min(3, i); e++) {
+		if (e.shouldDebugCells() && t.dirtyState === Xe.FULL) for (let e = 0; e < Math.min(3, i); e++) {
 			let n = e * a, r = "";
 			for (let e = 0; e < a; e++) {
 				let i = t.viewportCells[n + e];
-				i && i.codepoint > W ? r += String.fromCodePoint(i.codepoint) : r += " ";
+				i && i.codepoint > U ? r += String.fromCodePoint(i.codepoint) : r += " ";
 			}
 			console.log(`[webgl-cellbuffer] row ${e}: "${r.trimEnd()}"`);
 		}
-		let l = z(), u = t.graphemeRows && t.graphemeRows.length > 0, d = u ? t.graphemeRows : this.resolveLegacyGraphemeRows(t, c), f = u ? t.getGraphemeString : void 0;
+		let l = R(), u = t.graphemeRows && t.graphemeRows.length > 0, d = u ? t.graphemeRows : this.resolveLegacyGraphemeRows(t, c), f = u ? t.getGraphemeString : void 0;
 		for (let e of c) this.writeRow(e, t, n, d[e], f);
-		B("bootty:webgl:cellbuffer-write", l, {
+		z("bootty:webgl:cellbuffer-write", l, {
 			cols: a,
 			rows: i,
 			dirtyRows: c.length,
 			dirtyState: t.dirtyState,
 			forceFullUpload: r
 		});
-		let p = z();
+		let p = R();
 		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
-		let m = a * H, h = 0, g = 0, _ = c.length > i * .5 || r;
+		let m = a * V, h = 0, g = 0, _ = c.length > i * .5 || r;
 		if (_) this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.u8), h = 1, g = this.u8.byteLength;
 		else {
 			let e = c[0], t = c[0], n = (e, t) => {
@@ -4037,7 +4040,7 @@ var Ye = {
 			}
 			n(e, t);
 		}
-		B("bootty:webgl:cellbuffer-upload", p, {
+		z("bootty:webgl:cellbuffer-upload", p, {
 			cols: a,
 			rows: i,
 			dirtyRows: c.length,
@@ -4049,7 +4052,7 @@ var Ye = {
 		});
 	}
 	writeRow(e, t, n, r, i) {
-		let a = t.cols, o = e * a * H, s = e * a, c = t.selectionRange, l = t.hoveredLink, u = t.theme, d = t.decorations ?? [], f = e + t.scrollbackLength - Math.floor(t.viewportY), p = this.resolved, m = l?.hyperlinkId ?? 0, h = -1, g = -1;
+		let a = t.cols, o = e * a * V, s = e * a, c = t.selectionRange, l = t.hoveredLink, u = t.theme, d = t.decorations ?? [], f = e + t.scrollbackLength - Math.floor(t.viewportY), p = this.resolved, m = l?.hyperlinkId ?? 0, h = -1, g = -1;
 		c && e >= c.startRow && e <= c.endRow && (c.startRow === c.endRow ? (h = c.startCol, g = c.endCol) : e === c.startRow ? (h = c.startCol, g = a - 1) : e === c.endRow ? (h = 0, g = c.endCol) : (h = 0, g = a - 1));
 		let _ = h >= 0, v = -1, y = -1;
 		if (m === 0 && l?.range) {
@@ -4058,34 +4061,34 @@ var Ye = {
 		}
 		let b = v >= 0;
 		for (let c = 0; c < a; c++) {
-			let a = t.viewportCells[s + c], l = o + c * H;
+			let a = t.viewportCells[s + c], l = o + c * V;
 			if (!a) {
 				this.writeEmptyCell(l);
 				continue;
 			}
 			let x = a.width === 0 ? 0 : a.width;
-			rt(a, u, _ && c >= h && c <= g, m > 0 ? a.hyperlink_id === m : b && c >= v && c <= y, it(d, f, c), p);
+			it(a, u, _ && c >= h && c <= g, m > 0 ? a.hyperlink_id === m : b && c >= v && c <= y, at(d, f, c), p);
 			let S = 0, C = null;
-			if (x > 0 && p.fgA > 0 && !(a.flags & V.INVISIBLE)) {
+			if (x > 0 && p.fgA > 0 && !(a.flags & B.INVISIBLE)) {
 				let t = "", o = !1;
 				if (a.grapheme_len > 0) {
 					let n = r?.[c];
-					t = n === void 0 ? i ? i(e, c) : "" : n, o = t.length === 1 ? t.charCodeAt(0) > W : t.trim().length > 0;
+					t = n === void 0 ? i ? i(e, c) : "" : n, o = t.length === 1 ? t.charCodeAt(0) > U : t.trim().length > 0;
 				} else {
-					let e = a.codepoint || W;
-					e > W && (t = e < et.length ? et[e] : String.fromCodePoint(e), o = !0);
+					let e = a.codepoint || U;
+					e > U && (t = e < tt.length ? tt[e] : String.fromCodePoint(e), o = !0);
 				}
 				if (o) {
-					let e = (a.flags & V.BOLD) !== 0, r = (a.flags & V.ITALIC) !== 0;
-					C = n.getGlyph(t, e, r), C.isColor && (S |= Xe);
+					let e = (a.flags & B.BOLD) !== 0, r = (a.flags & B.ITALIC) !== 0;
+					C = n.getGlyph(t, e, r), C.isColor && (S |= Ze);
 				}
 			}
-			let w = C?.atlasX ?? 0, T = C?.atlasY ?? 0, ee = C?.atlasW ?? 0, E = C?.atlasH ?? 0, te = C?.bearingX ?? 0, D = C?.bearingY ?? 0;
-			this.view.setUint16(l + 0, w, !0), this.view.setUint16(l + 2, T, !0), this.view.setUint16(l + 4, ee, !0), this.view.setUint16(l + 6, E, !0), this.view.setInt16(l + 8, at(te), !0), this.view.setInt16(l + 10, at(D), !0), this.view.setUint32(l + 12, K(x, p.decoFlags, S, 0), !0), this.view.setUint32(l + 16, K(p.fgR, p.fgG, p.fgB, p.fgA), !0), this.view.setUint32(l + 20, K(p.bgR, p.bgG, p.bgB, p.bgA), !0), this.view.setUint32(l + 24, K(p.decoR, p.decoG, p.decoB, p.decoA), !0), this.view.setUint32(l + 28, 0, !0);
+			let ee = C?.atlasX ?? 0, w = C?.atlasY ?? 0, T = C?.atlasW ?? 0, E = C?.atlasH ?? 0, te = C?.bearingX ?? 0, D = C?.bearingY ?? 0;
+			this.view.setUint16(l + 0, ee, !0), this.view.setUint16(l + 2, w, !0), this.view.setUint16(l + 4, T, !0), this.view.setUint16(l + 6, E, !0), this.view.setInt16(l + 8, ot(te), !0), this.view.setInt16(l + 10, ot(D), !0), this.view.setUint32(l + 12, G(x, p.decoFlags, S, 0), !0), this.view.setUint32(l + 16, G(p.fgR, p.fgG, p.fgB, p.fgA), !0), this.view.setUint32(l + 20, G(p.bgR, p.bgG, p.bgB, p.bgA), !0), this.view.setUint32(l + 24, G(p.decoR, p.decoG, p.decoB, p.decoA), !0), this.view.setUint32(l + 28, 0, !0);
 		}
 	}
 	resolveLegacyGraphemeRows(e, t) {
-		if (!e.getGraphemeString) return tt;
+		if (!e.getGraphemeString) return nt;
 		let n = e.rows, r = Array.from({ length: n }, () => void 0);
 		for (let n of t) {
 			let t = this.resolveLegacyGraphemeRow(e, n);
@@ -4103,47 +4106,49 @@ var Ye = {
 		return i;
 	}
 	writeEmptyCell(e) {
-		this.view.setUint16(e + 0, 0, !0), this.view.setUint16(e + 2, 0, !0), this.view.setUint16(e + 4, 0, !0), this.view.setUint16(e + 6, 0, !0), this.view.setInt16(e + 8, 0, !0), this.view.setInt16(e + 10, 0, !0), this.view.setUint32(e + 12, K(1, 0, 0, 0), !0), this.view.setUint32(e + 16, 0, !0), this.view.setUint32(e + 20, 0, !0), this.view.setUint32(e + 24, 0, !0), this.view.setUint32(e + 28, 0, !0);
+		this.view.setUint16(e + 0, 0, !0), this.view.setUint16(e + 2, 0, !0), this.view.setUint16(e + 4, 0, !0), this.view.setUint16(e + 6, 0, !0), this.view.setInt16(e + 8, 0, !0), this.view.setInt16(e + 10, 0, !0), this.view.setUint32(e + 12, G(1, 0, 0, 0), !0), this.view.setUint32(e + 16, 0, !0), this.view.setUint32(e + 20, 0, !0), this.view.setUint32(e + 24, 0, !0), this.view.setUint32(e + 28, 0, !0);
 	}
 };
-function rt(e, t, n, r, i, a) {
+function it(e, t, n, r, i, a) {
 	let o = e.fg_r, s = e.fg_g, c = e.fg_b, l = e.bg_r, u = e.bg_g, d = e.bg_b, f = e.fgIsDefault ?? (o === 0 && s === 0 && c === 0), p = e.bgIsDefault ?? (l === 0 && u === 0 && d === 0);
-	if (e.flags & V.INVERSE) {
+	f && (o = t.foreground.r, s = t.foreground.g, c = t.foreground.b), p && (l = t.background.r, u = t.background.g, d = t.background.b);
+	let m = (e.flags & B.INVERSE) !== 0;
+	if (m) {
 		let e = o, t = s, n = c;
 		o = l, s = u, c = d, l = e, u = t, d = n;
 		let r = f;
 		f = p, p = r;
 	}
-	f && (o = t.foreground.r, s = t.foreground.g, c = t.foreground.b), !n && i?.foreground && (o = i.foreground.r, s = i.foreground.g, c = i.foreground.b);
-	let m = f ? ot(t.foreground.a) * 255 : 255;
-	i?.foreground && !n && (m = ot(i.foreground.a) * 255), e.flags & V.INVISIBLE ? m = 0 : e.flags & V.FAINT && (m = Math.round(m * .5));
-	let h = p ? 0 : 255;
-	if (!n && i?.background && (l = i.background.r, u = i.background.g, d = i.background.b, h = G(Math.round(i.background.a * 255))), n) {
-		let e = ot(t.selectionOpacity * t.selectionBackground.a), n = p ? t.background.r : l, r = p ? t.background.g : u, i = p ? t.background.b : d, a = 1 - e;
-		l = G(Math.round(n * a + t.selectionBackground.r * e)), u = G(Math.round(r * a + t.selectionBackground.g * e)), d = G(Math.round(i * a + t.selectionBackground.b * e)), h = 255, t.selectionForeground && (o = t.selectionForeground.r, s = t.selectionForeground.g, c = t.selectionForeground.b, m = G(Math.round(t.selectionForeground.a * 255)));
+	!n && i?.foreground && (o = i.foreground.r, s = i.foreground.g, c = i.foreground.b);
+	let h = f && !m ? st(t.foreground.a) * 255 : 255;
+	i?.foreground && !n && (h = st(i.foreground.a) * 255), e.flags & B.INVISIBLE ? h = 0 : e.flags & B.FAINT && (h = Math.round(h * .5));
+	let g = p && !m ? 0 : 255;
+	if (!n && i?.background && (l = i.background.r, u = i.background.g, d = i.background.b, g = W(Math.round(i.background.a * 255))), n) {
+		let e = st(t.selectionOpacity * t.selectionBackground.a), n = p ? t.background.r : l, r = p ? t.background.g : u, i = p ? t.background.b : d, a = 1 - e;
+		l = W(Math.round(n * a + t.selectionBackground.r * e)), u = W(Math.round(r * a + t.selectionBackground.g * e)), d = W(Math.round(i * a + t.selectionBackground.b * e)), g = 255, t.selectionForeground && (o = t.selectionForeground.r, s = t.selectionForeground.g, c = t.selectionForeground.b, h = W(Math.round(t.selectionForeground.a * 255)));
 	}
-	let g = 0;
-	e.flags & V.UNDERLINE && (g |= Ze), e.flags & V.STRIKETHROUGH && (g |= Qe), r && (g |= $e);
-	let _ = o, v = s, y = c, b = 255;
-	g & $e && (_ = U.r, v = U.g, y = U.b, b = U.a), a.fgR = o, a.fgG = s, a.fgB = c, a.fgA = G(Math.round(m)), a.bgR = l, a.bgG = u, a.bgB = d, a.bgA = h, a.decoR = _, a.decoG = v, a.decoB = y, a.decoA = b, a.decoFlags = g;
+	let _ = 0;
+	e.flags & B.UNDERLINE && (_ |= Qe), e.flags & B.STRIKETHROUGH && (_ |= $e), r && (_ |= et);
+	let v = o, y = s, b = c, x = 255;
+	_ & et && (v = H.r, y = H.g, b = H.b, x = H.a), a.fgR = o, a.fgG = s, a.fgB = c, a.fgA = W(Math.round(h)), a.bgR = l, a.bgG = u, a.bgB = d, a.bgA = g, a.decoR = v, a.decoG = y, a.decoB = b, a.decoA = x, a.decoFlags = _;
 }
-function it(e, t, n) {
+function at(e, t, n) {
 	for (let r = e.length - 1; r >= 0; r--) {
 		let i = e[r];
 		if (i.line === t && n >= i.column && n < i.column + i.length) return i;
 	}
 	return null;
 }
-function G(e) {
+function W(e) {
 	return !Number.isFinite(e) || e < 0 ? 0 : e > 255 ? 255 : e;
 }
-function at(e) {
+function ot(e) {
 	return Number.isFinite(e) ? e < -32768 ? -32768 : e > 32767 ? 32767 : Math.trunc(e) : 0;
 }
-function ot(e) {
+function st(e) {
 	return Number.isFinite(e) ? e < 0 ? 0 : e > 1 ? 1 : e : 1;
 }
-function st() {
+function ct() {
 	return {
 		fgR: 0,
 		fgG: 0,
@@ -4160,19 +4165,19 @@ function st() {
 		decoFlags: 0
 	};
 }
-function K(e, t, n, r) {
+function G(e, t, n, r) {
 	return (e & 255 | (t & 255) << 8 | (n & 255) << 16 | (r & 255) << 24) >>> 0;
 }
 //#endregion
 //#region lib/vendor/libghostty-webgl/src/GlyphAtlas.ts
-var q = 1, ct = 32, lt = 126, ut = class {
-	constructor(e, t, n, r) {
-		this.glyphs = /* @__PURE__ */ new Map(), this.useCounter = 0, this.gl = e, this.fontSize = X(t, 15), this.fontFamily = n, this.dpr = X(r, 1);
-		let i = e.getParameter(e.MAX_TEXTURE_SIZE), a = 1024;
-		this.atlasSize = Math.min(a, i), this.colorAtlasSize = Math.min(a, i);
-		let o = e.createTexture(), s = e.createTexture();
-		if (!o || !s) throw Error("Failed to create glyph atlas textures");
-		this.atlasTexture = o, this.colorTexture = s, this.page = {
+var K = 1, lt = 32, ut = 126, dt = class {
+	constructor(e, t, n, r, i) {
+		this.glyphs = /* @__PURE__ */ new Map(), this.useCounter = 0, this.gl = e, this.fontSize = Y(t, 15), this.fontFamily = n, this.fontWeight = r, this.dpr = Y(i, 1);
+		let a = e.getParameter(e.MAX_TEXTURE_SIZE), o = 1024;
+		this.atlasSize = Math.min(o, a), this.colorAtlasSize = Math.min(o, a);
+		let s = e.createTexture(), c = e.createTexture();
+		if (!s || !c) throw Error("Failed to create glyph atlas textures");
+		this.atlasTexture = s, this.colorTexture = c, this.page = {
 			width: this.atlasSize,
 			height: this.atlasSize,
 			shelves: [],
@@ -4184,10 +4189,10 @@ var q = 1, ct = 32, lt = 126, ut = class {
 			shelves: [],
 			nextShelfY: 0,
 			nextShelfId: 1
-		}, this.canvas = ht(1, 1), this.colorCanvas = ht(1, 1);
-		let c = this.canvas.getContext("2d"), l = this.colorCanvas.getContext("2d");
-		if (!c || !l) throw Error("Failed to get 2D context for glyph atlas");
-		this.ctx = c, this.colorCtx = l, this.initTextures(), this.prewarmAscii();
+		}, this.canvas = gt(1, 1), this.colorCanvas = gt(1, 1);
+		let l = this.canvas.getContext("2d"), u = this.colorCanvas.getContext("2d");
+		if (!l || !u) throw Error("Failed to get 2D context for glyph atlas");
+		this.ctx = l, this.colorCtx = u, this.initTextures(), this.prewarmAscii();
 	}
 	get texture() {
 		return this.atlasTexture;
@@ -4204,17 +4209,17 @@ var q = 1, ct = 32, lt = 126, ut = class {
 	dispose() {
 		this.gl.deleteTexture(this.atlasTexture), this.gl.deleteTexture(this.colorTexture), this.glyphs.clear(), this.resetPages();
 	}
-	reset(e, t, n) {
-		this.fontSize = X(e, this.fontSize), this.fontFamily = t, this.dpr = X(n, this.dpr), this.resetPages(), this.glyphs.clear(), this.useCounter = 0, this.clearFullPageTexture(!1), this.clearFullPageTexture(!0), this.prewarmAscii();
+	reset(e, t, n, r) {
+		this.fontSize = Y(e, this.fontSize), this.fontFamily = t, this.fontWeight = n, this.dpr = Y(r, this.dpr), this.resetPages(), this.glyphs.clear(), this.useCounter = 0, this.clearFullPageTexture(!1), this.clearFullPageTexture(!0), this.prewarmAscii();
 	}
 	getGlyph(e, t, n) {
-		if (!e) return Y(!1);
+		if (!e) return J(!1);
 		let r = {
 			grapheme: e,
 			bold: t,
 			italic: n,
-			isColor: mt(e),
-			pinned: pt(e)
+			isColor: ht(e),
+			pinned: mt(e)
 		}, i = this.makeKey(r), a = this.glyphs.get(i);
 		if (a) return a.lastUsed = ++this.useCounter, a;
 		let o = this.addGlyph(r);
@@ -4233,7 +4238,7 @@ var q = 1, ct = 32, lt = 126, ut = class {
 		e.activeTexture(e.TEXTURE0), e.bindTexture(e.TEXTURE_2D, this.atlasTexture), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_MIN_FILTER, e.NEAREST), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_MAG_FILTER, e.NEAREST), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_WRAP_S, e.CLAMP_TO_EDGE), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_WRAP_T, e.CLAMP_TO_EDGE), e.texStorage2D(e.TEXTURE_2D, 1, e.RGBA8, this.atlasSize, this.atlasSize), e.activeTexture(e.TEXTURE1), e.bindTexture(e.TEXTURE_2D, this.colorTexture), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_MIN_FILTER, e.NEAREST), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_MAG_FILTER, e.NEAREST), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_WRAP_S, e.CLAMP_TO_EDGE), e.texParameteri(e.TEXTURE_2D, e.TEXTURE_WRAP_T, e.CLAMP_TO_EDGE), e.texStorage2D(e.TEXTURE_2D, 1, e.RGBA8, this.colorAtlasSize, this.colorAtlasSize);
 	}
 	prewarmAscii() {
-		for (let e = ct; e <= lt; e++) {
+		for (let e = lt; e <= ut; e++) {
 			let t = {
 				grapheme: String.fromCharCode(e),
 				pinned: !0
@@ -4273,53 +4278,53 @@ var q = 1, ct = 32, lt = 126, ut = class {
 		return t !== void 0 && t > this.useCounter && (this.useCounter = t), this.glyphs.set(r, i), i;
 	}
 	tryRasterizeGlyph(e) {
-		let { grapheme: t, bold: n, italic: r, isColor: i } = e, a = i ? this.colorCtx : this.ctx, o = i ? this.colorCanvas : this.canvas, s = this.fontSize * this.dpr, c = `${r ? "italic " : ""}${n ? "bold " : ""}${s}px ${this.fontFamily}`;
-		a.font = c, a.textBaseline = "alphabetic", a.textAlign = "left";
-		let l = a.measureText(t), u = l.actualBoundingBoxLeft ?? 0, d = l.actualBoundingBoxRight ?? l.width, f = l.actualBoundingBoxAscent ?? s * .8, p = l.actualBoundingBoxDescent ?? s * .2;
+		let { grapheme: t, bold: n, italic: r, isColor: i } = e, a = i ? this.colorCtx : this.ctx, o = i ? this.colorCanvas : this.canvas, s = this.fontSize * this.dpr, c = n ? Math.min(this.fontWeight + 200, 900) : this.fontWeight, l = `${r ? "italic " : ""}${c} ${s}px ${this.fontFamily}`;
+		a.font = l, a.textBaseline = "alphabetic", a.textAlign = "left";
+		let u = a.measureText(t), d = u.actualBoundingBoxLeft ?? 0, f = u.actualBoundingBoxRight ?? u.width, p = u.actualBoundingBoxAscent ?? s * .8, m = u.actualBoundingBoxDescent ?? s * .2;
 		[
-			u,
 			d,
 			f,
-			p
-		].every(Number.isFinite) || (u = 0, d = Number.isFinite(l.width) && l.width > 0 ? l.width : s * .6, f = s * .8, p = s * .2);
-		let m = Math.ceil(u + d), h = Math.ceil(f + p);
-		if (!Number.isFinite(m) || !Number.isFinite(h) || m === 0 || h === 0) return {
-			...Y(i),
+			p,
+			m
+		].every(Number.isFinite) || (d = 0, f = Number.isFinite(u.width) && u.width > 0 ? u.width : s * .6, p = s * .8, m = s * .2);
+		let h = Math.ceil(d + f), g = Math.ceil(p + m);
+		if (!Number.isFinite(h) || !Number.isFinite(g) || h === 0 || g === 0) return {
+			...J(i),
 			shelfId: -1
 		};
-		let g = m + q * 2, _ = h + q * 2, v = i ? this.colorPage : this.page;
-		if (g > v.width || _ > v.height) return {
-			...Y(i),
+		let _ = h + K * 2, v = g + K * 2, y = i ? this.colorPage : this.page;
+		if (_ > y.width || v > y.height) return {
+			...J(i),
 			shelfId: -1
 		};
-		let y = dt(v, g, _);
-		if (!y) return null;
-		o.width = g, o.height = _, a.clearRect(0, 0, g, _), a.font = c, a.textBaseline = "alphabetic", a.textAlign = "left", a.fillStyle = "#ffffff";
-		let b = -u, x = f, S = q - b, C = q + x;
-		a.fillText(t, S, C);
+		let b = ft(y, _, v);
+		if (!b) return null;
+		o.width = _, o.height = v, a.clearRect(0, 0, _, v), a.font = l, a.textBaseline = "alphabetic", a.textAlign = "left", a.fillStyle = "#ffffff";
+		let x = -d, S = p, C = K - x, ee = K + S;
+		a.fillText(t, C, ee);
 		let w;
 		try {
-			w = a.getImageData(0, 0, g, _);
+			w = a.getImageData(0, 0, _, v);
 		} catch {
 			return null;
 		}
 		let T = this.gl;
-		if (i) T.activeTexture(T.TEXTURE1), T.bindTexture(T.TEXTURE_2D, this.colorTexture), T.pixelStorei(T.UNPACK_ALIGNMENT, 1), T.pixelStorei(T.UNPACK_ROW_LENGTH, 0), T.pixelStorei(T.UNPACK_FLIP_Y_WEBGL, 0), T.pixelStorei(T.UNPACK_COLORSPACE_CONVERSION_WEBGL, T.NONE), T.pixelStorei(T.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1), T.texSubImage2D(T.TEXTURE_2D, 0, y.x, y.y, g, _, T.RGBA, T.UNSIGNED_BYTE, w.data), T.pixelStorei(T.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+		if (i) T.activeTexture(T.TEXTURE1), T.bindTexture(T.TEXTURE_2D, this.colorTexture), T.pixelStorei(T.UNPACK_ALIGNMENT, 1), T.pixelStorei(T.UNPACK_ROW_LENGTH, 0), T.pixelStorei(T.UNPACK_FLIP_Y_WEBGL, 0), T.pixelStorei(T.UNPACK_COLORSPACE_CONVERSION_WEBGL, T.NONE), T.pixelStorei(T.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1), T.texSubImage2D(T.TEXTURE_2D, 0, b.x, b.y, _, v, T.RGBA, T.UNSIGNED_BYTE, w.data), T.pixelStorei(T.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
 		else {
-			let e = ft(w.data, g, _);
-			T.activeTexture(T.TEXTURE0), T.bindTexture(T.TEXTURE_2D, this.atlasTexture), T.pixelStorei(T.UNPACK_ALIGNMENT, 1), T.pixelStorei(T.UNPACK_ROW_LENGTH, 0), T.pixelStorei(T.UNPACK_FLIP_Y_WEBGL, 0), T.pixelStorei(T.UNPACK_COLORSPACE_CONVERSION_WEBGL, T.NONE), T.pixelStorei(T.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0), T.texSubImage2D(T.TEXTURE_2D, 0, y.x, y.y, g, _, T.RGBA, T.UNSIGNED_BYTE, e);
+			let e = pt(w.data, _, v);
+			T.activeTexture(T.TEXTURE0), T.bindTexture(T.TEXTURE_2D, this.atlasTexture), T.pixelStorei(T.UNPACK_ALIGNMENT, 1), T.pixelStorei(T.UNPACK_ROW_LENGTH, 0), T.pixelStorei(T.UNPACK_FLIP_Y_WEBGL, 0), T.pixelStorei(T.UNPACK_COLORSPACE_CONVERSION_WEBGL, T.NONE), T.pixelStorei(T.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0), T.texSubImage2D(T.TEXTURE_2D, 0, b.x, b.y, _, v, T.RGBA, T.UNSIGNED_BYTE, e);
 		}
 		return {
-			atlasX: y.x + q,
-			atlasY: y.y + q,
-			atlasW: m,
-			atlasH: h,
-			bearingX: Math.round(b),
-			bearingY: Math.round(x),
-			width: m,
-			height: h,
+			atlasX: b.x + K,
+			atlasY: b.y + K,
+			atlasW: h,
+			atlasH: g,
+			bearingX: Math.round(x),
+			bearingY: Math.round(S),
+			width: h,
+			height: g,
 			isColor: i,
-			shelfId: y.shelfId
+			shelfId: b.shelfId
 		};
 	}
 	evictLeastRecentlyUsedShelf(e) {
@@ -4380,10 +4385,10 @@ var q = 1, ct = 32, lt = 126, ut = class {
 	}
 	resetPage(e) {
 		if (e) {
-			this.colorPage = J(this.colorAtlasSize);
+			this.colorPage = q(this.colorAtlasSize);
 			return;
 		}
-		this.page = J(this.atlasSize);
+		this.page = q(this.atlasSize);
 	}
 	clearFullPageTexture(e) {
 		let t = e ? this.colorPage : this.page, n = {
@@ -4396,7 +4401,7 @@ var q = 1, ct = 32, lt = 126, ut = class {
 	}
 	createPlaceholder(e) {
 		return {
-			...Y(e.isColor),
+			...J(e.isColor),
 			key: this.makeKey(e),
 			grapheme: e.grapheme,
 			bold: e.bold,
@@ -4408,7 +4413,7 @@ var q = 1, ct = 32, lt = 126, ut = class {
 		};
 	}
 	resetPages() {
-		this.page = J(this.atlasSize), this.colorPage = J(this.colorAtlasSize);
+		this.page = q(this.atlasSize), this.colorPage = q(this.colorAtlasSize);
 	}
 	recreateTextures() {
 		this.gl.deleteTexture(this.atlasTexture), this.gl.deleteTexture(this.colorTexture);
@@ -4420,7 +4425,7 @@ var q = 1, ct = 32, lt = 126, ut = class {
 		return `${e.grapheme}|${e.bold ? "b" : ""}${e.italic ? "i" : ""}|${e.isColor ? "c" : "m"}|${this.dpr}`;
 	}
 };
-function dt(e, t, n) {
+function ft(e, t, n) {
 	for (let r of e.shelves) if (r.height >= n && e.width - r.nextX >= t) {
 		let e = r.nextX;
 		return r.nextX += t, {
@@ -4444,7 +4449,7 @@ function dt(e, t, n) {
 	}
 	return null;
 }
-function J(e) {
+function q(e) {
 	return {
 		width: e,
 		height: e,
@@ -4453,12 +4458,12 @@ function J(e) {
 		nextShelfId: 1
 	};
 }
-function ft(e, t, n) {
+function pt(e, t, n) {
 	let r = new Uint8Array(t * n * 4);
 	for (let t = 0, n = 0; t < e.length; t += 4, n += 4) r[n] = 255, r[n + 1] = 255, r[n + 2] = 255, r[n + 3] = e[t + 3];
 	return r;
 }
-function Y(e) {
+function J(e) {
 	return {
 		atlasX: 0,
 		atlasY: 0,
@@ -4471,12 +4476,12 @@ function Y(e) {
 		isColor: e
 	};
 }
-function pt(e) {
+function mt(e) {
 	if (e.length !== 1) return !1;
 	let t = e.codePointAt(0);
-	return t !== void 0 && t >= ct && t <= lt;
+	return t !== void 0 && t >= lt && t <= ut;
 }
-function mt(e) {
+function ht(e) {
 	try {
 		return /\p{Extended_Pictographic}/u.test(e);
 	} catch {
@@ -4484,12 +4489,12 @@ function mt(e) {
 		return t >= 127744 && t <= 129791 || t >= 9728 && t <= 10175;
 	}
 }
-function X(e, t) {
+function Y(e, t) {
 	return Number.isFinite(e) && e > 0 ? e : t;
 }
-function ht(e, t) {
-	if (typeof OffscreenCanvas < "u" && !gt(OffscreenCanvas)) return new OffscreenCanvas(e, t);
-	if (_t() && typeof document < "u" && document.createElement) {
+function gt(e, t) {
+	if (typeof OffscreenCanvas < "u" && !_t(OffscreenCanvas)) return new OffscreenCanvas(e, t);
+	if (vt() && typeof document < "u" && document.createElement) {
 		let n = document.createElement("canvas");
 		return n.width = e, n.height = t, n;
 	}
@@ -4500,27 +4505,27 @@ function ht(e, t) {
 	if (typeof OffscreenCanvas < "u") return new OffscreenCanvas(e, t);
 	throw Error("No canvas implementation available for glyph atlas");
 }
-function gt(e) {
+function _t(e) {
 	return typeof e == "function" && Function.prototype.toString.call(e).includes("[native code]");
 }
-function _t() {
+function vt() {
 	if (typeof navigator > "u") return !1;
 	let e = navigator.userAgent;
 	return /AppleWebKit/i.test(e) && !/(Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS|HappyDOM)/i.test(e);
 }
 //#endregion
 //#region lib/vendor/libghostty-webgl/src/shaders/background.ts
-var vt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayout(location = 0) in vec2 a_position;\nlayout(location = 1) in uvec4 a_atlasRect;\nlayout(location = 2) in ivec2 a_bearing;\nlayout(location = 3) in uvec4 a_flags;\nlayout(location = 4) in uvec4 a_fgColor;\nlayout(location = 5) in uvec4 a_bgColor;\nlayout(location = 6) in uvec4 a_decoColor;\nlayout(location = 7) in uint a_reserved;\n\nuniform vec2 u_cellSize;\nuniform vec2 u_gridSize;\n\nout vec4 v_bgColor;\nflat out float v_skip;\n\nvoid main() {\n  uint cellSpan = a_flags.x;\n  v_skip = cellSpan == 0u ? 1.0 : 0.0;\n  float span = max(float(cellSpan), 1.0);\n\n  int cols = int(u_gridSize.x);\n  int row = gl_InstanceID / cols;\n  int col = gl_InstanceID - row * cols;\n  vec2 cellOrigin = vec2(float(col), float(row)) * u_cellSize;\n  vec2 size = vec2(u_cellSize.x * span, u_cellSize.y);\n  vec2 pos = cellOrigin + a_position * size;\n\n  vec2 canvasSize = u_gridSize * u_cellSize;\n  vec2 ndc = (pos / canvasSize) * 2.0 - 1.0;\n  ndc.y = -ndc.y;\n  gl_Position = vec4(ndc, 0.0, 1.0);\n\n  v_bgColor = vec4(a_bgColor) / 255.0;\n}\n", yt = "#version 300 es\nprecision highp float;\n\nin vec4 v_bgColor;\nflat in float v_skip;\n\nout vec4 fragColor;\n\nvoid main() {\n  if (v_skip > 0.5 || v_bgColor.a <= 0.0) {\n    discard;\n  }\n  float a = v_bgColor.a;\n  fragColor = vec4(v_bgColor.rgb * a, a);\n}\n", bt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayout(location = 0) in vec2 a_position;\nlayout(location = 1) in uvec4 a_atlasRect;\nlayout(location = 2) in ivec2 a_bearing;\nlayout(location = 3) in uvec4 a_flags;\nlayout(location = 4) in uvec4 a_fgColor;\nlayout(location = 5) in uvec4 a_bgColor;\nlayout(location = 6) in uvec4 a_decoColor;\nlayout(location = 7) in uint a_reserved;\n\nuniform vec2 u_cellSize;\nuniform vec2 u_gridSize;\nuniform float u_baseline;\n\nout vec2 v_posPx;\nout vec4 v_decoColor;\nflat out float v_skip;\nflat out uint v_decoFlags;\n\nvoid main() {\n  uint cellSpan = a_flags.x;\n  v_skip = cellSpan == 0u ? 1.0 : 0.0;\n  v_decoFlags = a_flags.y;\n\n  int cols = int(u_gridSize.x);\n  int row = gl_InstanceID / cols;\n  int col = gl_InstanceID - row * cols;\n\n  vec2 cellOrigin = vec2(float(col), float(row)) * u_cellSize;\n  float span = max(float(cellSpan), 1.0);\n  vec2 size = vec2(u_cellSize.x * span, u_cellSize.y);\n  vec2 pos = cellOrigin + a_position * size;\n\n  vec2 canvasSize = u_gridSize * u_cellSize;\n  vec2 ndc = (pos / canvasSize) * 2.0 - 1.0;\n  ndc.y = -ndc.y;\n  gl_Position = vec4(ndc, 0.0, 1.0);\n\n  v_posPx = a_position * size;\n  v_decoColor = vec4(a_decoColor) / 255.0;\n}\n", xt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nin vec2 v_posPx;\nin vec4 v_decoColor;\nflat in float v_skip;\nflat in uint v_decoFlags;\n\nuniform vec2 u_cellSize;\nuniform float u_baseline;\n\nout vec4 fragColor;\n\nconst uint UNDERLINE = 1u;\nconst uint STRIKE = 2u;\nconst uint HYPERLINK = 4u;\nconst uint CURLY = 8u;\n\nvoid main() {\n  if (v_skip > 0.5 || v_decoFlags == 0u || v_decoColor.a <= 0.0) {\n    discard;\n  }\n\n  float y = v_posPx.y;\n  float thickness = 1.0;\n  bool draw = false;\n\n  if ((v_decoFlags & UNDERLINE) != 0u || (v_decoFlags & HYPERLINK) != 0u) {\n    float underlineY = u_baseline + 2.0;\n    draw = draw || (y >= underlineY && y <= underlineY + thickness);\n  }\n\n  if ((v_decoFlags & STRIKE) != 0u) {\n    float strikeY = u_cellSize.y * 0.5;\n    draw = draw || (y >= strikeY && y <= strikeY + thickness);\n  }\n\n  if ((v_decoFlags & CURLY) != 0u) {\n    float baseY = u_baseline + 2.0;\n    float wave = sin((v_posPx.x / max(1.0, u_cellSize.x)) * 6.2831853 * 2.0);\n    float waveY = baseY + wave;\n    draw = draw || abs(y - waveY) <= thickness;\n  }\n\n  if (!draw) {\n    discard;\n  }\n\n  float a = v_decoColor.a;\n  fragColor = vec4(v_decoColor.rgb * a, a);\n}\n", St = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayout(location = 0) in vec2 a_position;\nlayout(location = 1) in uvec4 a_atlasRect;\nlayout(location = 2) in ivec2 a_bearing;\nlayout(location = 3) in uvec4 a_flags;\nlayout(location = 4) in uvec4 a_fgColor;\nlayout(location = 5) in uvec4 a_bgColor;\nlayout(location = 6) in uvec4 a_decoColor;\nlayout(location = 7) in uint a_reserved;\n\nuniform vec2 u_cellSize;\nuniform vec2 u_gridSize;\nuniform vec2 u_atlasSize;\nuniform float u_baseline;\n\nout vec2 v_texCoord;\nout vec4 v_fgColor;\nflat out float v_skip;\nflat out float v_colorAtlas;\n\nvoid main() {\n  uint cellSpan = a_flags.x;\n  v_skip = (cellSpan == 0u || a_atlasRect.z == 0u || a_atlasRect.w == 0u) ? 1.0 : 0.0;\n\n  int cols = int(u_gridSize.x);\n  int row = gl_InstanceID / cols;\n  int col = gl_InstanceID - row * cols;\n  vec2 cellOrigin = vec2(float(col), float(row)) * u_cellSize;\n\n  vec2 atlasPos = vec2(a_atlasRect.xy);\n  vec2 atlasSize = vec2(a_atlasRect.zw);\n  vec2 bearing = vec2(a_bearing);\n  vec2 baselineOrigin = cellOrigin + vec2(0.0, u_baseline);\n  vec2 glyphPos = baselineOrigin + vec2(bearing.x, -bearing.y) + a_position * atlasSize;\n\n  vec2 canvasSize = u_gridSize * u_cellSize;\n  vec2 ndc = (glyphPos / canvasSize) * 2.0 - 1.0;\n  ndc.y = -ndc.y;\n  gl_Position = vec4(ndc, 0.0, 1.0);\n\n  v_texCoord = (atlasPos + a_position * atlasSize) / u_atlasSize;\n  v_fgColor = vec4(a_fgColor) / 255.0;\n  v_colorAtlas = float(a_flags.z & 1u);\n}\n", Ct = "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_atlas;\nuniform sampler2D u_colorAtlas;\n\nin vec2 v_texCoord;\nin vec4 v_fgColor;\nflat in float v_skip;\nflat in float v_colorAtlas;\n\nout vec4 fragColor;\n\nvoid main() {\n  if (v_skip > 0.5) {\n    discard;\n  }\n\n  if (v_colorAtlas > 0.5) {\n    vec4 rgba = texture(u_colorAtlas, v_texCoord);\n    float outA = rgba.a * v_fgColor.a;\n    fragColor = vec4(rgba.rgb * outA, outA);\n  } else {\n    float coverage = texture(u_atlas, v_texCoord).a;\n    float outA = v_fgColor.a * coverage;\n    fragColor = vec4(v_fgColor.rgb * outA, outA);\n  }\n}\n", wt = "#version 300 es\nprecision highp float;\n\nlayout(location = 0) in vec2 a_position;\n\nuniform vec2 u_rectOrigin;\nuniform vec2 u_rectSize;\nuniform vec2 u_canvasSize;\n\nvoid main() {\n  vec2 pos = u_rectOrigin + a_position * u_rectSize;\n  vec2 ndc = (pos / u_canvasSize) * 2.0 - 1.0;\n  ndc.y = -ndc.y;\n  gl_Position = vec4(ndc, 0.0, 1.0);\n}\n", Tt = "#version 300 es\nprecision highp float;\n\nuniform vec4 u_color;\n\nout vec4 fragColor;\n\nvoid main() {\n  if (u_color.a <= 0.0) {\n    discard;\n  }\n  fragColor = u_color;\n}\n", Et = (0, Ke.default)("bootty:webgl"), Z = 32, Dt = 3, Ot = class {
+var yt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayout(location = 0) in vec2 a_position;\nlayout(location = 1) in uvec4 a_atlasRect;\nlayout(location = 2) in ivec2 a_bearing;\nlayout(location = 3) in uvec4 a_flags;\nlayout(location = 4) in uvec4 a_fgColor;\nlayout(location = 5) in uvec4 a_bgColor;\nlayout(location = 6) in uvec4 a_decoColor;\nlayout(location = 7) in uint a_reserved;\n\nuniform vec2 u_cellSize;\nuniform vec2 u_gridSize;\n\nout vec4 v_bgColor;\nflat out float v_skip;\n\nvoid main() {\n  uint cellSpan = a_flags.x;\n  v_skip = cellSpan == 0u ? 1.0 : 0.0;\n  float span = max(float(cellSpan), 1.0);\n\n  int cols = int(u_gridSize.x);\n  int row = gl_InstanceID / cols;\n  int col = gl_InstanceID - row * cols;\n  vec2 cellOrigin = vec2(float(col), float(row)) * u_cellSize;\n  vec2 size = vec2(u_cellSize.x * span, u_cellSize.y);\n  vec2 pos = cellOrigin + a_position * size;\n\n  vec2 canvasSize = u_gridSize * u_cellSize;\n  vec2 ndc = (pos / canvasSize) * 2.0 - 1.0;\n  ndc.y = -ndc.y;\n  gl_Position = vec4(ndc, 0.0, 1.0);\n\n  v_bgColor = vec4(a_bgColor) / 255.0;\n}\n", bt = "#version 300 es\nprecision highp float;\n\nin vec4 v_bgColor;\nflat in float v_skip;\n\nout vec4 fragColor;\n\nvoid main() {\n  if (v_skip > 0.5 || v_bgColor.a <= 0.0) {\n    discard;\n  }\n  float a = v_bgColor.a;\n  fragColor = vec4(v_bgColor.rgb * a, a);\n}\n", xt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayout(location = 0) in vec2 a_position;\nlayout(location = 1) in uvec4 a_atlasRect;\nlayout(location = 2) in ivec2 a_bearing;\nlayout(location = 3) in uvec4 a_flags;\nlayout(location = 4) in uvec4 a_fgColor;\nlayout(location = 5) in uvec4 a_bgColor;\nlayout(location = 6) in uvec4 a_decoColor;\nlayout(location = 7) in uint a_reserved;\n\nuniform vec2 u_cellSize;\nuniform vec2 u_gridSize;\nuniform float u_baseline;\n\nout vec2 v_posPx;\nout vec4 v_decoColor;\nflat out float v_skip;\nflat out uint v_decoFlags;\n\nvoid main() {\n  uint cellSpan = a_flags.x;\n  v_skip = cellSpan == 0u ? 1.0 : 0.0;\n  v_decoFlags = a_flags.y;\n\n  int cols = int(u_gridSize.x);\n  int row = gl_InstanceID / cols;\n  int col = gl_InstanceID - row * cols;\n\n  vec2 cellOrigin = vec2(float(col), float(row)) * u_cellSize;\n  float span = max(float(cellSpan), 1.0);\n  vec2 size = vec2(u_cellSize.x * span, u_cellSize.y);\n  vec2 pos = cellOrigin + a_position * size;\n\n  vec2 canvasSize = u_gridSize * u_cellSize;\n  vec2 ndc = (pos / canvasSize) * 2.0 - 1.0;\n  ndc.y = -ndc.y;\n  gl_Position = vec4(ndc, 0.0, 1.0);\n\n  v_posPx = a_position * size;\n  v_decoColor = vec4(a_decoColor) / 255.0;\n}\n", St = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nin vec2 v_posPx;\nin vec4 v_decoColor;\nflat in float v_skip;\nflat in uint v_decoFlags;\n\nuniform vec2 u_cellSize;\nuniform float u_baseline;\n\nout vec4 fragColor;\n\nconst uint UNDERLINE = 1u;\nconst uint STRIKE = 2u;\nconst uint HYPERLINK = 4u;\nconst uint CURLY = 8u;\n\nvoid main() {\n  if (v_skip > 0.5 || v_decoFlags == 0u || v_decoColor.a <= 0.0) {\n    discard;\n  }\n\n  float y = v_posPx.y;\n  float thickness = 1.0;\n  bool draw = false;\n\n  if ((v_decoFlags & UNDERLINE) != 0u || (v_decoFlags & HYPERLINK) != 0u) {\n    float underlineY = u_baseline + 2.0;\n    draw = draw || (y >= underlineY && y <= underlineY + thickness);\n  }\n\n  if ((v_decoFlags & STRIKE) != 0u) {\n    float strikeY = u_cellSize.y * 0.5;\n    draw = draw || (y >= strikeY && y <= strikeY + thickness);\n  }\n\n  if ((v_decoFlags & CURLY) != 0u) {\n    float baseY = u_baseline + 2.0;\n    float wave = sin((v_posPx.x / max(1.0, u_cellSize.x)) * 6.2831853 * 2.0);\n    float waveY = baseY + wave;\n    draw = draw || abs(y - waveY) <= thickness;\n  }\n\n  if (!draw) {\n    discard;\n  }\n\n  float a = v_decoColor.a;\n  fragColor = vec4(v_decoColor.rgb * a, a);\n}\n", Ct = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayout(location = 0) in vec2 a_position;\nlayout(location = 1) in uvec4 a_atlasRect;\nlayout(location = 2) in ivec2 a_bearing;\nlayout(location = 3) in uvec4 a_flags;\nlayout(location = 4) in uvec4 a_fgColor;\nlayout(location = 5) in uvec4 a_bgColor;\nlayout(location = 6) in uvec4 a_decoColor;\nlayout(location = 7) in uint a_reserved;\n\nuniform vec2 u_cellSize;\nuniform vec2 u_gridSize;\nuniform vec2 u_atlasSize;\nuniform float u_baseline;\n\nout vec2 v_texCoord;\nout vec4 v_fgColor;\nflat out float v_skip;\nflat out float v_colorAtlas;\n\nvoid main() {\n  uint cellSpan = a_flags.x;\n  v_skip = (cellSpan == 0u || a_atlasRect.z == 0u || a_atlasRect.w == 0u) ? 1.0 : 0.0;\n\n  int cols = int(u_gridSize.x);\n  int row = gl_InstanceID / cols;\n  int col = gl_InstanceID - row * cols;\n  vec2 cellOrigin = vec2(float(col), float(row)) * u_cellSize;\n\n  vec2 atlasPos = vec2(a_atlasRect.xy);\n  vec2 atlasSize = vec2(a_atlasRect.zw);\n  vec2 bearing = vec2(a_bearing);\n  vec2 baselineOrigin = cellOrigin + vec2(0.0, u_baseline);\n  vec2 glyphPos = baselineOrigin + vec2(bearing.x, -bearing.y) + a_position * atlasSize;\n\n  vec2 canvasSize = u_gridSize * u_cellSize;\n  vec2 ndc = (glyphPos / canvasSize) * 2.0 - 1.0;\n  ndc.y = -ndc.y;\n  gl_Position = vec4(ndc, 0.0, 1.0);\n\n  v_texCoord = (atlasPos + a_position * atlasSize) / u_atlasSize;\n  v_fgColor = vec4(a_fgColor) / 255.0;\n  v_colorAtlas = float(a_flags.z & 1u);\n}\n", wt = "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_atlas;\nuniform sampler2D u_colorAtlas;\n\nin vec2 v_texCoord;\nin vec4 v_fgColor;\nflat in float v_skip;\nflat in float v_colorAtlas;\n\nout vec4 fragColor;\n\nvoid main() {\n  if (v_skip > 0.5) {\n    discard;\n  }\n\n  if (v_colorAtlas > 0.5) {\n    vec4 rgba = texture(u_colorAtlas, v_texCoord);\n    float outA = rgba.a * v_fgColor.a;\n    fragColor = vec4(rgba.rgb * outA, outA);\n  } else {\n    float coverage = texture(u_atlas, v_texCoord).a;\n    float outA = v_fgColor.a * coverage;\n    fragColor = vec4(v_fgColor.rgb * outA, outA);\n  }\n}\n", Tt = "#version 300 es\nprecision highp float;\n\nlayout(location = 0) in vec2 a_position;\n\nout vec2 v_uv;\n\nvoid main() {\n  // The scene FBO is rendered with the same row0-at-clip-top convention as\n  // every other pass in this renderer (ndc.y flipped below), which means row\n  // 0 ends up written at texture v=1, not v=0 — GL's texture v axis and its\n  // clip-space y axis point the same way, so flipping clip space to put row\n  // 0 \"on top\" visually also puts it at the texture's v=1 edge. Flip v_uv.y\n  // here to compensate, so sampling at the on-screen top actually reads the\n  // terminal's top row instead of its bottom row.\n  v_uv = vec2(a_position.x, 1.0 - a_position.y);\n  vec2 ndc = a_position * 2.0 - 1.0;\n  ndc.y = -ndc.y;\n  gl_Position = vec4(ndc, 0.0, 1.0);\n}\n", Et = "#version 300 es\nprecision highp float;\n\nin vec2 v_uv;\nuniform sampler2D u_scene;\n\nout vec4 fragColor;\n\nvoid main() {\n  fragColor = texture(u_scene, v_uv);\n}\n", Dt = "#version 300 es\nprecision highp float;\n\nlayout(location = 0) in vec2 a_position;\n\nuniform vec2 u_rectOrigin;\nuniform vec2 u_rectSize;\nuniform vec2 u_canvasSize;\n\nvoid main() {\n  vec2 pos = u_rectOrigin + a_position * u_rectSize;\n  vec2 ndc = (pos / u_canvasSize) * 2.0 - 1.0;\n  ndc.y = -ndc.y;\n  gl_Position = vec4(ndc, 0.0, 1.0);\n}\n", Ot = "#version 300 es\nprecision highp float;\n\nuniform vec4 u_color;\n\nout vec4 fragColor;\n\nvoid main() {\n  if (u_color.a <= 0.0) {\n    discard;\n  }\n  fragColor = u_color;\n}\n", X = (0, qe.default)("bootty:webgl"), Z = 32, kt = 3, At = class {
 	constructor(e = {}) {
 		this.gridCols = 0, this.gridRows = 0, this.cellSizePx = {
 			width: 0,
 			height: 0,
 			baseline: 0
-		}, this.contextValid = !1, this.contextLossCount = 0, this.forceFullUpload = !0, this.handleContextLost = (e) => {
-			e.preventDefault(), this.contextValid = !1, this.contextLossCount += 1, this.contextLossCount >= Dt && this.options.onContextLoss?.();
+		}, this.contextValid = !1, this.contextLossCount = 0, this.forceFullUpload = !0, this.sceneWidth = 0, this.sceneHeight = 0, this.customPostProcessSource = null, this.postProcessActive = !1, this.postProcessStartTime = Q(), this.handleContextLost = (e) => {
+			e.preventDefault(), this.contextValid = !1, this.contextLossCount += 1, this.contextLossCount >= kt && this.options.onContextLoss?.();
 		}, this.handleContextRestored = () => {
-			!this.canvas || !this.gl || (this.initResources(), this.contextValid = !0, this.forceFullUpload = !0, this.contextLossCount >= Dt && (this.contextValid = !1));
-		}, Et("WebGLRenderer constructor called"), this.options = e, this.fontSize = e.fontSize ?? 15, this.fontFamily = e.fontFamily ?? "monospace", this.fixedDevicePixelRatio = e.devicePixelRatio, this.dpr = this.getDevicePixelRatio(), this.metrics = this.measureFont(), this.theme = {
+			!this.canvas || !this.gl || (this.initResources(), this.contextValid = !0, this.forceFullUpload = !0, this.contextLossCount >= kt && (this.contextValid = !1));
+		}, X("WebGLRenderer constructor called"), this.options = e, this.fontSize = e.fontSize ?? 15, this.fontFamily = e.fontFamily ?? "monospace", this.fontWeight = e.fontWeight ?? 400, this.fixedDevicePixelRatio = e.devicePixelRatio, this.dpr = this.getDevicePixelRatio(), this.metrics = this.measureFont(), this.theme = {
 			foreground: {
 				r: 0,
 				g: 0,
@@ -4556,7 +4561,7 @@ var vt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 		};
 	}
 	attach(e) {
-		Et("attach() called"), this.canvas = e, this.options.ownerDocument = e.ownerDocument, this.dpr = this.getDevicePixelRatio();
+		X("attach() called"), this.canvas = e, this.options.ownerDocument = e.ownerDocument, this.dpr = this.getDevicePixelRatio();
 		let t = e.getContext("webgl2", {
 			antialias: this.options.antialias ?? !1,
 			alpha: this.options.alpha ?? !0,
@@ -4574,21 +4579,21 @@ var vt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 			width: this.metrics.width * this.dpr,
 			height: this.metrics.height * this.dpr,
 			baseline: this.metrics.baseline * this.dpr
-		}, this.gl.viewport(0, 0, this.canvas.width, this.canvas.height), this.cellBuffer?.resize(e, t), this.forceFullUpload = !0;
+		}, this.gl.viewport(0, 0, this.canvas.width, this.canvas.height), this.cellBuffer?.resize(e, t), this.forceFullUpload = !0, this.postProcessActive && this.resizeSceneFramebuffer(this.canvas.width, this.canvas.height);
 	}
 	render(e) {
 		let t = this.getDevicePixelRatio();
 		if (t !== this.dpr && (this.dpr = t, this.gridCols > 0 && this.gridRows > 0 && this.resize(this.gridCols, this.gridRows)), !this.prepareFrame(e)) return;
-		let n = z();
+		let n = R();
 		this.updateInstanceData(e);
-		let r = e.cols * e.rows, i = z();
-		this.drawFramePasses(e, r), this.drawOverlays(e), B("bootty:webgl:draw", i, {
+		let r = e.cols * e.rows, i = R(), a = this.gl, o = this.postProcessActive && !!this.sceneFramebuffer;
+		o && a.bindFramebuffer(a.FRAMEBUFFER, this.sceneFramebuffer), this.drawFramePasses(e, r), this.drawOverlays(e), o && (a.bindFramebuffer(a.FRAMEBUFFER, null), this.blitScene()), z("bootty:webgl:draw", i, {
 			cols: e.cols,
 			rows: e.rows,
 			instanceCount: r,
 			cursorVisible: e.cursorVisible,
 			scrollbarOpacity: e.scrollbarOpacity
-		}), B("bootty:webgl:render", n, {
+		}), z("bootty:webgl:render", n, {
 			cols: e.cols,
 			rows: e.rows,
 			instanceCount: r
@@ -4597,11 +4602,26 @@ var vt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 	updateTheme(e) {
 		this.theme = e;
 	}
+	setPostProcessShader(e) {
+		if (e !== this.customPostProcessSource) {
+			if (this.customPostProcessSource = e, e === null) {
+				this.postProcessActive = !1;
+				return;
+			}
+			this.postProcessStartTime = Q(), this.postProcessActive = !0, this.canvas && this.resizeSceneFramebuffer(this.canvas.width, this.canvas.height), this.compilePostProcessProgram(e);
+		}
+	}
 	setFontSize(e) {
-		!Number.isFinite(e) || e <= 0 || (this.fontSize = e, this.metrics = this.measureFont(), this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.dpr), this.forceFullUpload = !0);
+		!Number.isFinite(e) || e <= 0 || (this.fontSize = e, this.metrics = this.measureFont(), this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr), this.forceFullUpload = !0);
 	}
 	setFontFamily(e) {
-		this.fontFamily = e, this.metrics = this.measureFont(), this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.dpr), this.forceFullUpload = !0;
+		this.fontFamily = e, this.metrics = this.measureFont(), this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr), this.forceFullUpload = !0;
+	}
+	setFontWeight(e) {
+		!Number.isFinite(e) || e < 1 || e > 1e3 || (this.fontWeight = e, this.metrics = this.measureFont(), this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr), this.forceFullUpload = !0);
+	}
+	remeasureFont() {
+		this.metrics = this.measureFont(), this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr), this.forceFullUpload = !0;
 	}
 	getMetrics() {
 		return { ...this.metrics };
@@ -4638,30 +4658,93 @@ var vt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 			1,
 			1,
 			1
-		]), e.STATIC_DRAW), this.cellBuffer = new nt(e), this.glyphAtlas = new ut(e, this.fontSize, this.fontFamily, this.dpr), this.background = this.createProgramInfo(vt, yt, ["u_cellSize", "u_gridSize"]), this.glyph = this.createProgramInfo(St, Ct, [
+		]), e.STATIC_DRAW), this.cellBuffer = new rt(e), this.glyphAtlas = new dt(e, this.fontSize, this.fontFamily, this.fontWeight, this.dpr), this.background = this.createProgramInfo(yt, bt, ["u_cellSize", "u_gridSize"]), this.glyph = this.createProgramInfo(Ct, wt, [
 			"u_cellSize",
 			"u_gridSize",
 			"u_atlasSize",
 			"u_baseline",
 			"u_atlas",
 			"u_colorAtlas"
-		]), this.decoration = this.createProgramInfo(bt, xt, [
+		]), this.decoration = this.createProgramInfo(xt, St, [
 			"u_cellSize",
 			"u_gridSize",
 			"u_baseline"
-		]), this.solid = this.createProgramInfo(wt, Tt, [
+		]), this.solid = this.createProgramInfo(Dt, Ot, [
 			"u_rectOrigin",
 			"u_rectSize",
 			"u_canvasSize",
 			"u_color"
-		], !0), this.forceFullUpload = !0;
+		], !0), this.forceFullUpload = !0, this.customPostProcessSource !== null && (this.postProcessStartTime = Q(), this.canvas && this.resizeSceneFramebuffer(this.canvas.width, this.canvas.height), this.compilePostProcessProgram(this.customPostProcessSource));
 	}
 	releaseResources() {
 		let e = this.gl;
-		e && (this.deleteProgramInfo(this.background), this.deleteProgramInfo(this.glyph), this.deleteProgramInfo(this.decoration), this.deleteProgramInfo(this.solid), this.background = void 0, this.glyph = void 0, this.decoration = void 0, this.solid = void 0, this.quadVbo &&= (e.deleteBuffer(this.quadVbo), void 0), this.cellBuffer?.dispose(), this.cellBuffer = void 0, this.glyphAtlas?.dispose(), this.glyphAtlas = void 0);
+		e && (this.deleteProgramInfo(this.background), this.deleteProgramInfo(this.glyph), this.deleteProgramInfo(this.decoration), this.deleteProgramInfo(this.solid), this.background = void 0, this.glyph = void 0, this.decoration = void 0, this.solid = void 0, this.quadVbo &&= (e.deleteBuffer(this.quadVbo), void 0), this.cellBuffer?.dispose(), this.cellBuffer = void 0, this.glyphAtlas?.dispose(), this.glyphAtlas = void 0, this.disposeSceneFramebuffer(), this.disposePostProcessProgram());
 	}
 	deleteProgramInfo(e) {
 		!this.gl || !e || (this.gl.deleteVertexArray(e.vao), this.gl.deleteProgram(e.program));
+	}
+	resizeSceneFramebuffer(e, t) {
+		if (!this.gl || e <= 0 || t <= 0 || this.sceneFramebuffer && this.sceneWidth === e && this.sceneHeight === t) return;
+		let n = this.gl;
+		this.disposeSceneFramebuffer();
+		let r = n.createTexture();
+		if (!r) {
+			X("failed to create scene texture");
+			return;
+		}
+		n.bindTexture(n.TEXTURE_2D, r), n.texImage2D(n.TEXTURE_2D, 0, n.RGBA8, e, t, 0, n.RGBA, n.UNSIGNED_BYTE, null), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_MIN_FILTER, n.LINEAR), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_MAG_FILTER, n.LINEAR), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_WRAP_S, n.CLAMP_TO_EDGE), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_WRAP_T, n.CLAMP_TO_EDGE);
+		let i = n.createFramebuffer();
+		if (!i) {
+			X("failed to create scene framebuffer"), n.deleteTexture(r);
+			return;
+		}
+		n.bindFramebuffer(n.FRAMEBUFFER, i), n.framebufferTexture2D(n.FRAMEBUFFER, n.COLOR_ATTACHMENT0, n.TEXTURE_2D, r, 0);
+		let a = n.checkFramebufferStatus(n.FRAMEBUFFER);
+		if (n.bindFramebuffer(n.FRAMEBUFFER, null), a !== n.FRAMEBUFFER_COMPLETE) {
+			X("scene framebuffer incomplete, status=%s", a), n.deleteFramebuffer(i), n.deleteTexture(r);
+			return;
+		}
+		this.sceneTexture = r, this.sceneFramebuffer = i, this.sceneWidth = e, this.sceneHeight = t;
+	}
+	disposeSceneFramebuffer() {
+		let e = this.gl;
+		e && (this.sceneFramebuffer &&= (e.deleteFramebuffer(this.sceneFramebuffer), void 0), this.sceneTexture &&= (e.deleteTexture(this.sceneTexture), void 0), this.sceneWidth = 0, this.sceneHeight = 0);
+	}
+	compilePostProcessProgram(e) {
+		if (!this.gl || !this.quadVbo) return;
+		let t = this.gl, n;
+		try {
+			n = Mt(t, Tt, e);
+		} catch (e) {
+			X("custom post-process shader failed to compile, falling back to passthrough: %s", e);
+			try {
+				n = Mt(t, Tt, Et);
+			} catch (e) {
+				X("passthrough post-process shader failed to compile: %s", e);
+				return;
+			}
+		}
+		let r = t.createVertexArray();
+		if (!r) {
+			X("failed to create post-process VAO"), t.deleteProgram(n);
+			return;
+		}
+		t.bindVertexArray(r), t.bindBuffer(t.ARRAY_BUFFER, this.quadVbo), t.enableVertexAttribArray(0), t.vertexAttribPointer(0, 2, t.FLOAT, !1, 0, 0), t.bindVertexArray(null), this.disposePostProcessProgram(), this.postProcessProgram = {
+			program: n,
+			vao: r,
+			uScene: t.getUniformLocation(n, "u_scene"),
+			uResolution: t.getUniformLocation(n, "u_resolution"),
+			uTime: t.getUniformLocation(n, "u_time")
+		};
+	}
+	disposePostProcessProgram() {
+		let e = this.gl;
+		!e || !this.postProcessProgram || (e.deleteVertexArray(this.postProcessProgram.vao), e.deleteProgram(this.postProcessProgram.program), this.postProcessProgram = void 0);
+	}
+	blitScene() {
+		if (!this.gl || !this.canvas || !this.sceneTexture || !this.postProcessProgram) return;
+		let e = this.gl, t = this.postProcessProgram;
+		e.disable(e.BLEND), e.viewport(0, 0, this.canvas.width, this.canvas.height), e.useProgram(t.program), e.bindVertexArray(t.vao), e.activeTexture(e.TEXTURE0), e.bindTexture(e.TEXTURE_2D, this.sceneTexture), t.uScene && e.uniform1i(t.uScene, 0), t.uResolution && e.uniform2f(t.uResolution, this.canvas.width, this.canvas.height), t.uTime && e.uniform1f(t.uTime, (Q() - this.postProcessStartTime) / 1e3), e.drawArrays(e.TRIANGLE_STRIP, 0, 4);
 	}
 	prepareFrame(e) {
 		if (!this.contextValid || !this.gl || !this.canvas) return !1;
@@ -4670,8 +4753,8 @@ var vt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 	}
 	updateInstanceData(e) {
 		if (!this.cellBuffer || !this.glyphAtlas) return;
-		let t = z();
-		this.cellBuffer.update(e, this.glyphAtlas, this.forceFullUpload), B("bootty:webgl:cellbuffer-update", t, {
+		let t = R();
+		this.cellBuffer.update(e, this.glyphAtlas, this.forceFullUpload), z("bootty:webgl:cellbuffer-update", t, {
 			cols: e.cols,
 			rows: e.rows,
 			dirtyState: e.dirtyState,
@@ -4683,12 +4766,12 @@ var vt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 		let n = this.gl, r = this.cellSizePx;
 		n.enable(n.BLEND), n.blendFunc(n.ONE, n.ONE_MINUS_SRC_ALPHA), n.disable(n.DEPTH_TEST), n.disable(n.SCISSOR_TEST);
 		let i = e.theme.background;
-		e.allowTransparency ? n.clearColor(0, 0, 0, 0) : n.clearColor(i.r / 255 * i.a, i.g / 255 * i.a, i.b / 255 * i.a, i.a), n.clear(n.COLOR_BUFFER_BIT), !e.allowTransparency && this.background && (n.useProgram(this.background.program), n.bindVertexArray(this.background.vao), n.uniform2f(this.background.uniforms.u_cellSize, r.width, r.height), n.uniform2f(this.background.uniforms.u_gridSize, e.cols, e.rows), n.drawArraysInstanced(n.TRIANGLE_STRIP, 0, 4, t)), this.glyph && (n.useProgram(this.glyph.program), n.bindVertexArray(this.glyph.vao), n.uniform2f(this.glyph.uniforms.u_cellSize, r.width, r.height), n.uniform2f(this.glyph.uniforms.u_gridSize, e.cols, e.rows), n.uniform2f(this.glyph.uniforms.u_atlasSize, this.glyphAtlas.size, this.glyphAtlas.size), n.uniform1f(this.glyph.uniforms.u_baseline, r.baseline), n.activeTexture(n.TEXTURE0), n.bindTexture(n.TEXTURE_2D, this.glyphAtlas.texture), n.activeTexture(n.TEXTURE1), n.bindTexture(n.TEXTURE_2D, this.glyphAtlas.colorAtlas), n.uniform1i(this.glyph.uniforms.u_atlas, 0), n.uniform1i(this.glyph.uniforms.u_colorAtlas, 1), n.drawArraysInstanced(n.TRIANGLE_STRIP, 0, 4, t)), this.decoration && (n.useProgram(this.decoration.program), n.bindVertexArray(this.decoration.vao), n.uniform2f(this.decoration.uniforms.u_cellSize, r.width, r.height), n.uniform2f(this.decoration.uniforms.u_gridSize, e.cols, e.rows), n.uniform1f(this.decoration.uniforms.u_baseline, r.baseline), n.drawArraysInstanced(n.TRIANGLE_STRIP, 0, 4, t));
+		e.allowTransparency ? n.clearColor(0, 0, 0, 0) : n.clearColor(i.r / 255 * i.a, i.g / 255 * i.a, i.b / 255 * i.a, i.a), n.clear(n.COLOR_BUFFER_BIT), this.background && (n.useProgram(this.background.program), n.bindVertexArray(this.background.vao), n.uniform2f(this.background.uniforms.u_cellSize, r.width, r.height), n.uniform2f(this.background.uniforms.u_gridSize, e.cols, e.rows), n.drawArraysInstanced(n.TRIANGLE_STRIP, 0, 4, t)), this.glyph && (n.useProgram(this.glyph.program), n.bindVertexArray(this.glyph.vao), n.uniform2f(this.glyph.uniforms.u_cellSize, r.width, r.height), n.uniform2f(this.glyph.uniforms.u_gridSize, e.cols, e.rows), n.uniform2f(this.glyph.uniforms.u_atlasSize, this.glyphAtlas.size, this.glyphAtlas.size), n.uniform1f(this.glyph.uniforms.u_baseline, r.baseline), n.activeTexture(n.TEXTURE0), n.bindTexture(n.TEXTURE_2D, this.glyphAtlas.texture), n.activeTexture(n.TEXTURE1), n.bindTexture(n.TEXTURE_2D, this.glyphAtlas.colorAtlas), n.uniform1i(this.glyph.uniforms.u_atlas, 0), n.uniform1i(this.glyph.uniforms.u_colorAtlas, 1), n.drawArraysInstanced(n.TRIANGLE_STRIP, 0, 4, t)), this.decoration && (n.useProgram(this.decoration.program), n.bindVertexArray(this.decoration.vao), n.uniform2f(this.decoration.uniforms.u_cellSize, r.width, r.height), n.uniform2f(this.decoration.uniforms.u_gridSize, e.cols, e.rows), n.uniform1f(this.decoration.uniforms.u_baseline, r.baseline), n.drawArraysInstanced(n.TRIANGLE_STRIP, 0, 4, t));
 	}
 	drawOverlays(e) {
 		let t = this.cellSizePx;
 		if (e.cursorVisible) {
-			let n = jt(e.cursorStyle, this.metrics, this.dpr), r = e.cursorX * t.width, i = e.cursorY * t.height;
+			let n = Nt(e.cursorStyle, this.metrics, this.dpr), r = e.cursorX * t.width, i = e.cursorY * t.height;
 			this.drawSolidRect({
 				x: r + n.offsetX,
 				y: i + n.offsetY
@@ -4701,7 +4784,7 @@ var vt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 	}
 	createProgramInfo(e, t, n, r = !1) {
 		if (!this.gl || !this.quadVbo) throw Error("WebGLRenderer is not initialized");
-		let i = this.gl, a = At(i, e, t), o = i.createVertexArray();
+		let i = this.gl, a = Mt(i, e, t), o = i.createVertexArray();
 		if (!o) throw Error("Failed to create VAO");
 		if (i.bindVertexArray(o), i.bindBuffer(i.ARRAY_BUFFER, this.quadVbo), i.enableVertexAttribArray(0), i.vertexAttribPointer(0, 2, i.FLOAT, !1, 0, 0), !r) {
 			if (!this.cellBuffer) throw Error("CellBuffer not initialized");
@@ -4772,7 +4855,7 @@ var vt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 			height: this.fontSize,
 			baseline: this.fontSize
 		};
-		t.font = `${this.fontSize}px ${this.fontFamily}`;
+		t.font = `${this.fontWeight} ${this.fontSize}px ${this.fontFamily}`;
 		let n = t.measureText("M"), r = Math.ceil(n.width), i = n.actualBoundingBoxAscent || this.fontSize * .8, a = n.actualBoundingBoxDescent || this.fontSize * .2;
 		return {
 			width: r,
@@ -4781,10 +4864,13 @@ var vt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 		};
 	}
 	setDevicePixelRatio(e) {
-		this.dpr = e, this.metrics = this.measureFont(), this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.dpr), this.gridCols > 0 && this.gridRows > 0 && this.resize(this.gridCols, this.gridRows), this.forceFullUpload = !0;
+		this.dpr = e, this.metrics = this.measureFont(), this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr), this.gridCols > 0 && this.gridRows > 0 && this.resize(this.gridCols, this.gridRows), this.forceFullUpload = !0;
 	}
 };
-function kt(e, t, n) {
+function Q() {
+	return typeof performance < "u" ? performance.now() : Date.now();
+}
+function jt(e, t, n) {
 	let r = e.createShader(t);
 	if (!r) throw Error("Failed to create shader");
 	if (e.shaderSource(r, n), e.compileShader(r), !e.getShaderParameter(r, e.COMPILE_STATUS)) {
@@ -4793,8 +4879,8 @@ function kt(e, t, n) {
 	}
 	return r;
 }
-function At(e, t, n) {
-	let r = kt(e, e.VERTEX_SHADER, t), i = kt(e, e.FRAGMENT_SHADER, n), a = e.createProgram();
+function Mt(e, t, n) {
+	let r = jt(e, e.VERTEX_SHADER, t), i = jt(e, e.FRAGMENT_SHADER, n), a = e.createProgram();
 	if (!a) throw Error("Failed to create program");
 	if (e.attachShader(a, r), e.attachShader(a, i), e.linkProgram(a), e.deleteShader(r), e.deleteShader(i), !e.getProgramParameter(a, e.LINK_STATUS)) {
 		let t = e.getProgramInfoLog(a);
@@ -4802,7 +4888,7 @@ function At(e, t, n) {
 	}
 	return a;
 }
-function jt(e, t, n) {
+function Nt(e, t, n) {
 	let r = t.width * n, i = t.height * n;
 	switch (e) {
 		case "underline": {
@@ -4830,7 +4916,7 @@ function jt(e, t, n) {
 }
 //#endregion
 //#region lib/webgl-renderer.ts
-var Mt = class {
+var Pt = class {
 	static canUse(e) {
 		let t = e.ownerDocument ?? (typeof document < "u" ? document : void 0);
 		if (!t) return !1;
@@ -4844,11 +4930,12 @@ var Mt = class {
 	}
 	constructor(e, t = {}) {
 		this.cols = 0, this.rows = 0, this.hoveredHyperlinkId = null, this.hoveredLinkRange = null, this.decorations = [], this.cursorVisible = !0, this.canvas = e, this.options = t, this.theme = {
-			...R,
+			...I,
 			...t.theme ?? {}
-		}, this.allowTransparency = t.allowTransparency ?? !1, this.scrollbarWidth = Math.max(0, t.scrollbarWidth ?? 8), this.vendored = new Ot({
+		}, this.allowTransparency = t.allowTransparency ?? !1, this.scrollbarWidth = Math.max(0, t.scrollbarWidth ?? 8), this.vendored = new At({
 			fontSize: t.fontSize,
 			fontFamily: t.fontFamily,
+			fontWeight: t.fontWeight,
 			devicePixelRatio: t.devicePixelRatio,
 			ownerDocument: e.ownerDocument,
 			alpha: this.allowTransparency
@@ -4896,6 +4983,12 @@ var Mt = class {
 	setFontFamily(e) {
 		this.options.fontFamily = e, this.vendored.setFontFamily(e);
 	}
+	setFontWeight(e) {
+		!Number.isFinite(e) || e < 1 || e > 1e3 || (this.options.fontWeight = e, this.vendored.setFontWeight(e));
+	}
+	remeasureFont() {
+		this.vendored.remeasureFont();
+	}
 	setCursorStyle(e) {
 		this.options.cursorStyle = e;
 	}
@@ -4912,7 +5005,7 @@ var Mt = class {
 		this.hoveredHyperlinkId = e !== null && Number.isFinite(e) ? Math.max(0, Math.floor(e)) : null;
 	}
 	setHoveredLinkRange(e) {
-		this.hoveredLinkRange = Nt(e);
+		this.hoveredLinkRange = Ft(e);
 	}
 	setDecorations(e) {
 		this.decorations = e.slice();
@@ -4940,6 +5033,12 @@ var Mt = class {
 	setOnRequestRender(e) {
 		this.onRequestRender = e;
 	}
+	setPostProcessShader(e) {
+		this.vendored.setPostProcessShader(e), this.onRequestRender?.();
+	}
+	requestRender() {
+		this.onRequestRender?.();
+	}
 	startCursorBlink() {
 		if (this.cursorBlinkInterval !== void 0) return;
 		let e = this.canvas.ownerDocument.defaultView;
@@ -4955,7 +5054,7 @@ var Mt = class {
 		this.cursorVisible = !0;
 	}
 	buildRenderInput(e, t, n, r, i) {
-		let a = e.getDimensions(), o = [], s = [], c = new Uint8Array(a.rows), l = this.selectionManager?.getSelectionCoords() ?? null, u = e.getCursor(), d = e.getViewport?.(), f = r?.getScrollbackLength() ?? 0, p = Lt(n, 0, f), m = Math.floor(p);
+		let a = e.getDimensions(), o = [], s = [], c = new Uint8Array(a.rows), l = this.selectionManager?.getSelectionCoords() ?? null, u = e.getCursor(), d = e.getViewport?.(), f = r?.getScrollbackLength() ?? 0, p = Bt(n, 0, f), m = Math.floor(p);
 		for (let n = 0; n < a.rows; n++) {
 			let i = this.getRenderLineSource(e, n, a.cols, m, f, r, d), u = [], p = !1, h = t || i.isDirty ? 1 : 0;
 			this.rowIntersectsSelection(n, l) && (h |= 2), this.rowIntersectsHoveredLink(n) && (h |= 4);
@@ -4971,7 +5070,7 @@ var Mt = class {
 			viewportCells: o,
 			graphemeRows: s,
 			rowFlags: c,
-			dirtyState: Ye.FULL,
+			dirtyState: Xe.FULL,
 			selectionRange: l ? {
 				startCol: l.startCol,
 				startRow: l.startRow,
@@ -5073,11 +5172,11 @@ var Mt = class {
 		};
 	}
 	cssToRgba(e) {
-		let t = Pt(e);
+		let t = It(e);
 		if (t) return t;
-		let n = It(e, this.canvas.ownerDocument);
+		let n = Rt(e, this.canvas.ownerDocument);
 		if (n && n !== e) {
-			let e = Pt(n);
+			let e = It(n);
 			if (e) return e;
 		}
 		return {
@@ -5088,7 +5187,7 @@ var Mt = class {
 		};
 	}
 };
-function Nt(e) {
+function Ft(e) {
 	return !e || ![
 		e.startX,
 		e.startY,
@@ -5101,17 +5200,17 @@ function Nt(e) {
 		endY: Math.max(0, Math.floor(e.endY))
 	};
 }
-function Pt(e) {
+function It(e) {
 	let t = e.trim();
 	if (t.startsWith("#")) {
 		let e = t.slice(1);
-		if (e.length === 3 || e.length === 4) return Ft({
+		if (e.length === 3 || e.length === 4) return Lt({
 			r: Number.parseInt(e[0] + e[0], 16),
 			g: Number.parseInt(e[1] + e[1], 16),
 			b: Number.parseInt(e[2] + e[2], 16),
 			a: e.length === 4 ? Number.parseInt(e[3] + e[3], 16) / 255 : 1
 		});
-		if (e.length === 6 || e.length === 8) return Ft({
+		if (e.length === 6 || e.length === 8) return Lt({
 			r: Number.parseInt(e.slice(0, 2), 16),
 			g: Number.parseInt(e.slice(2, 4), 16),
 			b: Number.parseInt(e.slice(4, 6), 16),
@@ -5121,16 +5220,16 @@ function Pt(e) {
 	let n = t.match(/^rgba?\(([^)]+)\)$/i);
 	if (n) {
 		let e = n[1].split(",").map((e) => e.trim()).filter(Boolean);
-		if (e.length >= 3) return Ft({
-			r: Q(e[0]),
-			g: Q(e[1]),
-			b: Q(e[2]),
-			a: e[3] === void 0 ? 1 : zt(Number.parseFloat(e[3]))
+		if (e.length >= 3) return Lt({
+			r: zt(e[0]),
+			g: zt(e[1]),
+			b: zt(e[2]),
+			a: e[3] === void 0 ? 1 : Ht(Number.parseFloat(e[3]))
 		});
 	}
 	return null;
 }
-function Ft(e) {
+function Lt(e) {
 	return [
 		e.r,
 		e.g,
@@ -5138,26 +5237,26 @@ function Ft(e) {
 		e.a
 	].every(Number.isFinite) ? e : null;
 }
-function It(e, t) {
+function Rt(e, t) {
 	if (!t) return null;
 	let n = t.createElement("canvas").getContext("2d");
 	return n ? (n.fillStyle = "#000000", n.fillStyle = e, typeof n.fillStyle == "string" ? n.fillStyle : null) : null;
 }
-function Q(e) {
-	return e.endsWith("%") ? Rt(Number.parseFloat(e) / 100 * 255) : Rt(Number.parseFloat(e));
+function zt(e) {
+	return e.endsWith("%") ? Vt(Number.parseFloat(e) / 100 * 255) : Vt(Number.parseFloat(e));
 }
-function Lt(e, t, n) {
+function Bt(e, t, n) {
 	return Number.isFinite(e) ? Math.max(t, Math.min(n, e)) : t;
 }
-function Rt(e) {
+function Vt(e) {
 	return Number.isFinite(e) ? Math.max(0, Math.min(255, Math.round(e))) : 0;
 }
-function zt(e) {
+function Ht(e) {
 	return Number.isFinite(e) ? Math.max(0, Math.min(1, e)) : 1;
 }
 //#endregion
 //#region lib/terminal.ts
-var Bt = class e {
+var Ut = class e {
 	constructor(t = {}) {
 		this.unicode = { get activeVersion() {
 			return "15.1";
@@ -5218,7 +5317,7 @@ var Bt = class e {
 					let n = this.renderer?.getMetrics()?.height ?? 20;
 					t = e.deltaY / n;
 				} else t = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY : e.deltaMode === WheelEvent.DOM_DELTA_PAGE ? e.deltaY * this.rows : e.deltaY / 33;
-				if (t !== 0) {
+				if (t *= this.options.scrollSensitivity ?? 1, t !== 0) {
 					let e = this.viewportY - t;
 					this.smoothScrollTo(e);
 				}
@@ -5241,7 +5340,7 @@ var Bt = class e {
 			}
 		}, this.handleMouseUp = () => {
 			this.isDraggingScrollbar && (this.isDraggingScrollbar = !1, this.scrollbarDragStart = null, this.canvas && (this.canvas.style.userSelect = "", this.canvas.style.webkitUserSelect = ""), this.scrollbarVisible && this.getScrollbackLength() > 0 && this.showScrollbar());
-		}, this.ghostty = t.ghostty ?? Yt(), this.isAndroidPlatform = e.detectAndroidPlatform();
+		}, this.ghostty = t.ghostty ?? Qt(), this.isAndroidPlatform = e.detectAndroidPlatform();
 		let n = {
 			cols: t.cols ?? 80,
 			rows: t.rows ?? 24,
@@ -5251,17 +5350,19 @@ var Bt = class e {
 			scrollback: t.scrollback ?? 1e4,
 			fontSize: t.fontSize ?? 15,
 			fontFamily: t.fontFamily ?? "monospace",
+			fontWeight: t.fontWeight ?? 400,
 			allowTransparency: t.allowTransparency ?? !1,
 			convertEol: t.convertEol ?? !1,
 			disableStdin: t.disableStdin ?? !1,
 			smoothScrollDuration: t.smoothScrollDuration ?? 100,
+			scrollSensitivity: t.scrollSensitivity ?? 1,
 			renderer: t.renderer ?? "canvas"
 		};
 		this.options = new Proxy(n, { set: (e, t, n) => {
 			let r = e[t];
 			return e[t] = n, this.isOpen && this.handleOptionChange(t, n, r), !0;
 		} }), this.cols = this.options.cols, this.rows = this.options.rows, this.currentTheme = {
-			...R,
+			...I,
 			...t.theme
 		}, this.buffer = new Oe(this);
 	}
@@ -5283,7 +5384,7 @@ var Bt = class e {
 					this.currentTheme = n ? {
 						...this.currentTheme,
 						...e
-					} : { ...R }, this.renderer.setTheme(this.currentTheme), this.wasmTerm.setColors(this.buildThemeColorsConfig(this.currentTheme)), this.requestFullRender();
+					} : { ...I }, this.renderer.setTheme(this.currentTheme), this.wasmTerm.setColors(this.buildThemeColorsConfig(this.currentTheme)), this.requestFullRender();
 				}
 				break;
 			case "fontSize":
@@ -5291,6 +5392,9 @@ var Bt = class e {
 				break;
 			case "fontFamily":
 				this.renderer && (this.renderer.setFontFamily(this.options.fontFamily), this.handleFontChange());
+				break;
+			case "fontWeight":
+				this.renderer && (this.renderer.setFontWeight(this.options.fontWeight ?? 400), this.handleFontChange());
 				break;
 			case "scrollbarWidth":
 				this.renderer && (this.renderer.setScrollbarWidth(this.options.scrollbarWidth ?? 8), this.requestFullRender());
@@ -5303,6 +5407,9 @@ var Bt = class e {
 				this.resize(this.options.cols, this.options.rows);
 				break;
 		}
+	}
+	remeasureFont() {
+		this.renderer && (this.renderer.remeasureFont(), this.handleFontChange());
 	}
 	handleFontChange() {
 		!this.renderer || !this.wasmTerm || !this.canvas || (this.selectionManager && this.selectionManager.clearSelection(), this.renderer.resize(this.cols, this.rows), this.updateWasmPixelSize(), this.renderer.render(this.wasmTerm, !0, this.viewportY, this));
@@ -5406,20 +5513,21 @@ var Bt = class e {
 			let i = {
 				fontSize: this.options.fontSize,
 				fontFamily: this.options.fontFamily,
+				fontWeight: this.options.fontWeight,
 				cursorStyle: this.options.cursorStyle,
 				cursorBlink: this.options.cursorBlink,
 				theme: this.options.theme,
 				scrollbarWidth: this.options.scrollbarWidth,
 				allowTransparency: this.options.allowTransparency
 			};
-			if (this.options.renderer === "webgl" && Mt.canUse(this.canvas)) try {
-				this.renderer = new Mt(this.canvas, i);
+			if (this.options.renderer === "webgl" && Pt.canUse(this.canvas)) try {
+				this.renderer = new Pt(this.canvas, i);
 			} catch (e) {
 				console.warn("WebGL renderer initialization failed; falling back to CanvasRenderer", e);
 				let t = this.canvas.ownerDocument.createElement("canvas");
-				t.style.display = "block", t.style.cursor = "text", t.addEventListener("mousedown", this.boundCanvasMouseDownFocusHandler), t.addEventListener("touchend", this.boundCanvasTouchEndFocusHandler), this.canvas.replaceWith(t), this.canvas = t, this.renderer = new Ve(this.canvas, i);
+				t.style.display = "block", t.style.cursor = "text", t.addEventListener("mousedown", this.boundCanvasMouseDownFocusHandler), t.addEventListener("touchend", this.boundCanvasTouchEndFocusHandler), this.canvas.replaceWith(t), this.canvas = t, this.renderer = new L(this.canvas, i);
 			}
-			else this.renderer = new Ve(this.canvas, i);
+			else this.renderer = new L(this.canvas, i);
 			this.renderer.resize(this.cols, this.rows), this.updateWasmPixelSize();
 			let a = this.canvas, o = this.renderer, s = this.wasmTerm, c = {
 				hasMouseTracking: () => s?.hasMouseTracking() ?? !1,
@@ -5436,15 +5544,15 @@ var Bt = class e {
 					};
 				}
 			};
-			this.inputHandler = new Me(this.ghostty, e, (e) => {
+			this.inputHandler = new Ne(this.ghostty, e, (e) => {
 				this.options.disableStdin || (this.selectionManager?.clearSelection(), this.dataEmitter.fire(e));
 			}, () => {
 				this.bellEmitter.fire();
 			}, (e) => {
 				this.keyEmitter.fire(e);
-			}, this.customKeyEventHandler, (e) => this.wasmTerm?.getMode(e, !1) ?? !1, () => this.copySelection(), this.textarea, c), this.selectionManager = new Ue(this, this.renderer, this.wasmTerm, this.textarea), this.renderer.setSelectionManager(this.selectionManager), this.selectionManager.onSelectionChange(() => {
+			}, this.customKeyEventHandler, (e) => this.wasmTerm?.getMode(e, !1) ?? !1, () => this.copySelection(), this.textarea, c), this.selectionManager = new We(this, this.renderer, this.wasmTerm, this.textarea), this.renderer.setSelectionManager(this.selectionManager), this.selectionManager.onSelectionChange(() => {
 				this.selectionChangeEmitter.fire(), this.requestRender();
-			}), this.linkDetector = new Ne(this), this.linkDetector.registerProvider(new Pe(this)), this.linkDetector.registerProvider(new Ie(this)), e.addEventListener("mousedown", this.handleMouseDown, { capture: !0 }), e.addEventListener("mousemove", this.handleMouseMove), e.addEventListener("mouseleave", this.handleMouseLeave), e.addEventListener("click", this.handleClick), n.addEventListener("mouseup", this.handleMouseUp), e.addEventListener("wheel", this.handleWheel, {
+			}), this.linkDetector = new Pe(this), this.linkDetector.registerProvider(new Fe(this)), this.linkDetector.registerProvider(new Le(this)), e.addEventListener("mousedown", this.handleMouseDown, { capture: !0 }), e.addEventListener("mousemove", this.handleMouseMove), e.addEventListener("mouseleave", this.handleMouseLeave), e.addEventListener("click", this.handleClick), n.addEventListener("mouseup", this.handleMouseUp), e.addEventListener("wheel", this.handleWheel, {
 				passive: !1,
 				capture: !0
 			}), this.renderer.attachOverlayTo(e), this.renderer.render(this.wasmTerm, !0, this.viewportY, this, this.scrollbarOpacity), this.renderer.setOnRequestRender(() => this.requestRender()), this.renderTick(), this.openEmitter.fire(), this.openEmitter.dispose(), this.isAndroidPlatform || this.focus();
@@ -5456,7 +5564,12 @@ var Bt = class e {
 		this.assertOpen(), this.options.convertEol && typeof e == "string" && (e = e.replace(/\n/g, "\r\n")), this.writeInternal(e, t);
 	}
 	writeInternal(e, t) {
-		this.wasmTerm.write(e), this.processTerminalResponses(), (typeof e == "string" && e.includes("\x07") || e instanceof Uint8Array && e.includes(7)) && this.bellEmitter.fire(), this.linkDetector?.invalidateCache(), this.viewportY !== 0 && this.scrollToBottom(), typeof e == "string" && e.includes("\x1B]") && this.checkForTitleChange(e), t && this.scheduleAnimationFrame(t), this.requestRender();
+		let n = this.viewportY === 0 ? 0 : this.getScrollbackLength();
+		if (this.wasmTerm.write(e), this.processTerminalResponses(), (typeof e == "string" && e.includes("\x07") || e instanceof Uint8Array && e.includes(7)) && this.bellEmitter.fire(), this.linkDetector?.invalidateCache(), this.viewportY !== 0) {
+			let e = this.getScrollbackLength() - n;
+			e > 0 && (this.viewportY = Math.min(this.getScrollbackLength(), this.viewportY + e), this.scrollEmitter.fire(Math.floor(this.viewportY)));
+		}
+		typeof e == "string" && e.includes("\x1B]") && this.checkForTitleChange(e), t && this.scheduleAnimationFrame(t), this.requestRender();
 	}
 	writeln(e, t) {
 		if (typeof e == "string") this.write(e + "\r\n", t);
@@ -5760,7 +5873,7 @@ var Bt = class e {
 	clearPreedit() {
 		this.renderer && this.renderer.clearPreedit();
 	}
-}, Vt = 2, Ht = 1, Ut = 15, Wt = 100, Gt = class {
+}, Wt = 2, Gt = 1, Kt = 15, qt = 100, Jt = class {
 	constructor() {
 		this._isResizing = !1;
 	}
@@ -5796,32 +5909,32 @@ var Bt = class e {
 		if (n.clientWidth === void 0) return;
 		let r = window.getComputedStyle(n), i = Number.parseInt(r.getPropertyValue("padding-top")) || 0, a = Number.parseInt(r.getPropertyValue("padding-bottom")) || 0, o = Number.parseInt(r.getPropertyValue("padding-left")) || 0, s = Number.parseInt(r.getPropertyValue("padding-right")) || 0, c = n.clientWidth, l = n.clientHeight;
 		if (c === 0 || l === 0) return;
-		let u = c - o - s - Ut, d = l - i - a;
+		let u = c - o - s - Kt, d = l - i - a;
 		return {
-			cols: Math.max(Vt, Math.floor(u / t.width)),
-			rows: Math.max(Ht, Math.floor(d / t.height))
+			cols: Math.max(Wt, Math.floor(u / t.width)),
+			rows: Math.max(Gt, Math.floor(d / t.height))
 		};
 	}
 	observeResize() {
 		this._terminal?.element && (this._resizeObserver || (this._resizeObserver = new ResizeObserver((e) => {
 			this._isResizing || e[0] && (this._resizeDebounceTimer && clearTimeout(this._resizeDebounceTimer), this._resizeDebounceTimer = setTimeout(() => {
 				this.fit();
-			}, Wt));
+			}, qt));
 		}), this._resizeObserver.observe(this._terminal.element)));
 	}
 }, $ = null;
-async function Kt(e) {
+async function Yt(e) {
 	$ ||= await P.load(e);
 }
-async function qt(e) {
+async function Xt(e) {
 	$ ||= await P.loadFromBytes(e);
 }
-async function Jt(e) {
+async function Zt(e) {
 	$ ||= await P.loadFromResponse(e);
 }
-function Yt() {
+function Qt() {
 	if (!$) throw Error("ghostty-web not initialized. Call init() before creating Terminal instances.\nExample:\n  import { init, Terminal } from \"ghostty-web\";\n  await init();\n  const term = new Terminal();\n\nFor tests, pass a Ghostty instance directly:\n  import { Ghostty, Terminal } from \"ghostty-web\";\n  const ghostty = await Ghostty.load();\n  const term = new Terminal({ ghostty });");
 	return $;
 }
 //#endregion
-export { Ve as CanvasRenderer, A as CellFlags, R as DEFAULT_THEME, p as DirtyState, F as EventEmitter, Gt as FitAddon, P as Ghostty, De as GhosttyTerminal, Me as InputHandler, d as Key, u as KeyAction, Ee as KeyEncoder, l as KeyEncoderOption, Ne as LinkDetector, f as Mods, Pe as OSC8LinkProvider, Ue as SelectionManager, Bt as Terminal, Ie as UrlRegexProvider, Yt as getGhostty, Kt as init, qt as initFromBytes, Jt as initFromResponse, o as t };
+export { L as CanvasRenderer, A as CellFlags, I as DEFAULT_THEME, p as DirtyState, F as EventEmitter, Jt as FitAddon, P as Ghostty, De as GhosttyTerminal, Ne as InputHandler, d as Key, u as KeyAction, Ee as KeyEncoder, l as KeyEncoderOption, Pe as LinkDetector, f as Mods, Fe as OSC8LinkProvider, We as SelectionManager, Ut as Terminal, Le as UrlRegexProvider, Qt as getGhostty, Yt as init, Xt as initFromBytes, Zt as initFromResponse, o as t };
