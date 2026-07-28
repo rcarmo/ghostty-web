@@ -146,6 +146,8 @@ const term = new Terminal({
   // Set false when the host wants selection without automatic clipboard writes.
   // Explicit Cmd+C / copySelection() still copy the active selection.
   copyOnSelect: true,
+  // Use 'native' when the host owns a synchronous browser copy listener.
+  copyMode: 'clipboard',
   theme: {
     background: '#1e1e1e',
     foreground: '#d4d4d4',

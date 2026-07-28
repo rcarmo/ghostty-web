@@ -27,6 +27,8 @@ export interface ITerminalOptions {
   disableStdin?: boolean; // Disable keyboard input (default: false)
   /** Copy selected text immediately. Explicit copy shortcuts remain active. Default: true. */
   copyOnSelect?: boolean;
+  /** Handle Cmd+C internally or defer to the browser's native copy event. Default: clipboard. */
+  copyMode?: 'clipboard' | 'native';
 
   // Scrolling options
   smoothScrollDuration?: number; // Duration in ms for smooth scroll animation (default: 100, 0 = instant)

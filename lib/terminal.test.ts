@@ -460,6 +460,43 @@ describe('Terminal', () => {
       term.dispose();
     });
 
+    test('native copy mode defers Cmd+C while clipboard mode handles it', async () => {
+      const term = await createIsolatedTerminal({ copyMode: 'native' });
+      term.open(container!);
+
+      const selectionManager = (term as any).selectionManager;
+      let copyRequests = 0;
+      selectionManager.copySelection = () => {
+        copyRequests++;
+        return true;
+      };
+
+      const nativeEvent = new KeyboardEvent('keydown', {
+        code: 'KeyC',
+        key: 'c',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      container!.dispatchEvent(nativeEvent);
+      expect(copyRequests).toBe(0);
+      expect(nativeEvent.defaultPrevented).toBe(false);
+
+      term.options.copyMode = 'clipboard';
+      const clipboardEvent = new KeyboardEvent('keydown', {
+        code: 'KeyC',
+        key: 'c',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      container!.dispatchEvent(clipboardEvent);
+      expect(copyRequests).toBe(1);
+      expect(clipboardEvent.defaultPrevented).toBe(true);
+
+      term.dispose();
+    });
+
     test('focus() does not throw', async () => {
       const term = await createIsolatedTerminal();
       term.open(container!);
