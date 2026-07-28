@@ -228,13 +228,21 @@ describe('SelectionManager', () => {
 
       const selMgr = (term as any).selectionManager;
       const copied: string[] = [];
+      const getSelection = selMgr.getSelection.bind(selMgr);
+      let selectionReads = 0;
+      selMgr.getSelection = () => {
+        selectionReads++;
+        return getSelection();
+      };
       selMgr.copyToClipboard = (text: string) => copied.push(text);
       selMgr.isSelecting = true;
       selMgr.dragThresholdMet = true;
       document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
 
+      expect(selectionReads).toBe(0);
       expect(copied).toEqual([]);
       expect(term.copySelection()).toBe(true);
+      expect(selectionReads).toBe(1);
       expect(copied).toEqual(['Hello']);
 
       term.dispose();
@@ -252,11 +260,18 @@ describe('SelectionManager', () => {
 
       const selMgr = (term as any).selectionManager;
       const copied: string[] = [];
+      const getSelection = selMgr.getSelection.bind(selMgr);
+      let selectionReads = 0;
+      selMgr.getSelection = () => {
+        selectionReads++;
+        return getSelection();
+      };
       selMgr.copyToClipboard = (text: string) => copied.push(text);
       selMgr.isSelecting = true;
       selMgr.dragThresholdMet = true;
       document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
 
+      expect(selectionReads).toBe(1);
       expect(copied).toEqual(['Hello']);
 
       term.dispose();

@@ -224,10 +224,11 @@ export class SelectionManager {
     return true;
   }
 
-  private copySelectionAutomatically(text: string): void {
-    if (this.terminal.options.copyOnSelect) {
-      this.copyToClipboard(text);
-    }
+  private copySelectionAutomatically(): void {
+    if (!this.terminal.options.copyOnSelect) return;
+
+    const text = this.getSelection();
+    if (text) this.copyToClipboard(text);
   }
 
   /**
@@ -637,11 +638,8 @@ export class SelectionManager {
         }
 
         if (this.hasSelection()) {
-          const text = this.getSelection();
-          if (text) {
-            this.copySelectionAutomatically(text);
-            this.selectionChangedEmitter.fire();
-          }
+          this.copySelectionAutomatically();
+          this.selectionChangedEmitter.fire();
         }
       }
     };
@@ -662,11 +660,8 @@ export class SelectionManager {
           this.selectionEnd = { col: word.endCol, absoluteRow };
           this.requestRender();
 
-          const text = this.getSelection();
-          if (text) {
-            this.copySelectionAutomatically(text);
-            this.selectionChangedEmitter.fire();
-          }
+          this.copySelectionAutomatically();
+          this.selectionChangedEmitter.fire();
         }
       } else if (e.detail >= 3) {
         // Triple-click (or more) - select line content (like native Ghostty)
@@ -703,11 +698,8 @@ export class SelectionManager {
           this.selectionEnd = { col: endCol, absoluteRow };
           this.requestRender();
 
-          const text = this.getSelection();
-          if (text) {
-            this.copySelectionAutomatically(text);
-            this.selectionChangedEmitter.fire();
-          }
+          this.copySelectionAutomatically();
+          this.selectionChangedEmitter.fire();
         }
       }
     };

@@ -560,6 +560,32 @@ describe('InputHandler', () => {
       expect(event.preventDefault).toHaveBeenCalled();
     });
 
+    test('custom host handling can defer Cmd+C to the native copy event', () => {
+      let copyRequests = 0;
+      const handler = new InputHandler(
+        ghostty,
+        container as any,
+        (data) => dataReceived.push(data),
+        () => {
+          bellCalled = true;
+        },
+        undefined,
+        (event) => (event.metaKey && event.code === 'KeyC' ? false : undefined),
+        undefined,
+        () => {
+          copyRequests++;
+          return true;
+        }
+      );
+      const event = createKeyEvent('KeyC', 'c', { meta: true });
+
+      simulateKey(container, event);
+
+      expect(copyRequests).toBe(0);
+      expect(dataReceived.length).toBe(0);
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+
     test('Cmd+C preserves native copy when the terminal has no selection', () => {
       const handler = new InputHandler(
         ghostty,
