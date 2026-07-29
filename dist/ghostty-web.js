@@ -543,10 +543,13 @@ var Te = new TextDecoder(), P = class e {
 	}
 }, De = class e {
 	static {
+		this.SCROLLBACK_LINE_CACHE_LIMIT = 256;
+	}
+	static {
 		this.callbackRegistries = /* @__PURE__ */ new WeakMap();
 	}
 	constructor(e, t, n = 80, r = 24, i) {
-		this.renderHandle = 0, this.rowIter = 0, this.rowCells = 0, this.cellPool = [], this.cellWidthPx = 0, this.cellHeightPx = 0, this.rowDirtyCache = null, this.rowWrapCache = null, this.pendingResponses = [], this.exports = e, this.memory = t, this._cols = n, this._rows = r;
+		this.renderHandle = 0, this.rowIter = 0, this.rowCells = 0, this.cellPool = [], this.viewportCache = null, this.scrollbackLineCache = /* @__PURE__ */ new Map(), this.cellWidthPx = 0, this.cellHeightPx = 0, this.rowDirtyCache = null, this.rowWrapCache = null, this.pendingResponses = [], this.exports = e, this.memory = t, this._cols = n, this._rows = r;
 		let a = this.exports.ghostty_wasm_alloc_u8_array(8);
 		if (a === 0) throw Error("Failed to allocate terminal options");
 		let o = this.exports.ghostty_wasm_alloc_opaque();
@@ -681,6 +684,7 @@ var Te = new TextDecoder(), P = class e {
 	write(e) {
 		let t = typeof e == "string" ? new TextEncoder().encode(e) : e;
 		if (t.length === 0) return;
+		this.invalidateCellCaches();
 		let n = this.exports.ghostty_wasm_alloc_u8_array(t.length);
 		if (n === 0) throw Error("Failed to allocate terminal write buffer");
 		try {
@@ -690,7 +694,7 @@ var Te = new TextDecoder(), P = class e {
 		}
 	}
 	resize(e, t) {
-		e === this._cols && t === this._rows || (this._cols = e, this._rows = t, this.exports.ghostty_terminal_resize(this.handle, e, t, this.cellWidthPx, this.cellHeightPx), this.initCellPool());
+		e === this._cols && t === this._rows || (this._cols = e, this._rows = t, this.exports.ghostty_terminal_resize(this.handle, e, t, this.cellWidthPx, this.cellHeightPx), this.invalidateCellCaches(), this.initCellPool());
 	}
 	setKittyImageStorageLimit(e) {
 		(!Number.isFinite(e) || e < 0) && (e = 0);
@@ -784,17 +788,17 @@ var Te = new TextDecoder(), P = class e {
 	setCellPixelSize(e, t) {
 		if (!Number.isFinite(e) || !Number.isFinite(t)) return;
 		let n = Math.max(1, Math.round(e)), r = Math.max(1, Math.round(t));
-		n === this.cellWidthPx && r === this.cellHeightPx || (this.cellWidthPx = n, this.cellHeightPx = r, this.exports.ghostty_terminal_resize(this.handle, this._cols, this._rows, n, r));
+		n === this.cellWidthPx && r === this.cellHeightPx || (this.cellWidthPx = n, this.cellHeightPx = r, this.exports.ghostty_terminal_resize(this.handle, this._cols, this._rows, n, r), this.invalidateCellCaches());
 	}
 	free() {
-		this.callbackRegistry &&= (this.callbackRegistry.instancesByHandle.delete(this.handle), void 0), this.rowCells &&= (this.exports.ghostty_render_state_row_cells_free(this.rowCells), 0), this.rowIter &&= (this.exports.ghostty_render_state_row_iterator_free(this.rowIter), 0), this.renderHandle &&= (this.exports.ghostty_render_state_free(this.renderHandle), 0), this.exports.ghostty_terminal_free(this.handle);
+		this.invalidateCellCaches(), this.callbackRegistry &&= (this.callbackRegistry.instancesByHandle.delete(this.handle), void 0), this.rowCells &&= (this.exports.ghostty_render_state_row_cells_free(this.rowCells), 0), this.rowIter &&= (this.exports.ghostty_render_state_row_iterator_free(this.rowIter), 0), this.renderHandle &&= (this.exports.ghostty_render_state_free(this.renderHandle), 0), this.exports.ghostty_terminal_free(this.handle);
 	}
 	setColors(e) {
 		let t = this.exports.ghostty_terminal_set_colors;
 		if (!t) return;
 		let n = this.exports.ghostty_wasm_alloc_u8_array(80);
 		if (n !== 0) try {
-			this.writeConfigToPtr(n, e), t(this.handle, n);
+			this.writeConfigToPtr(n, e), t(this.handle, n), this.invalidateCellCaches();
 		} finally {
 			this.exports.ghostty_wasm_free_u8_array(n, 80);
 		}
@@ -861,6 +865,7 @@ var Te = new TextDecoder(), P = class e {
 		this.exports.ghostty_wasm_free_u8(t), this.rowDirtyCache = null;
 	}
 	getViewport() {
+		if (this.viewportCache) return this.viewportCache;
 		this.update(), this.zeroCellPool(), this.populateHandle((e) => this.exports.ghostty_render_state_get(this.renderHandle, m.ROW_ITERATOR, e), this.rowIter);
 		let e = this.exports.ghostty_wasm_alloc_u8_array(4), t = this.exports.ghostty_wasm_alloc_u8_array(3), n = this.exports.ghostty_wasm_alloc_u8(), r = this.exports.ghostty_wasm_alloc_u8_array(8), i = this.exports.ghostty_wasm_alloc_u8(), a = this.exports.ghostty_wasm_alloc_u8_array(72);
 		new DataView(this.memory.buffer).setUint32(a, 72, !0);
@@ -900,7 +905,7 @@ var Te = new TextDecoder(), P = class e {
 		} finally {
 			this.exports.ghostty_wasm_free_u8_array(e, 4), this.exports.ghostty_wasm_free_u8_array(t, 3), this.exports.ghostty_wasm_free_u8(n), this.exports.ghostty_wasm_free_u8_array(r, 8), this.exports.ghostty_wasm_free_u8(i), this.exports.ghostty_wasm_free_u8_array(a, 72), this.exports.ghostty_wasm_free_u8_array(o, 8), this.exports.ghostty_wasm_free_u8_array(s, 4);
 		}
-		return this.rowDirtyCache = c, this.rowWrapCache = l, this.cellPool;
+		return this.rowDirtyCache = c, this.rowWrapCache = l, this.viewportCache = this.cellPool, this.viewportCache;
 	}
 	populateHandle(e, t) {
 		let n = this.exports.ghostty_wasm_alloc_u8_array(4);
@@ -948,8 +953,15 @@ var Te = new TextDecoder(), P = class e {
 	getScrollbackLength() {
 		return this.tGetU32(_.SCROLLBACK_ROWS);
 	}
-	getScrollbackLine(e) {
-		return this.readGridLine(D.HISTORY, e);
+	getScrollbackLine(t) {
+		let n = this.scrollbackLineCache.get(t);
+		if (n) return this.scrollbackLineCache.delete(t), this.scrollbackLineCache.set(t, n), n;
+		let r = this.readGridLine(D.HISTORY, t);
+		if (r && (this.scrollbackLineCache.set(t, r), this.scrollbackLineCache.size > e.SCROLLBACK_LINE_CACHE_LIMIT)) {
+			let e = this.scrollbackLineCache.keys().next().value;
+			e !== void 0 && this.scrollbackLineCache.delete(e);
+		}
+		return r;
 	}
 	getHyperlinkUri(e, t) {
 		return e < 0 || e >= this._rows || t < 0 || t >= this._cols ? null : this.readHyperlinkUri(D.ACTIVE, e, t);
@@ -1103,6 +1115,9 @@ var Te = new TextDecoder(), P = class e {
 		} finally {
 			this.exports.ghostty_wasm_free_u8(r);
 		}
+	}
+	invalidateCellCaches() {
+		this.viewportCache = null, this.scrollbackLineCache.clear();
 	}
 	initCellPool() {
 		let e = this._cols * this._rows;
@@ -3086,7 +3101,7 @@ var L = class {
 					}
 					let o = n === 0 ? i : {
 						...i,
-						viewportRow: i.viewportRow - n
+						viewportRow: i.viewportRow + n
 					};
 					this.currentDirectPlacements.push(o);
 					let s = e.getKittyImagePixels?.(t, i.imageId), c = {
@@ -3375,6 +3390,10 @@ var We = class e {
 	constructor(e, t, n, r) {
 		this.selectionStart = null, this.selectionEnd = null, this.isSelecting = !1, this.mouseDownX = 0, this.mouseDownY = 0, this.dragThresholdMet = !1, this.mouseDownTarget = null, this.dirtySelectionRows = /* @__PURE__ */ new Set(), this.selectionChangedEmitter = new F(), this.boundCanvasMouseDownHandler = null, this.boundCanvasMouseMoveHandler = null, this.boundCanvasMouseLeaveHandler = null, this.boundCanvasMouseEnterHandler = null, this.boundCanvasClickHandler = null, this.boundDocumentMouseDownHandler = null, this.boundMouseUpHandler = null, this.boundContextMenuHandler = null, this.boundClickHandler = null, this.boundDocumentMouseMoveHandler = null, this.autoScrollInterval = null, this.autoScrollDirection = 0, this.terminal = e, this.renderer = t, this.wasmTerm = n, this.textarea = r, this.attachEventListeners();
 	}
+	setWasmTerminal(e) {
+		let t = this.selectionStart !== null && this.selectionEnd !== null;
+		this.stopAutoScroll(), this.wasmTerm = e, this.selectionStart = null, this.selectionEnd = null, this.isSelecting = !1, this.dragThresholdMet = !1, this.mouseDownTarget = null, this.dirtySelectionRows.clear(), t && this.selectionChangedEmitter.fire();
+	}
 	getSelection() {
 		if (!this.selectionStart || !this.selectionEnd) return "";
 		let { col: e, absoluteRow: t } = this.selectionStart, { col: n, absoluteRow: r } = this.selectionEnd;
@@ -3408,6 +3427,11 @@ var We = class e {
 	}
 	hasSelection() {
 		return !(!this.selectionStart || !this.selectionEnd || this.isSelecting && !this.dragThresholdMet);
+	}
+	copySelectionAutomatically() {
+		if (!this.terminal.options.copyOnSelect) return;
+		let e = this.getSelection();
+		e && this.copyToClipboard(e);
 	}
 	copySelection() {
 		if (!this.hasSelection()) return !1;
@@ -3562,10 +3586,7 @@ var We = class e {
 					this.clearSelection();
 					return;
 				}
-				if (this.hasSelection()) {
-					let e = this.getSelection();
-					e && (this.copyToClipboard(e), this.selectionChangedEmitter.fire());
-				}
+				this.hasSelection() && (this.copySelectionAutomatically(), this.selectionChangedEmitter.fire());
 			}
 		}, t.addEventListener("mouseup", this.boundMouseUpHandler), this.boundCanvasClickHandler = (e) => {
 			if (e.detail === 2) {
@@ -3578,9 +3599,7 @@ var We = class e {
 					}, this.selectionEnd = {
 						col: n.endCol,
 						absoluteRow: e
-					}, this.requestRender();
-					let r = this.getSelection();
-					r && (this.copyToClipboard(r), this.selectionChangedEmitter.fire());
+					}, this.requestRender(), this.copySelectionAutomatically(), this.selectionChangedEmitter.fire();
 				}
 			} else if (e.detail >= 3) {
 				let t = this.pixelToCell(e.offsetX, e.offsetY), n = this.viewportRowToAbsolute(t.row), r = this.wasmTerm.getScrollbackLength(), i = null;
@@ -3596,17 +3615,13 @@ var We = class e {
 						break;
 					}
 				}
-				if (a >= 0) {
-					this.selectionStart = {
-						col: 0,
-						absoluteRow: n
-					}, this.selectionEnd = {
-						col: a,
-						absoluteRow: n
-					}, this.requestRender();
-					let e = this.getSelection();
-					e && (this.copyToClipboard(e), this.selectionChangedEmitter.fire());
-				}
+				a >= 0 && (this.selectionStart = {
+					col: 0,
+					absoluteRow: n
+				}, this.selectionEnd = {
+					col: a,
+					absoluteRow: n
+				}, this.requestRender(), this.copySelectionAutomatically(), this.selectionChangedEmitter.fire());
 			}
 		}, e.addEventListener("click", this.boundCanvasClickHandler), this.boundContextMenuHandler = (e) => {
 			if (this.renderer.getCanvas().getBoundingClientRect(), this.textarea.style.position = "fixed", this.textarea.style.left = `${e.clientX}px`, this.textarea.style.top = `${e.clientY}px`, this.textarea.style.width = "1px", this.textarea.style.height = "1px", this.textarea.style.zIndex = "1000", this.textarea.style.opacity = "0", this.textarea.style.pointerEvents = "auto", this.hasSelection()) {
@@ -3743,7 +3758,9 @@ var We = class e {
 			console.warn("execCommand copy threw:", e), n && n.focus();
 		}
 	}
-	requestRender() {}
+	requestRender() {
+		this.terminal.requestRender();
+	}
 }, Ge = /* @__PURE__ */ o(((e, t) => {
 	var n = 1e3, r = n * 60, i = r * 60, a = i * 24, o = a * 7, s = a * 365.25;
 	t.exports = function(e, t) {
@@ -5354,6 +5371,8 @@ var Ut = class e {
 			allowTransparency: t.allowTransparency ?? !1,
 			convertEol: t.convertEol ?? !1,
 			disableStdin: t.disableStdin ?? !1,
+			copyOnSelect: t.copyOnSelect ?? !0,
+			copyMode: t.copyMode ?? "clipboard",
 			smoothScrollDuration: t.smoothScrollDuration ?? 100,
 			scrollSensitivity: t.scrollSensitivity ?? 1,
 			renderer: t.renderer ?? "canvas"
@@ -5529,9 +5548,11 @@ var Ut = class e {
 			}
 			else this.renderer = new L(this.canvas, i);
 			this.renderer.resize(this.cols, this.rows), this.updateWasmPixelSize();
-			let a = this.canvas, o = this.renderer, s = this.wasmTerm, c = {
-				hasMouseTracking: () => s?.hasMouseTracking() ?? !1,
-				hasSgrMouseMode: () => s?.getMode(1006, !1) ?? !0,
+			let a = this.canvas, o = this.renderer;
+			this.wasmTerm;
+			let s = {
+				hasMouseTracking: () => this.wasmTerm?.hasMouseTracking() ?? !1,
+				hasSgrMouseMode: () => this.wasmTerm?.getMode(1006, !1) ?? !0,
 				getCellDimensions: () => ({
 					width: o.charWidth,
 					height: o.charHeight
@@ -5550,7 +5571,7 @@ var Ut = class e {
 				this.bellEmitter.fire();
 			}, (e) => {
 				this.keyEmitter.fire(e);
-			}, this.customKeyEventHandler, (e) => this.wasmTerm?.getMode(e, !1) ?? !1, () => this.copySelection(), this.textarea, c), this.selectionManager = new We(this, this.renderer, this.wasmTerm, this.textarea), this.renderer.setSelectionManager(this.selectionManager), this.selectionManager.onSelectionChange(() => {
+			}, this.customKeyEventHandler, (e) => this.wasmTerm?.getMode(e, !1) ?? !1, () => this.options.copyMode === "native" ? !1 : this.copySelection(), this.textarea, s), this.selectionManager = new We(this, this.renderer, this.wasmTerm, this.textarea), this.renderer.setSelectionManager(this.selectionManager), this.selectionManager.onSelectionChange(() => {
 				this.selectionChangeEmitter.fire(), this.requestRender();
 			}), this.linkDetector = new Pe(this), this.linkDetector.registerProvider(new Fe(this)), this.linkDetector.registerProvider(new Le(this)), e.addEventListener("mousedown", this.handleMouseDown, { capture: !0 }), e.addEventListener("mousemove", this.handleMouseMove), e.addEventListener("mouseleave", this.handleMouseLeave), e.addEventListener("click", this.handleClick), n.addEventListener("mouseup", this.handleMouseUp), e.addEventListener("wheel", this.handleWheel, {
 				passive: !1,
@@ -5564,6 +5585,10 @@ var Ut = class e {
 		this.assertOpen(), this.options.convertEol && typeof e == "string" && (e = e.replace(/\n/g, "\r\n")), this.writeInternal(e, t);
 	}
 	writeInternal(e, t) {
+		if ((typeof e == "string" ? e.length : e.byteLength) === 0) {
+			t && this.scheduleAnimationFrame(t);
+			return;
+		}
 		let n = this.viewportY === 0 ? 0 : this.getScrollbackLength();
 		if (this.wasmTerm.write(e), this.processTerminalResponses(), (typeof e == "string" && e.includes("\x07") || e instanceof Uint8Array && e.includes(7)) && this.bellEmitter.fire(), this.linkDetector?.invalidateCache(), this.viewportY !== 0) {
 			let e = this.getScrollbackLength() - n;
@@ -5607,7 +5632,7 @@ var Ut = class e {
 	reset() {
 		this.assertOpen(), this.wasmTerm && this.wasmTerm.free();
 		let e = this.buildWasmConfig();
-		this.wasmTerm = this.ghostty.createTerminal(this.cols, this.rows, e), this.updateWasmPixelSize(), this.renderer.clear(), this.currentTitle = "", this.requestFullRender();
+		this.wasmTerm = this.ghostty.createTerminal(this.cols, this.rows, e), this.selectionManager?.setWasmTerminal(this.wasmTerm), this.updateWasmPixelSize(), this.renderer.clear(), this.currentTitle = "", this.requestFullRender();
 	}
 	focus() {
 		this.isOpen && this.element && (this.element.focus(), this.getOwnerWindow()?.setTimeout(() => {
