@@ -57,7 +57,6 @@ function createMockTerminal(lines: MockLine[] | string, cols = 80) {
  * Helper to get links from provider for a single-row terminal.
  */
 function getLinks(lineText: string): Promise<ILink[] | undefined> {
-  // biome-ignore lint/suspicious/noExplicitAny: matches existing test pattern
   const terminal = createMockTerminal(lineText) as any;
   const provider = new UrlRegexProvider(terminal);
 
@@ -74,7 +73,6 @@ function getLinksAt(
   y: number,
   cols: number,
 ): Promise<ILink[] | undefined> {
-  // biome-ignore lint/suspicious/noExplicitAny: matches existing test pattern
   const terminal = createMockTerminal(rows, cols) as any;
   const provider = new UrlRegexProvider(terminal);
 
