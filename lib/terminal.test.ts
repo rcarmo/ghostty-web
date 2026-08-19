@@ -136,6 +136,7 @@ describe('Terminal', () => {
       const term = await createIsolatedTerminal();
       term.open(container!);
       expect(term.renderer).toBeInstanceOf(CanvasRenderer);
+      expect(term.renderer?.getCanvas().style.backgroundColor).not.toBe('');
       term.dispose();
     });
 
@@ -215,6 +216,81 @@ describe('Terminal', () => {
 
       // open() is synchronous and throws immediately
       expect(() => term.open(container!)).toThrow('has been disposed');
+    });
+
+    test('refresh requests a complete repaint from retained terminal state', async () => {
+      const term = await createIsolatedTerminal();
+      term.open(container!);
+      (term as any).forceNextRender = false;
+
+      term.refresh();
+
+      expect((term as any).forceNextRender).toBe(true);
+      term.dispose();
+    });
+
+    test('pageshow refreshes the canvas and disposal removes the listener', async () => {
+      const term = await createIsolatedTerminal();
+      term.open(container!);
+      const refresh = jest.spyOn(term, 'refresh');
+
+      window.dispatchEvent(new PageTransitionEvent('pageshow'));
+      expect(refresh).toHaveBeenCalledTimes(1);
+
+      term.dispose();
+      window.dispatchEvent(new PageTransitionEvent('pageshow'));
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    test('2D and WebGL context restoration repaint, and disposal removes both listeners', async () => {
+      const term = await createIsolatedTerminal();
+      term.open(container!);
+      const canvas = term.renderer!.getCanvas();
+      const refresh = jest.spyOn(term, 'refresh');
+      canvas.dispatchEvent(new Event('contextrestored'));
+      canvas.dispatchEvent(new Event('webglcontextrestored'));
+      expect(refresh).toHaveBeenCalledTimes(2);
+      term.dispose();
+      canvas.dispatchEvent(new Event('contextrestored'));
+      canvas.dispatchEvent(new Event('webglcontextrestored'));
+      expect(refresh).toHaveBeenCalledTimes(2);
+    });
+
+    test('foregrounding repaints only when visible and unregisters on disposal', async () => {
+      const term = await createIsolatedTerminal();
+      term.open(container!);
+      const refresh = jest.spyOn(term, 'refresh');
+      const descriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+      try {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+        document.dispatchEvent(new Event('visibilitychange'));
+        expect(refresh).not.toHaveBeenCalled();
+        Object.defineProperty(document, 'visibilityState', {
+          configurable: true,
+          value: 'visible',
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+        expect(refresh).toHaveBeenCalledTimes(1);
+        term.dispose();
+        document.dispatchEvent(new Event('visibilitychange'));
+        expect(refresh).toHaveBeenCalledTimes(1);
+      } finally {
+        term.dispose();
+        if (descriptor) Object.defineProperty(document, 'visibilityState', descriptor);
+        else delete (document as any).visibilityState;
+      }
+    });
+
+    test('resume forces a complete repaint after a hidden interval', async () => {
+      const term = await createIsolatedTerminal();
+      term.open(container!);
+      term.suspend();
+      (term as any).forceNextRender = false;
+
+      term.resume();
+
+      expect((term as any).forceNextRender).toBe(true);
+      term.dispose();
     });
   });
 

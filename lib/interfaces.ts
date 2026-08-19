@@ -103,6 +103,7 @@ export interface ITerminalCore {
   textarea?: HTMLTextAreaElement;
   suspend(): void;
   resume(): void;
+  refresh(): void;
 }
 
 /**

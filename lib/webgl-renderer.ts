@@ -77,6 +77,7 @@ export class WebGLRenderer implements ITerminalRenderer {
     this.options = options;
     this.theme = { ...DEFAULT_THEME, ...(options.theme ?? {}) };
     this.allowTransparency = options.allowTransparency ?? false;
+    this.syncCanvasBackground();
     this.scrollbarWidth = Math.max(0, options.scrollbarWidth ?? 8);
     this.vendored = new VendoredWebGLRenderer({
       fontSize: options.fontSize,
@@ -89,6 +90,12 @@ export class WebGLRenderer implements ITerminalRenderer {
     this.vendored.attach(canvas);
     this.vendored.updateTheme(this.toWebGLTheme(this.theme));
     this.setCursorBlink(options.cursorBlink ?? false);
+  }
+
+  private syncCanvasBackground(): void {
+    this.canvas.style.backgroundColor = this.allowTransparency
+      ? 'transparent'
+      : this.theme.background;
   }
 
   get charWidth(): number {
@@ -149,11 +156,13 @@ export class WebGLRenderer implements ITerminalRenderer {
 
   setTheme(theme: ITheme): void {
     this.theme = { ...this.theme, ...theme };
+    this.syncCanvasBackground();
     this.vendored.updateTheme(this.toWebGLTheme(this.theme));
   }
 
   setAllowTransparency(allowTransparency: boolean): void {
     this.allowTransparency = allowTransparency;
+    this.syncCanvasBackground();
   }
 
   setFontSize(fontSize: number): void {

@@ -124,6 +124,9 @@ export class Terminal implements ITerminalCore {
   private boundBeforeInputHandler?: (event: InputEvent) => void;
   private boundCanvasMouseDownFocusHandler?: (event: MouseEvent) => void;
   private boundCanvasTouchEndFocusHandler?: (event: TouchEvent) => void;
+  private boundVisibilityChangeHandler?: () => void;
+  private boundPageShowHandler?: () => void;
+  private boundContextRestoredHandler?: () => void;
 
   // Phase 1: Title tracking
   private currentTitle: string = '';
@@ -696,6 +699,20 @@ export class Terminal implements ITerminalCore {
       // Use capture phase to ensure we get the event before browser scrolling
       parent.addEventListener('wheel', this.handleWheel, { passive: false, capture: true });
 
+      // Canvas backing stores may be discarded while a page is backgrounded,
+      // especially in iOS Home Screen apps. Terminal state remains intact, so
+      // repaint it through the public lifecycle rather than requiring every
+      // host integration to reach into renderer internals.
+      this.boundVisibilityChangeHandler = () => {
+        if (ownerDocument.visibilityState === 'visible') this.refresh();
+      };
+      this.boundPageShowHandler = () => this.refresh();
+      this.boundContextRestoredHandler = () => this.refresh();
+      ownerDocument.addEventListener('visibilitychange', this.boundVisibilityChangeHandler);
+      ownerDocument.defaultView?.addEventListener('pageshow', this.boundPageShowHandler);
+      this.canvas.addEventListener('webglcontextrestored', this.boundContextRestoredHandler);
+      this.canvas.addEventListener('contextrestored', this.boundContextRestoredHandler);
+
       // Attach overlay canvas for IME preedit rendering
       this.renderer.attachOverlayTo(parent);
 
@@ -1022,7 +1039,20 @@ export class Terminal implements ITerminalCore {
     if (this.scrollAnimationStartTime !== undefined && this.scrollAnimationFrame === undefined) {
       this.animateScroll();
     }
-    this.requestRender();
+    // A hidden canvas may have lost its backing store even though no terminal
+    // rows are dirty. Always repaint the complete viewport when it is revealed.
+    this.requestFullRender();
+  }
+
+  /**
+   * Repaint the complete viewport from retained terminal state.
+   *
+   * Use this after browser/page lifecycle events where the canvas bitmap may
+   * have been discarded without any corresponding terminal-buffer mutation.
+   */
+  refresh(): void {
+    this.assertOpen();
+    this.requestFullRender();
   }
 
   /**
@@ -1583,6 +1613,9 @@ export class Terminal implements ITerminalCore {
    * Clean up components (called on dispose or error)
    */
   private cleanupComponents(): void {
+    const canvas = this.canvas;
+    const ownerDocument = this.element?.ownerDocument ?? canvas?.ownerDocument;
+
     // Dispose selection manager
     if (this.selectionManager) {
       this.selectionManager.dispose();
@@ -1601,10 +1634,9 @@ export class Terminal implements ITerminalCore {
       this.renderer = undefined;
     }
 
-    // Remove canvas from DOM
-    if (this.canvas && this.canvas.parentNode) {
-      this.canvas.parentNode.removeChild(this.canvas);
-      this.canvas = undefined;
+    // Remove canvas from DOM after retaining its reference for listener cleanup.
+    if (canvas?.parentNode) {
+      canvas.parentNode.removeChild(canvas);
     }
 
     // Remove textarea from DOM
@@ -1633,18 +1665,31 @@ export class Terminal implements ITerminalCore {
     }
 
     // Remove document-level listeners
-    this.element?.ownerDocument.removeEventListener('mouseup', this.handleMouseUp);
+    ownerDocument?.removeEventListener('mouseup', this.handleMouseUp);
+    if (this.boundVisibilityChangeHandler) {
+      ownerDocument?.removeEventListener('visibilitychange', this.boundVisibilityChangeHandler);
+      this.boundVisibilityChangeHandler = undefined;
+    }
+    if (this.boundPageShowHandler) {
+      ownerDocument?.defaultView?.removeEventListener('pageshow', this.boundPageShowHandler);
+      this.boundPageShowHandler = undefined;
+    }
 
-    if (this.canvas) {
+    if (canvas) {
+      if (this.boundContextRestoredHandler) {
+        canvas.removeEventListener('webglcontextrestored', this.boundContextRestoredHandler);
+        canvas.removeEventListener('contextrestored', this.boundContextRestoredHandler);
+      }
       if (this.boundCanvasMouseDownFocusHandler) {
-        this.canvas.removeEventListener('mousedown', this.boundCanvasMouseDownFocusHandler);
+        canvas.removeEventListener('mousedown', this.boundCanvasMouseDownFocusHandler);
       }
       if (this.boundCanvasTouchEndFocusHandler) {
-        this.canvas.removeEventListener('touchend', this.boundCanvasTouchEndFocusHandler);
+        canvas.removeEventListener('touchend', this.boundCanvasTouchEndFocusHandler);
       }
     }
     this.boundCanvasMouseDownFocusHandler = undefined;
     this.boundCanvasTouchEndFocusHandler = undefined;
+    this.boundContextRestoredHandler = undefined;
 
     // Clean up scrollbar timers
     if (this.scrollbarHideTimeout !== undefined) {
@@ -1672,6 +1717,7 @@ export class Terminal implements ITerminalCore {
     // Clear references
     this.ghostty = undefined;
     this.element = undefined;
+    this.canvas = undefined;
     this.textarea = undefined;
   }
 

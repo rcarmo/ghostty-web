@@ -29,6 +29,7 @@ This fork carries the VibeGhost fixes in source and in the checked-in distributi
 - empty public writes that do not force the viewport to the live bottom
 - selection invalidation wired to the event-driven render scheduler through public `requestRender()`
 - public render/response hooks for integrations that write through `wasmTerm`
+- lifecycle-owned full canvas restoration after page foregrounding, `pageshow`, renderer context restoration, and terminal resume
 
 ## Quick Start
 
@@ -259,6 +260,21 @@ const term = new Terminal({
 ```
 
 `allowTransparency` can also be changed at runtime; the active renderer is updated and repainted.
+
+### Canvas lifecycle restoration
+
+Mobile browsers may discard a canvas bitmap while an app is backgrounded even
+though the terminal's WASM state remains intact. Ghostty Web listens to the
+owning page lifecycle and restores the full viewport automatically. Calling
+`resume()` after a host-controlled suspension also performs a full repaint.
+Integrations can request the same operation explicitly through the public API:
+
+```typescript
+term.refresh();
+```
+
+The renderers keep an opaque CSS background behind the bitmap when transparency
+is disabled, preventing a white flash before the restored frame is painted.
 
 ### Custom Fonts
 

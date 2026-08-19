@@ -80,6 +80,7 @@ export declare class CanvasRenderer {
     private overlayCanvas;
     private overlayCtx;
     constructor(canvas: HTMLCanvasElement, options?: RendererOptions);
+    private syncCanvasBackground;
     private buildFontStrings;
     private getFontString;
     private getDevicePixelRatio;
@@ -1453,6 +1454,7 @@ export declare interface ITerminalCore {
     textarea?: HTMLTextAreaElement;
     suspend(): void;
     resume(): void;
+    refresh(): void;
 }
 
 export declare interface ITerminalDecoration {
@@ -2357,6 +2359,9 @@ export declare class Terminal implements ITerminalCore {
     private boundBeforeInputHandler?;
     private boundCanvasMouseDownFocusHandler?;
     private boundCanvasTouchEndFocusHandler?;
+    private boundVisibilityChangeHandler?;
+    private boundPageShowHandler?;
+    private boundContextRestoredHandler?;
     private currentTitle;
     private currentTheme;
     viewportY: number;
@@ -2471,6 +2476,13 @@ export declare class Terminal implements ITerminalCore {
      * Restarts any scroll animation that was in progress when suspended.
      */
     resume(): void;
+    /**
+     * Repaint the complete viewport from retained terminal state.
+     *
+     * Use this after browser/page lifecycle events where the canvas bitmap may
+     * have been discarded without any corresponding terminal-buffer mutation.
+     */
+    refresh(): void;
     /**
      * Load an addon
      */

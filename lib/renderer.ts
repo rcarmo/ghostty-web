@@ -306,6 +306,7 @@ export class CanvasRenderer {
     this.cursorBlink = options.cursorBlink ?? false;
     this.theme = { ...DEFAULT_THEME, ...options.theme };
     this.allowTransparency = options.allowTransparency ?? false;
+    this.syncCanvasBackground();
     this.fixedDevicePixelRatio = options.devicePixelRatio;
     this.devicePixelRatio = this.getDevicePixelRatio();
     this.scrollbarWidth = options.scrollbarWidth ?? DEFAULT_SCROLLBAR_WIDTH;
@@ -323,6 +324,14 @@ export class CanvasRenderer {
   // ==========================================================================
   // Font Metrics Measurement
   // ==========================================================================
+
+  private syncCanvasBackground(): void {
+    // Keep an opaque CSS fallback behind the bitmap. Mobile browsers may discard
+    // canvas pixels while backgrounded before the scheduled full repaint runs.
+    this.canvas.style.backgroundColor = this.allowTransparency
+      ? 'transparent'
+      : this.theme.background;
+  }
 
   private buildFontStrings(): { plain: string; bold: string; italic: string; boldItalic: string } {
     // Quote font family names that contain spaces but aren't already quoted
@@ -2080,10 +2089,12 @@ export class CanvasRenderer {
    */
   public setTheme(theme: ITheme): void {
     this.theme = { ...DEFAULT_THEME, ...theme };
+    this.syncCanvasBackground();
   }
 
   public setAllowTransparency(allowTransparency: boolean): void {
     this.allowTransparency = allowTransparency;
+    this.syncCanvasBackground();
   }
 
   /**

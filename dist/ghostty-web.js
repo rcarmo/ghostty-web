@@ -2369,7 +2369,10 @@ var I = class {
 		this.ctx = n, this.fontSize = t.fontSize ?? 15, this.fontFamily = t.fontFamily ?? "monospace", this.fontWeight = t.fontWeight ?? 400, this.cursorStyle = t.cursorStyle ?? "block", this.cursorBlink = t.cursorBlink ?? !1, this.theme = {
 			...F,
 			...t.theme
-		}, this.allowTransparency = t.allowTransparency ?? !1, this.fixedDevicePixelRatio = t.devicePixelRatio, this.devicePixelRatio = this.getDevicePixelRatio(), this.scrollbarWidth = t.scrollbarWidth ?? 8, this.fontStrings = this.buildFontStrings(), this.metrics = this.measureFont(), this.cursorBlink && this.startCursorBlink();
+		}, this.allowTransparency = t.allowTransparency ?? !1, this.syncCanvasBackground(), this.fixedDevicePixelRatio = t.devicePixelRatio, this.devicePixelRatio = this.getDevicePixelRatio(), this.scrollbarWidth = t.scrollbarWidth ?? 8, this.fontStrings = this.buildFontStrings(), this.metrics = this.measureFont(), this.cursorBlink && this.startCursorBlink();
+	}
+	syncCanvasBackground() {
+		this.canvas.style.backgroundColor = this.allowTransparency ? "transparent" : this.theme.background;
 	}
 	buildFontStrings() {
 		let e = this.fontFamily.split(",").map((e) => {
@@ -3225,10 +3228,10 @@ var I = class {
 		this.theme = {
 			...F,
 			...e
-		};
+		}, this.syncCanvasBackground();
 	}
 	setAllowTransparency(e) {
-		this.allowTransparency = e;
+		this.allowTransparency = e, this.syncCanvasBackground();
 	}
 	setDecorations(e) {
 		this.decorations = e.slice();
@@ -4886,7 +4889,7 @@ var Nt = class {
 		this.cols = 0, this.rows = 0, this.hoveredHyperlinkId = null, this.hoveredLinkRange = null, this.decorations = [], this.cursorVisible = !0, this.canvas = e, this.options = t, this.theme = {
 			...F,
 			...t.theme ?? {}
-		}, this.allowTransparency = t.allowTransparency ?? !1, this.scrollbarWidth = Math.max(0, t.scrollbarWidth ?? 8), this.vendored = new kt({
+		}, this.allowTransparency = t.allowTransparency ?? !1, this.syncCanvasBackground(), this.scrollbarWidth = Math.max(0, t.scrollbarWidth ?? 8), this.vendored = new kt({
 			fontSize: t.fontSize,
 			fontFamily: t.fontFamily,
 			fontWeight: t.fontWeight,
@@ -4894,6 +4897,9 @@ var Nt = class {
 			ownerDocument: e.ownerDocument,
 			alpha: this.allowTransparency
 		}), this.vendored.attach(e), this.vendored.updateTheme(this.toWebGLTheme(this.theme)), this.setCursorBlink(t.cursorBlink ?? !1);
+	}
+	syncCanvasBackground() {
+		this.canvas.style.backgroundColor = this.allowTransparency ? "transparent" : this.theme.background;
 	}
 	get charWidth() {
 		return this.vendored.charWidth;
@@ -4926,10 +4932,10 @@ var Nt = class {
 		this.theme = {
 			...this.theme,
 			...e
-		}, this.vendored.updateTheme(this.toWebGLTheme(this.theme));
+		}, this.syncCanvasBackground(), this.vendored.updateTheme(this.toWebGLTheme(this.theme));
 	}
 	setAllowTransparency(e) {
-		this.allowTransparency = e;
+		this.allowTransparency = e, this.syncCanvasBackground();
 	}
 	setFontSize(e) {
 		!Number.isFinite(e) || e <= 0 || (this.options.fontSize = e, this.vendored.setFontSize(e));
@@ -5512,7 +5518,9 @@ var Ht = class e {
 			}), this.linkDetector = new Pe(this), this.linkDetector.registerProvider(new Fe(this)), this.linkDetector.registerProvider(new Re(this)), e.addEventListener("mousedown", this.handleMouseDown, { capture: !0 }), e.addEventListener("mousemove", this.handleMouseMove), e.addEventListener("mouseleave", this.handleMouseLeave), e.addEventListener("click", this.handleClick), n.addEventListener("mouseup", this.handleMouseUp), e.addEventListener("wheel", this.handleWheel, {
 				passive: !1,
 				capture: !0
-			}), this.renderer.attachOverlayTo(e), this.renderer.render(this.wasmTerm, !0, this.viewportY, this, this.scrollbarOpacity), this.renderer.setOnRequestRender(() => this.requestRender()), this.renderTick(), this.openEmitter.fire(), this.openEmitter.dispose(), this.isAndroidPlatform || this.focus();
+			}), this.boundVisibilityChangeHandler = () => {
+				n.visibilityState === "visible" && this.refresh();
+			}, this.boundPageShowHandler = () => this.refresh(), this.boundContextRestoredHandler = () => this.refresh(), n.addEventListener("visibilitychange", this.boundVisibilityChangeHandler), n.defaultView?.addEventListener("pageshow", this.boundPageShowHandler), this.canvas.addEventListener("webglcontextrestored", this.boundContextRestoredHandler), this.canvas.addEventListener("contextrestored", this.boundContextRestoredHandler), this.renderer.attachOverlayTo(e), this.renderer.render(this.wasmTerm, !0, this.viewportY, this, this.scrollbarOpacity), this.renderer.setOnRequestRender(() => this.requestRender()), this.renderTick(), this.openEmitter.fire(), this.openEmitter.dispose(), this.isAndroidPlatform || this.focus();
 		} catch (e) {
 			throw this.isOpen = !1, this.cleanupComponents(), Error(`Failed to open terminal: ${e}`);
 		}
@@ -5582,7 +5590,10 @@ var Ht = class e {
 		!this.isSuspended && this.isOpen && (this.isSuspended = !0, this.cancelRenderLoop(), this.cancelScrollAnimation());
 	}
 	resume() {
-		this.isSuspended && this.isOpen && (this.isSuspended = !1, this.scrollAnimationStartTime !== void 0 && this.scrollAnimationFrame === void 0 && this.animateScroll(), this.requestRender());
+		this.isSuspended && this.isOpen && (this.isSuspended = !1, this.scrollAnimationStartTime !== void 0 && this.scrollAnimationFrame === void 0 && this.animateScroll(), this.requestFullRender());
+	}
+	refresh() {
+		this.assertOpen(), this.requestFullRender();
 	}
 	loadAddon(e) {
 		e.activate(this), this.addons.push(e);
@@ -5708,11 +5719,12 @@ var Ht = class e {
 		return this.wasmTerm ? this.wasmTerm.getScrollbackLength() : 0;
 	}
 	cleanupComponents() {
-		if (this.selectionManager &&= (this.selectionManager.dispose(), void 0), this.inputHandler &&= (this.inputHandler.dispose(), void 0), this.renderer &&= (this.renderer.dispose(), void 0), this.canvas && this.canvas.parentNode && (this.canvas.parentNode.removeChild(this.canvas), this.canvas = void 0), this.textarea && this.textarea.parentNode && (this.textarea.parentNode.removeChild(this.textarea), this.textarea = void 0), this.element && (this.boundBeforeInputHandler &&= (this.element.removeEventListener("beforeinput", this.boundBeforeInputHandler), void 0), this.element.removeEventListener("wheel", this.handleWheel, { capture: !0 }), this.element.removeEventListener("mousedown", this.handleMouseDown, { capture: !0 }), this.element.removeEventListener("mousemove", this.handleMouseMove), this.element.removeEventListener("mouseleave", this.handleMouseLeave), this.element.removeEventListener("click", this.handleClick), this.element.removeAttribute("contenteditable"), this.element.removeAttribute("role"), this.element.removeAttribute("aria-label"), this.element.removeAttribute("aria-multiline")), this.element?.ownerDocument.removeEventListener("mouseup", this.handleMouseUp), this.canvas && (this.boundCanvasMouseDownFocusHandler && this.canvas.removeEventListener("mousedown", this.boundCanvasMouseDownFocusHandler), this.boundCanvasTouchEndFocusHandler && this.canvas.removeEventListener("touchend", this.boundCanvasTouchEndFocusHandler)), this.boundCanvasMouseDownFocusHandler = void 0, this.boundCanvasTouchEndFocusHandler = void 0, this.scrollbarHideTimeout !== void 0) {
+		let e = this.canvas, t = this.element?.ownerDocument ?? e?.ownerDocument;
+		if (this.selectionManager &&= (this.selectionManager.dispose(), void 0), this.inputHandler &&= (this.inputHandler.dispose(), void 0), this.renderer &&= (this.renderer.dispose(), void 0), e?.parentNode && e.parentNode.removeChild(e), this.textarea && this.textarea.parentNode && (this.textarea.parentNode.removeChild(this.textarea), this.textarea = void 0), this.element && (this.boundBeforeInputHandler &&= (this.element.removeEventListener("beforeinput", this.boundBeforeInputHandler), void 0), this.element.removeEventListener("wheel", this.handleWheel, { capture: !0 }), this.element.removeEventListener("mousedown", this.handleMouseDown, { capture: !0 }), this.element.removeEventListener("mousemove", this.handleMouseMove), this.element.removeEventListener("mouseleave", this.handleMouseLeave), this.element.removeEventListener("click", this.handleClick), this.element.removeAttribute("contenteditable"), this.element.removeAttribute("role"), this.element.removeAttribute("aria-label"), this.element.removeAttribute("aria-multiline")), t?.removeEventListener("mouseup", this.handleMouseUp), this.boundVisibilityChangeHandler &&= (t?.removeEventListener("visibilitychange", this.boundVisibilityChangeHandler), void 0), this.boundPageShowHandler &&= (t?.defaultView?.removeEventListener("pageshow", this.boundPageShowHandler), void 0), e && (this.boundContextRestoredHandler && (e.removeEventListener("webglcontextrestored", this.boundContextRestoredHandler), e.removeEventListener("contextrestored", this.boundContextRestoredHandler)), this.boundCanvasMouseDownFocusHandler && e.removeEventListener("mousedown", this.boundCanvasMouseDownFocusHandler), this.boundCanvasTouchEndFocusHandler && e.removeEventListener("touchend", this.boundCanvasTouchEndFocusHandler)), this.boundCanvasMouseDownFocusHandler = void 0, this.boundCanvasTouchEndFocusHandler = void 0, this.boundContextRestoredHandler = void 0, this.scrollbarHideTimeout !== void 0) {
 			let e = this.getOwnerWindow();
 			e ? e.clearTimeout(this.scrollbarHideTimeout) : clearTimeout(this.scrollbarHideTimeout), this.scrollbarHideTimeout = void 0;
 		}
-		this.linkDetector &&= (this.linkDetector.dispose(), void 0), this.wasmTerm &&= (this.wasmTerm.free(), void 0), this.ghostty = void 0, this.element = void 0, this.textarea = void 0;
+		this.linkDetector &&= (this.linkDetector.dispose(), void 0), this.wasmTerm &&= (this.wasmTerm.free(), void 0), this.ghostty = void 0, this.element = void 0, this.canvas = void 0, this.textarea = void 0;
 	}
 	assertOpen() {
 		if (this.isDisposed) throw Error("Terminal has been disposed");
