@@ -115,6 +115,8 @@ export class Terminal implements ITerminalCore {
   private animationFrameId?: number;
   private forceNextRender = false;
   private awaitingEcho = false;
+  private synchronizedOutputTimer?: number;
+  private synchronizedOutputExpired = false;
 
   // Addons
   private addons: ITerminalAddon[] = [];
@@ -339,7 +341,7 @@ export class Terminal implements ITerminalCore {
     this.updateWasmPixelSize();
 
     // Force full re-render with new font
-    this.renderer.render(this.wasmTerm, true, this.viewportY, this);
+    this.renderFrame(true);
   }
 
   /**
@@ -717,7 +719,7 @@ export class Terminal implements ITerminalCore {
       this.renderer.attachOverlayTo(parent);
 
       // Render initial blank screen (force full redraw)
-      this.renderer.render(this.wasmTerm, true, this.viewportY, this, this.scrollbarOpacity);
+      this.renderFrame(true);
 
       // Wire the renderer back to the render scheduler so internal
       // state changes (cursor blink) wake the loop on demand.
@@ -827,9 +829,7 @@ export class Terminal implements ITerminalCore {
     if (this.awaitingEcho) {
       // Render echoed user input immediately to minimize perceived latency.
       this.awaitingEcho = false;
-      if (this.renderer && this.wasmTerm) {
-        this.renderer.render(this.wasmTerm, false, this.viewportY, this, this.scrollbarOpacity);
-      }
+      this.renderFrame();
     } else {
       // Wake the event-driven scheduler for ordinary program output.
       this.requestRender();
@@ -935,7 +935,7 @@ export class Terminal implements ITerminalCore {
       this.resizeEmitter.fire({ cols: nextCols, rows: nextRows });
 
       // Force full render
-      this.renderer!.render(this.wasmTerm!, true, this.viewportY, this);
+      this.renderFrame(true);
     } catch (e) {
       console.error('Terminal resize failed:', e);
       return;
@@ -962,6 +962,8 @@ export class Terminal implements ITerminalCore {
    */
   reset(): void {
     this.assertOpen();
+
+    this.clearSynchronizedOutputWait();
 
     // Free old WASM terminal and create new one
     if (this.wasmTerm) {
@@ -1565,6 +1567,39 @@ export class Terminal implements ITerminalCore {
     this.requestRender();
   }
 
+  private clearSynchronizedOutputWait(): void {
+    if (this.synchronizedOutputTimer !== undefined) {
+      this.getOwnerWindow()?.clearTimeout(this.synchronizedOutputTimer);
+      this.synchronizedOutputTimer = undefined;
+    }
+    this.synchronizedOutputExpired = false;
+  }
+
+  /** Parse continuously, but present DEC synchronized output as one frame. */
+  private renderFrame(forceAll = false, opacity = this.scrollbarOpacity): boolean {
+    this.forceNextRender ||= forceAll;
+    if (this.isSuspended || !this.wasmTerm || !this.renderer) return false;
+    if (this.wasmTerm.getMode(2026)) {
+      if (!this.synchronizedOutputExpired) {
+        if (this.synchronizedOutputTimer === undefined) {
+          // A crashed producer must not freeze the canvas forever. Do not restart
+          // this deadline on each write (a busy producer could otherwise starve it).
+          this.synchronizedOutputTimer = this.getOwnerWindow()?.setTimeout(() => {
+            this.synchronizedOutputTimer = undefined;
+            this.synchronizedOutputExpired = true;
+            this.requestFullRender();
+          }, 1000);
+        }
+        return false;
+      }
+    } else {
+      this.clearSynchronizedOutputWait();
+    }
+    this.renderer.render(this.wasmTerm, this.forceNextRender, this.viewportY, this, opacity);
+    this.forceNextRender = false;
+    return true;
+  }
+
   private renderTick = (): void => {
     this.animationFrameId = undefined;
     if (this.isDisposed || !this.isOpen) return;
@@ -1574,9 +1609,7 @@ export class Terminal implements ITerminalCore {
     // 1. Calls update() once to sync state and check dirty flags
     // 2. Only redraws dirty rows when forceAll=false
     // 3. Always calls clearDirty() at the end
-    const forceAll = this.forceNextRender;
-    this.forceNextRender = false;
-    this.renderer!.render(this.wasmTerm!, forceAll, this.viewportY, this, this.scrollbarOpacity);
+    if (!this.renderFrame(this.forceNextRender)) return;
 
     // Check for cursor movement (Phase 2: onCursorMove event)
     // Note: getCursor() reads from already-updated render state (from render() above)
@@ -1613,6 +1646,7 @@ export class Terminal implements ITerminalCore {
    * Clean up components (called on dispose or error)
    */
   private cleanupComponents(): void {
+    this.clearSynchronizedOutputWait();
     const canvas = this.canvas;
     const ownerDocument = this.element?.ownerDocument ?? canvas?.ownerDocument;
 
@@ -2242,9 +2276,7 @@ export class Terminal implements ITerminalCore {
       this.scrollbarOpacity = progress;
 
       // Trigger render to show updated opacity
-      if (this.renderer && this.wasmTerm) {
-        this.renderer.render(this.wasmTerm, false, this.viewportY, this, this.scrollbarOpacity);
-      }
+      this.renderFrame();
 
       if (progress < 1) {
         requestAnimationFrame(animate);
@@ -2265,9 +2297,7 @@ export class Terminal implements ITerminalCore {
       this.scrollbarOpacity = startOpacity * (1 - progress);
 
       // Trigger render to show updated opacity
-      if (this.renderer && this.wasmTerm) {
-        this.renderer.render(this.wasmTerm, false, this.viewportY, this, this.scrollbarOpacity);
-      }
+      this.renderFrame();
 
       if (progress < 1) {
         requestAnimationFrame(animate);
@@ -2276,7 +2306,7 @@ export class Terminal implements ITerminalCore {
         this.scrollbarOpacity = 0;
         // Final render to clear scrollbar completely
         if (this.renderer && this.wasmTerm) {
-          this.renderer.render(this.wasmTerm, false, this.viewportY, this, 0);
+          this.renderFrame(false, 0);
         }
       }
     };

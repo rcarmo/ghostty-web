@@ -5219,7 +5219,7 @@ var Ht = class e {
 	constructor(t = {}) {
 		this.unicode = { get activeVersion() {
 			return "15.1";
-		} }, this.hoveredHyperlinkId = 0, this.linkHoverRequestId = 0, this.linkClickRequestId = 0, this.dataEmitter = new M(), this.resizeEmitter = new M(), this.bellEmitter = new M(), this.selectionChangeEmitter = new M(), this.keyEmitter = new M(), this.titleChangeEmitter = new M(), this.scrollEmitter = new M(), this.renderEmitter = new M(), this.cursorMoveEmitter = new M(), this.openEmitter = new M(), this.onData = this.dataEmitter.event, this.onResize = this.resizeEmitter.event, this.onBell = this.bellEmitter.event, this.onSelectionChange = this.selectionChangeEmitter.event, this.onKey = this.keyEmitter.event, this.onTitleChange = this.titleChangeEmitter.event, this.onScroll = this.scrollEmitter.event, this.onRender = this.renderEmitter.event, this.onCursorMove = this.cursorMoveEmitter.event, this.onOpen = this.openEmitter.event, this.isOpen = !1, this.isDisposed = !1, this.isSuspended = !1, this.forceNextRender = !1, this.awaitingEcho = !1, this.addons = [], this.currentTitle = "", this.viewportY = 0, this.targetViewportY = 0, this.lastCursorY = 0, this.isDraggingScrollbar = !1, this.scrollbarDragStart = null, this.scrollbarDragStartViewportY = 0, this.scrollbarVisible = !1, this.scrollbarOpacity = 0, this.SCROLLBAR_HIDE_DELAY_MS = 1500, this.SCROLLBAR_FADE_DURATION_MS = 200, this.animateScroll = () => {
+		} }, this.hoveredHyperlinkId = 0, this.linkHoverRequestId = 0, this.linkClickRequestId = 0, this.dataEmitter = new M(), this.resizeEmitter = new M(), this.bellEmitter = new M(), this.selectionChangeEmitter = new M(), this.keyEmitter = new M(), this.titleChangeEmitter = new M(), this.scrollEmitter = new M(), this.renderEmitter = new M(), this.cursorMoveEmitter = new M(), this.openEmitter = new M(), this.onData = this.dataEmitter.event, this.onResize = this.resizeEmitter.event, this.onBell = this.bellEmitter.event, this.onSelectionChange = this.selectionChangeEmitter.event, this.onKey = this.keyEmitter.event, this.onTitleChange = this.titleChangeEmitter.event, this.onScroll = this.scrollEmitter.event, this.onRender = this.renderEmitter.event, this.onCursorMove = this.cursorMoveEmitter.event, this.onOpen = this.openEmitter.event, this.isOpen = !1, this.isDisposed = !1, this.isSuspended = !1, this.forceNextRender = !1, this.awaitingEcho = !1, this.synchronizedOutputExpired = !1, this.addons = [], this.currentTitle = "", this.viewportY = 0, this.targetViewportY = 0, this.lastCursorY = 0, this.isDraggingScrollbar = !1, this.scrollbarDragStart = null, this.scrollbarDragStartViewportY = 0, this.scrollbarVisible = !1, this.scrollbarOpacity = 0, this.SCROLLBAR_HIDE_DELAY_MS = 1500, this.SCROLLBAR_FADE_DURATION_MS = 200, this.animateScroll = () => {
 			if (!this.wasmTerm || this.scrollAnimationStartTime === void 0) return;
 			let e = this.options.smoothScrollDuration ?? 100, t = this.targetViewportY - this.viewportY;
 			if (Math.abs(t) < .01) {
@@ -5231,11 +5231,9 @@ var Ht = class e {
 			let i = Math.floor(this.viewportY);
 			this.scrollEmitter.fire(i), this.getScrollbackLength() > 0 && this.showScrollbar(), this.requestRender(), this.scrollAnimationFrame = this.scheduleAnimationFrame(this.animateScroll);
 		}, this.renderTick = () => {
-			if (this.animationFrameId = void 0, this.isDisposed || !this.isOpen) return;
-			let e = this.forceNextRender;
-			this.forceNextRender = !1, this.renderer.render(this.wasmTerm, e, this.viewportY, this, this.scrollbarOpacity);
-			let t = this.wasmTerm.getCursor();
-			t.y !== this.lastCursorY && (this.lastCursorY = t.y, this.cursorMoveEmitter.fire());
+			if (this.animationFrameId = void 0, this.isDisposed || !this.isOpen || !this.renderFrame(this.forceNextRender)) return;
+			let e = this.wasmTerm.getCursor();
+			e.y !== this.lastCursorY && (this.lastCursorY = e.y, this.cursorMoveEmitter.fire());
 		}, this.handleMouseMove = (e) => {
 			if (!this.canvas || !this.renderer || !this.wasmTerm) return;
 			if (this.isDraggingScrollbar) {
@@ -5373,7 +5371,7 @@ var Ht = class e {
 		this.renderer && (this.renderer.remeasureFont(), this.handleFontChange());
 	}
 	handleFontChange() {
-		this.renderer && this.wasmTerm && this.canvas && (this.selectionManager && this.selectionManager.clearSelection(), this.renderer.resize(this.cols, this.rows), this.updateWasmPixelSize(), this.renderer.render(this.wasmTerm, !0, this.viewportY, this));
+		this.renderer && this.wasmTerm && this.canvas && (this.selectionManager && this.selectionManager.clearSelection(), this.renderer.resize(this.cols, this.rows), this.updateWasmPixelSize(), this.renderFrame(!0));
 	}
 	parseColorToHex(e) {
 		if (!e) return 0;
@@ -5520,7 +5518,7 @@ var Ht = class e {
 				capture: !0
 			}), this.boundVisibilityChangeHandler = () => {
 				n.visibilityState === "visible" && this.refresh();
-			}, this.boundPageShowHandler = () => this.refresh(), this.boundContextRestoredHandler = () => this.refresh(), n.addEventListener("visibilitychange", this.boundVisibilityChangeHandler), n.defaultView?.addEventListener("pageshow", this.boundPageShowHandler), this.canvas.addEventListener("webglcontextrestored", this.boundContextRestoredHandler), this.canvas.addEventListener("contextrestored", this.boundContextRestoredHandler), this.renderer.attachOverlayTo(e), this.renderer.render(this.wasmTerm, !0, this.viewportY, this, this.scrollbarOpacity), this.renderer.setOnRequestRender(() => this.requestRender()), this.renderTick(), this.openEmitter.fire(), this.openEmitter.dispose(), this.isAndroidPlatform || this.focus();
+			}, this.boundPageShowHandler = () => this.refresh(), this.boundContextRestoredHandler = () => this.refresh(), n.addEventListener("visibilitychange", this.boundVisibilityChangeHandler), n.defaultView?.addEventListener("pageshow", this.boundPageShowHandler), this.canvas.addEventListener("webglcontextrestored", this.boundContextRestoredHandler), this.canvas.addEventListener("contextrestored", this.boundContextRestoredHandler), this.renderer.attachOverlayTo(e), this.renderFrame(!0), this.renderer.setOnRequestRender(() => this.requestRender()), this.renderTick(), this.openEmitter.fire(), this.openEmitter.dispose(), this.isAndroidPlatform || this.focus();
 		} catch (e) {
 			throw this.isOpen = !1, this.cleanupComponents(), Error(`Failed to open terminal: ${e}`);
 		}
@@ -5538,7 +5536,7 @@ var Ht = class e {
 			let e = this.getScrollbackLength() - n;
 			e > 0 && (this.viewportY = Math.min(this.getScrollbackLength(), this.viewportY + e), this.scrollEmitter.fire(Math.floor(this.viewportY)));
 		}
-		typeof e == "string" && e.includes("\x1B]") && this.checkForTitleChange(e), t && this.scheduleAnimationFrame(t), this.awaitingEcho ? (this.awaitingEcho = !1, this.renderer && this.wasmTerm && this.renderer.render(this.wasmTerm, !1, this.viewportY, this, this.scrollbarOpacity)) : this.requestRender();
+		typeof e == "string" && e.includes("\x1B]") && this.checkForTitleChange(e), t && this.scheduleAnimationFrame(t), this.awaitingEcho ? (this.awaitingEcho = !1, this.renderFrame()) : this.requestRender();
 	}
 	writeln(e, t) {
 		if (typeof e == "string") this.write(e + "\r\n", t);
@@ -5562,7 +5560,7 @@ var Ht = class e {
 				this.wasmTerm.resize(n, r), this.cols = n, this.rows = r, this.renderer.resize(n, r), this.updateWasmPixelSize(), this.resizeEmitter.fire({
 					cols: n,
 					rows: r
-				}), this.renderer.render(this.wasmTerm, !0, this.viewportY, this);
+				}), this.renderFrame(!0);
 			} catch (e) {
 				console.error("Terminal resize failed:", e);
 				return;
@@ -5574,7 +5572,7 @@ var Ht = class e {
 		this.assertOpen(), this.writeInternal("\x1B[2J\x1B[H");
 	}
 	reset() {
-		this.assertOpen(), this.wasmTerm && this.wasmTerm.free();
+		this.assertOpen(), this.clearSynchronizedOutputWait(), this.wasmTerm && this.wasmTerm.free();
 		let e = this.buildWasmConfig();
 		this.wasmTerm = this.ghostty.createTerminal(this.cols, this.rows, e), this.selectionManager?.setWasmTerminal(this.wasmTerm), this.updateWasmPixelSize(), this.renderer.clear(), this.currentTitle = "", this.requestFullRender();
 	}
@@ -5712,6 +5710,18 @@ var Ht = class e {
 	requestFullRender() {
 		this.forceNextRender = !0, this.requestRender();
 	}
+	clearSynchronizedOutputWait() {
+		this.synchronizedOutputTimer !== void 0 && (this.getOwnerWindow()?.clearTimeout(this.synchronizedOutputTimer), this.synchronizedOutputTimer = void 0), this.synchronizedOutputExpired = !1;
+	}
+	renderFrame(e = !1, t = this.scrollbarOpacity) {
+		if (this.forceNextRender ||= e, this.isSuspended || !this.wasmTerm || !this.renderer) return !1;
+		if (this.wasmTerm.getMode(2026)) {
+			if (!this.synchronizedOutputExpired) return this.synchronizedOutputTimer === void 0 && (this.synchronizedOutputTimer = this.getOwnerWindow()?.setTimeout(() => {
+				this.synchronizedOutputTimer = void 0, this.synchronizedOutputExpired = !0, this.requestFullRender();
+			}, 1e3)), !1;
+		} else this.clearSynchronizedOutputWait();
+		return this.renderer.render(this.wasmTerm, this.forceNextRender, this.viewportY, this, t), this.forceNextRender = !1, !0;
+	}
 	getScrollbackLine(e) {
 		return this.wasmTerm ? this.wasmTerm.getScrollbackLine(e) : null;
 	}
@@ -5719,6 +5729,7 @@ var Ht = class e {
 		return this.wasmTerm ? this.wasmTerm.getScrollbackLength() : 0;
 	}
 	cleanupComponents() {
+		this.clearSynchronizedOutputWait();
 		let e = this.canvas, t = this.element?.ownerDocument ?? e?.ownerDocument;
 		if (this.selectionManager &&= (this.selectionManager.dispose(), void 0), this.inputHandler &&= (this.inputHandler.dispose(), void 0), this.renderer &&= (this.renderer.dispose(), void 0), e?.parentNode && e.parentNode.removeChild(e), this.textarea && this.textarea.parentNode && (this.textarea.parentNode.removeChild(this.textarea), this.textarea = void 0), this.element && (this.boundBeforeInputHandler &&= (this.element.removeEventListener("beforeinput", this.boundBeforeInputHandler), void 0), this.element.removeEventListener("wheel", this.handleWheel, { capture: !0 }), this.element.removeEventListener("mousedown", this.handleMouseDown, { capture: !0 }), this.element.removeEventListener("mousemove", this.handleMouseMove), this.element.removeEventListener("mouseleave", this.handleMouseLeave), this.element.removeEventListener("click", this.handleClick), this.element.removeAttribute("contenteditable"), this.element.removeAttribute("role"), this.element.removeAttribute("aria-label"), this.element.removeAttribute("aria-multiline")), t?.removeEventListener("mouseup", this.handleMouseUp), this.boundVisibilityChangeHandler &&= (t?.removeEventListener("visibilitychange", this.boundVisibilityChangeHandler), void 0), this.boundPageShowHandler &&= (t?.defaultView?.removeEventListener("pageshow", this.boundPageShowHandler), void 0), e && (this.boundContextRestoredHandler && (e.removeEventListener("webglcontextrestored", this.boundContextRestoredHandler), e.removeEventListener("contextrestored", this.boundContextRestoredHandler)), this.boundCanvasMouseDownFocusHandler && e.removeEventListener("mousedown", this.boundCanvasMouseDownFocusHandler), this.boundCanvasTouchEndFocusHandler && e.removeEventListener("touchend", this.boundCanvasTouchEndFocusHandler)), this.boundCanvasMouseDownFocusHandler = void 0, this.boundCanvasTouchEndFocusHandler = void 0, this.boundContextRestoredHandler = void 0, this.scrollbarHideTimeout !== void 0) {
 			let e = this.getOwnerWindow();
@@ -5797,14 +5808,14 @@ var Ht = class e {
 	fadeInScrollbar() {
 		let e = Date.now(), t = () => {
 			let n = Date.now() - e, r = Math.min(n / this.SCROLLBAR_FADE_DURATION_MS, 1);
-			this.scrollbarOpacity = r, this.renderer && this.wasmTerm && this.renderer.render(this.wasmTerm, !1, this.viewportY, this, this.scrollbarOpacity), r < 1 && requestAnimationFrame(t);
+			this.scrollbarOpacity = r, this.renderFrame(), r < 1 && requestAnimationFrame(t);
 		};
 		t();
 	}
 	fadeOutScrollbar() {
 		let e = Date.now(), t = this.scrollbarOpacity, n = () => {
 			let r = Date.now() - e, i = Math.min(r / this.SCROLLBAR_FADE_DURATION_MS, 1);
-			this.scrollbarOpacity = t * (1 - i), this.renderer && this.wasmTerm && this.renderer.render(this.wasmTerm, !1, this.viewportY, this, this.scrollbarOpacity), i < 1 ? requestAnimationFrame(n) : (this.scrollbarVisible = !1, this.scrollbarOpacity = 0, this.renderer && this.wasmTerm && this.renderer.render(this.wasmTerm, !1, this.viewportY, this, 0));
+			this.scrollbarOpacity = t * (1 - i), this.renderFrame(), i < 1 ? requestAnimationFrame(n) : (this.scrollbarVisible = !1, this.scrollbarOpacity = 0, this.renderer && this.wasmTerm && this.renderFrame(!1, 0));
 		};
 		n();
 	}
