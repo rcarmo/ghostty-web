@@ -5,6 +5,15 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
+PROJECT_TMP_ROOT="${PROJECT_TMP_ROOT:-/workspace/tmp/ghostty-web}"
+export PROJECT_TMP_ROOT
+export TMPDIR="${TMPDIR:-$PROJECT_TMP_ROOT/runs/build-wasm}"
+export TMP="${TMP:-$TMPDIR}"
+export TEMP="${TEMP:-$TMPDIR}"
+export ZIG_GLOBAL_CACHE_DIR="${ZIG_GLOBAL_CACHE_DIR:-$PROJECT_TMP_ROOT/cache/zig/global}"
+export ZIG_LOCAL_CACHE_DIR="${ZIG_LOCAL_CACHE_DIR:-$PROJECT_TMP_ROOT/cache/zig/local}"
+mkdir -p "$TMPDIR" "$ZIG_GLOBAL_CACHE_DIR" "$ZIG_LOCAL_CACHE_DIR" "$PROJECT_TMP_ROOT/build"
+
 PATCH="patches/ghostty-wasm-api.patch"
 
 echo "🔨 Building ghostty-vt.wasm..."

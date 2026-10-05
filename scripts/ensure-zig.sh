@@ -2,8 +2,10 @@
 set -euo pipefail
 
 VERSION="${1:-0.15.2}"
-DEFAULT_CACHE_BASE="${XDG_CACHE_HOME:-$HOME/.cache}/ghostty-web/zig"
+PROJECT_TMP_ROOT="${PROJECT_TMP_ROOT:-/workspace/tmp/ghostty-web}"
+DEFAULT_CACHE_BASE="$PROJECT_TMP_ROOT/cache/zig/toolchains"
 CACHE_DIR="${ZIG_CACHE_DIR:-$DEFAULT_CACHE_BASE/$VERSION}"
+RUNS_ROOT="$PROJECT_TMP_ROOT/runs/ensure-zig"
 
 platform=""
 arch=""
@@ -28,8 +30,8 @@ if command -v zig >/dev/null 2>&1; then
 fi
 
 if [ ! -x "$CACHE_DIR/zig" ] || [ "$($CACHE_DIR/zig version 2>/dev/null || true)" != "$VERSION" ]; then
-  mkdir -p "$CACHE_DIR"
-  tmpdir="$(mktemp -d)"
+  mkdir -p "$CACHE_DIR" "$RUNS_ROOT"
+  tmpdir="$(mktemp -d "$RUNS_ROOT/download.XXXXXX")"
   trap 'rm -rf "$tmpdir"' EXIT
   tarball="zig-${arch}-${platform}-${VERSION}.tar.xz"
   url="https://ziglang.org/download/${VERSION}/${tarball}"

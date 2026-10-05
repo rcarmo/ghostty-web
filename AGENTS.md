@@ -2,6 +2,19 @@
 
 **For AI coding agents working on this repository.**
 
+## Project-owned caches and temporary files
+
+The canonical disposable root for this repository is `/workspace/tmp/ghostty-web/`.
+
+- Rebuildable caches: `/workspace/tmp/ghostty-web/cache/<tool>/`
+- Generated build scratch: `/workspace/tmp/ghostty-web/build/`
+- Isolated run scratch: `/workspace/tmp/ghostty-web/runs/<purpose>/<run-id>/`
+- `Makefile` exports `TMPDIR`, `TMP`, `TEMP`, Bun/npm cache variables, and Zig global/local cache variables beneath that root.
+- `scripts/ensure-zig.sh` stores downloaded Zig toolchains under `cache/zig/toolchains/`; `scripts/build-wasm.sh` uses the same project-owned root.
+- Never use bare `/tmp`, home-directory caches, ad-hoc top-level workspace paths, or source/evidence directories for disposable files.
+- `make clean-tmp` may delete only `/workspace/tmp/ghostty-web`; it must not remove retained profiles, logs, release artifacts, or another project's files.
+- Keep test filesystem isolation beneath a unique run directory and preserve any required evidence outside disposable scratch before cleanup.
+
 ## Quick Start
 
 ```bash
