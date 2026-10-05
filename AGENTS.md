@@ -4,10 +4,12 @@
 
 ## Project-owned caches and temporary files
 
-The canonical disposable root ends in `ghostty-web`. `scripts/project-tmp.sh` resolves it once: a validated explicit absolute `PROJECT_TMP_ROOT`, otherwise writable `/workspace/tmp/ghostty-web`, `${RUNNER_TEMP}/ghostty-web`, the original `${TMPDIR}/ghostty-web`, or the platform temporary directory plus `/ghostty-web`. Invalid explicit overrides fail without fallback.
+The canonical disposable root ends in `ghostty-web`. `scripts/project-tmp.sh` snapshots the inherited `TMPDIR` and resolves once before child environment redirection. `PROJECT_TMP_BASE` selects `<base>/ghostty-web`; compatible `PROJECT_TMP_ROOT` remains supported, and when both are supplied they must agree. Invalid explicit overrides fail without fallback. CI resolves through `${RUNNER_TEMP}`, original inherited `${TMPDIR}`, then system temp—even if `/workspace/tmp` exists. Local use prefers writable `/workspace/tmp`, then system temp.
 
 - Rebuildable caches: `${PROJECT_TMP_ROOT}/cache/<tool>/`
 - Generated build scratch: `${PROJECT_TMP_ROOT}/build/`
+- Test scratch: `${PROJECT_TMP_ROOT}/tests/`
+- Disposable logs: `${PROJECT_TMP_ROOT}/logs/`
 - Isolated run scratch: `${PROJECT_TMP_ROOT}/runs/<purpose>/<run-id>/`
 - `Makefile` exports `TMPDIR`, `TMP`, `TEMP`, Bun/npm cache variables, and Zig global/local cache variables beneath that root.
 - `scripts/ensure-zig.sh` stores downloaded Zig toolchains under `cache/zig/toolchains/`; `scripts/build-wasm.sh` uses the same project-owned root.

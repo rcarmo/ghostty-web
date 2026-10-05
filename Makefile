@@ -1,13 +1,17 @@
 SHELL := /bin/bash
 
-# Resolve and validate the portable project-owned disposable root once, before
-# exporting child TMPDIR/cache variables. Explicit invalid overrides fail.
-PROJECT_TMP_ROOT := $(shell ./scripts/project-tmp.sh paths)
+# Snapshot the inherited TMPDIR, then resolve and validate the portable
+# project-owned disposable root once before exporting child TMPDIR/cache vars.
+PROJECT_ORIGINAL_TMPDIR := $(TMPDIR)
+export PROJECT_ORIGINAL_TMPDIR
+PROJECT_TMP_ROOT := $(shell PROJECT_ORIGINAL_TMPDIR="$(PROJECT_ORIGINAL_TMPDIR)" ./scripts/project-tmp.sh paths)
 ifeq ($(strip $(PROJECT_TMP_ROOT)),)
 $(error Unable to resolve PROJECT_TMP_ROOT)
 endif
 PROJECT_CACHE_ROOT := $(PROJECT_TMP_ROOT)/cache
 PROJECT_BUILD_ROOT := $(PROJECT_TMP_ROOT)/build
+PROJECT_TEST_ROOT := $(PROJECT_TMP_ROOT)/tests
+PROJECT_LOG_ROOT := $(PROJECT_TMP_ROOT)/logs
 PROJECT_RUNS_ROOT := $(PROJECT_TMP_ROOT)/runs
 export TMPDIR := $(PROJECT_RUNS_ROOT)/make
 export TMP := $(TMPDIR)
@@ -38,9 +42,10 @@ help:
 	@echo "  demo-dev     Run demo in dev mode"
 
 prepare-tmp:
-	@PROJECT_TMP_ROOT="$(PROJECT_TMP_ROOT)" ./scripts/project-tmp.sh init >/dev/null
+	@PROJECT_TMP_ROOT="$(PROJECT_TMP_ROOT)" PROJECT_ORIGINAL_TMPDIR="$(PROJECT_ORIGINAL_TMPDIR)" ./scripts/project-tmp.sh init >/dev/null
 	@mkdir -p "$(TMPDIR)" "$(BUN_INSTALL_CACHE_DIR)" "$(npm_config_cache)" \
-		"$(ZIG_GLOBAL_CACHE_DIR)" "$(ZIG_LOCAL_CACHE_DIR)" "$(PROJECT_BUILD_ROOT)"
+		"$(ZIG_GLOBAL_CACHE_DIR)" "$(ZIG_LOCAL_CACHE_DIR)" "$(PROJECT_BUILD_ROOT)" \
+		"$(PROJECT_TEST_ROOT)" "$(PROJECT_LOG_ROOT)"
 
 install: prepare-tmp
 	bun install
@@ -72,7 +77,7 @@ clean:
 	bun run clean
 
 clean-tmp:
-	@PROJECT_TMP_ROOT="$(PROJECT_TMP_ROOT)" ./scripts/project-tmp.sh paths >/dev/null
+	@PROJECT_TMP_ROOT="$(PROJECT_TMP_ROOT)" PROJECT_ORIGINAL_TMPDIR="$(PROJECT_ORIGINAL_TMPDIR)" ./scripts/project-tmp.sh paths >/dev/null
 	@rm -rf -- "$(PROJECT_TMP_ROOT)"
 
 demo: prepare-tmp

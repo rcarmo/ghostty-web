@@ -2,6 +2,19 @@
 # Portable project-owned scratch resolver for ghostty-web.
 set -euo pipefail
 
+# Capture the inherited TMPDIR once, before Make/helpers redirect child TMPDIR.
+if [[ -z "${PROJECT_ORIGINAL_TMPDIR+x}" ]]; then
+  export PROJECT_ORIGINAL_TMPDIR="${TMPDIR:-}"
+fi
+
+project_is_ci() {
+  case "${CI:-}" in ''|0|false|FALSE) ;; *) return 0 ;; esac
+  case "${GITHUB_ACTIONS:-}:${GITLAB_CI:-}:${TF_BUILD:-}:${CIRCLECI:-}" in
+    *true*|*True*|*TRUE*) return 0 ;;
+  esac
+  return 1
+}
+
 project_path_usable() {
   local path="$1" parent ancestor
   case "$path" in /*) ;; *) return 1 ;; esac
@@ -24,17 +37,47 @@ project_path_usable() {
 }
 
 project_tmp_resolve() {
-  local base candidate
+  local base candidate explicit_base_root='' workspace_base=/workspace/tmp
+
+  if [[ -n "${PROJECT_TMP_BASE+x}" ]]; then
+    [[ -n "$PROJECT_TMP_BASE" ]] || { echo 'PROJECT_TMP_BASE must not be empty' >&2; return 1; }
+    explicit_base_root="${PROJECT_TMP_BASE%/}/ghostty-web"
+    project_path_usable "$explicit_base_root" || {
+      echo 'PROJECT_TMP_BASE must be a usable absolute base' >&2
+      return 1
+    }
+  fi
+
   if [[ -n "${PROJECT_TMP_ROOT+x}" ]]; then
     candidate="${PROJECT_TMP_ROOT%/}"
     [[ "${candidate##*/}" == ghostty-web ]] && project_path_usable "$candidate" || {
       echo 'PROJECT_TMP_ROOT must be a usable absolute directory ending in ghostty-web' >&2
       return 1
     }
+    [[ -z "$explicit_base_root" || "$candidate" == "$explicit_base_root" ]] || {
+      echo 'Conflicting PROJECT_TMP_BASE and PROJECT_TMP_ROOT' >&2
+      return 1
+    }
     printf '%s\n' "$candidate"
     return
   fi
-  for base in /workspace/tmp "${RUNNER_TEMP:-}" "${TMPDIR:-}" /tmp; do
+
+  if [[ -n "$explicit_base_root" ]]; then
+    printf '%s\n' "$explicit_base_root"
+    return
+  fi
+
+  local bases=()
+  if project_is_ci; then
+    # CI must not select a host workspace mount.
+    bases=("${RUNNER_TEMP:-}" "$PROJECT_ORIGINAL_TMPDIR" /tmp)
+  else
+    # Local hosts prefer the shared workspace base, then system temporary storage.
+    if [[ ! -d "$workspace_base" && ! -d "${workspace_base%/*}" ]]; then workspace_base=''; fi
+    bases=("$workspace_base" /tmp)
+  fi
+
+  for base in "${bases[@]}"; do
     [[ -n "$base" ]] || continue
     candidate="${base%/}/ghostty-web"
     if project_path_usable "$candidate"; then
@@ -47,9 +90,11 @@ project_tmp_resolve() {
 }
 
 project_tmp_init() {
-  local root="$1"
-  project_path_usable "$root" || return 1
-  mkdir -p "$root/cache" "$root/build" "$root/runs"
+  local root="$1" path
+  for path in "$root" "$root/cache" "$root/build" "$root/tests" "$root/logs" "$root/runs"; do
+    project_path_usable "$path" || { echo "Unsafe scratch path: $path" >&2; return 1; }
+  done
+  mkdir -p "$root/cache" "$root/build" "$root/tests" "$root/logs" "$root/runs"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
