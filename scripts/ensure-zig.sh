@@ -2,7 +2,9 @@
 set -euo pipefail
 
 VERSION="${1:-0.15.2}"
-PROJECT_TMP_ROOT="${PROJECT_TMP_ROOT:-/workspace/tmp/ghostty-web}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_TMP_ROOT="$($SCRIPT_DIR/project-tmp.sh init)"
+export PROJECT_TMP_ROOT
 DEFAULT_CACHE_BASE="$PROJECT_TMP_ROOT/cache/zig/toolchains"
 CACHE_DIR="${ZIG_CACHE_DIR:-$DEFAULT_CACHE_BASE/$VERSION}"
 RUNS_ROOT="$PROJECT_TMP_ROOT/runs/ensure-zig"

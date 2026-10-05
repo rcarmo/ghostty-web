@@ -4,15 +4,16 @@
 
 ## Project-owned caches and temporary files
 
-The canonical disposable root for this repository is `/workspace/tmp/ghostty-web/`.
+The canonical disposable root ends in `ghostty-web`. `scripts/project-tmp.sh` resolves it once: a validated explicit absolute `PROJECT_TMP_ROOT`, otherwise writable `/workspace/tmp/ghostty-web`, `${RUNNER_TEMP}/ghostty-web`, the original `${TMPDIR}/ghostty-web`, or the platform temporary directory plus `/ghostty-web`. Invalid explicit overrides fail without fallback.
 
-- Rebuildable caches: `/workspace/tmp/ghostty-web/cache/<tool>/`
-- Generated build scratch: `/workspace/tmp/ghostty-web/build/`
-- Isolated run scratch: `/workspace/tmp/ghostty-web/runs/<purpose>/<run-id>/`
+- Rebuildable caches: `${PROJECT_TMP_ROOT}/cache/<tool>/`
+- Generated build scratch: `${PROJECT_TMP_ROOT}/build/`
+- Isolated run scratch: `${PROJECT_TMP_ROOT}/runs/<purpose>/<run-id>/`
 - `Makefile` exports `TMPDIR`, `TMP`, `TEMP`, Bun/npm cache variables, and Zig global/local cache variables beneath that root.
 - `scripts/ensure-zig.sh` stores downloaded Zig toolchains under `cache/zig/toolchains/`; `scripts/build-wasm.sh` uses the same project-owned root.
 - Never use bare `/tmp`, home-directory caches, ad-hoc top-level workspace paths, or source/evidence directories for disposable files.
-- `make clean-tmp` may delete only `/workspace/tmp/ghostty-web`; it must not remove retained profiles, logs, release artifacts, or another project's files.
+- `make clean-tmp` validates and deletes only the resolved project-named root; it must not remove retained profiles, logs, release artifacts, or another project's files.
+- CI/CD uses the vendored resolver and does not depend on `/workspace/Makefile` or other host-only helpers.
 - Keep test filesystem isolation beneath a unique run directory and preserve any required evidence outside disposable scratch before cleanup.
 
 ## Quick Start

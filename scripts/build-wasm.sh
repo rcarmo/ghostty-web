@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-PROJECT_TMP_ROOT="${PROJECT_TMP_ROOT:-/workspace/tmp/ghostty-web}"
+PROJECT_TMP_ROOT="$($SCRIPT_DIR/project-tmp.sh init)"
 export PROJECT_TMP_ROOT
 export TMPDIR="${TMPDIR:-$PROJECT_TMP_ROOT/runs/build-wasm}"
 export TMP="${TMP:-$TMPDIR}"

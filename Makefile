@@ -1,7 +1,11 @@
 SHELL := /bin/bash
 
-# Canonical project-owned cache and disposable temporary root.
-PROJECT_TMP_ROOT ?= /workspace/tmp/ghostty-web
+# Resolve and validate the portable project-owned disposable root once, before
+# exporting child TMPDIR/cache variables. Explicit invalid overrides fail.
+PROJECT_TMP_ROOT := $(shell ./scripts/project-tmp.sh paths)
+ifeq ($(strip $(PROJECT_TMP_ROOT)),)
+$(error Unable to resolve PROJECT_TMP_ROOT)
+endif
 PROJECT_CACHE_ROOT := $(PROJECT_TMP_ROOT)/cache
 PROJECT_BUILD_ROOT := $(PROJECT_TMP_ROOT)/build
 PROJECT_RUNS_ROOT := $(PROJECT_TMP_ROOT)/runs
@@ -34,6 +38,7 @@ help:
 	@echo "  demo-dev     Run demo in dev mode"
 
 prepare-tmp:
+	@PROJECT_TMP_ROOT="$(PROJECT_TMP_ROOT)" ./scripts/project-tmp.sh init >/dev/null
 	@mkdir -p "$(TMPDIR)" "$(BUN_INSTALL_CACHE_DIR)" "$(npm_config_cache)" \
 		"$(ZIG_GLOBAL_CACHE_DIR)" "$(ZIG_LOCAL_CACHE_DIR)" "$(PROJECT_BUILD_ROOT)"
 
@@ -67,7 +72,8 @@ clean:
 	bun run clean
 
 clean-tmp:
-	@case "$(PROJECT_TMP_ROOT)" in /workspace/tmp/ghostty-web) rm -rf -- "$(PROJECT_TMP_ROOT)" ;; *) echo "Refusing unsafe PROJECT_TMP_ROOT=$(PROJECT_TMP_ROOT)" >&2; exit 1 ;; esac
+	@PROJECT_TMP_ROOT="$(PROJECT_TMP_ROOT)" ./scripts/project-tmp.sh paths >/dev/null
+	@rm -rf -- "$(PROJECT_TMP_ROOT)"
 
 demo: prepare-tmp
 	bun run demo
