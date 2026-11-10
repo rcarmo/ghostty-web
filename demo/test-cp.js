@@ -10,6 +10,8 @@
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
@@ -19,8 +21,23 @@ const __dirname = path.dirname(__filename);
 
 const DEMO_JS = path.join(__dirname, 'bin', 'demo.js');
 const TEST_PORT = 18080;
-const CP_URL = `ws://localhost:${TEST_PORT}/cp`;
-const WS_URL = `ws://localhost:${TEST_PORT}/ws`;
+const origin = `http://127.0.0.1:${TEST_PORT}`;
+const WS_URL = `ws://127.0.0.1:${TEST_PORT}/ws`;
+
+function controlUrl(pid) {
+  const dir =
+    process.platform === 'win32'
+      ? process.env.LOCALAPPDATA || path.join(homedir(), 'AppData', 'Local')
+      : path.join(homedir(), '.local', 'share');
+  const sessionDir =
+    process.env.GHOSTTY_SESSION_DIR ??
+    path.join(dir, 'ghostty', 'control-plane', 'web', 'sessions');
+  const file = path.join(sessionDir, `ghostty-web-${pid}.session`);
+  const line = readFileSync(file, 'utf8')
+    .split('\n')
+    .find((entry) => entry.startsWith('ws_url='));
+  return line?.slice('ws_url='.length);
+}
 
 // ============================================================================
 // Helpers
@@ -79,9 +96,9 @@ function stopServer(child) {
  * Open a WebSocket and return it once the connection is open.
  * Registers an error listener so unhandled rejections don't leak.
  */
-function openWs(url) {
+function openWs(url, options = {}) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(url);
+    const ws = new WebSocket(url, options);
     ws.once('open', () => resolve(ws));
     ws.once('error', reject);
   });
@@ -152,8 +169,26 @@ async function test(name, fn) {
 // ============================================================================
 
 async function runTests(child) {
-  // Shared CP connection (opened once, reused across tests that don't need isolation)
-  const cp = await openWs(CP_URL);
+  const response = await fetch(origin + '/api/token');
+  assert.equal(response.status, 200);
+  const { token } = await response.json();
+  const cpUrl = controlUrl(child.pid);
+  assert.ok(cpUrl);
+  const openPty = () => openWs(`${WS_URL}?cols=80&rows=24&token=${token}`, { origin });
+
+  await test('PTY refuses a foreign origin and a missing token', async () => {
+    await assert.rejects(
+      openWs(`${WS_URL}?token=${token}`, { origin: 'https://foreign.invalid' }),
+      /403/
+    );
+    await assert.rejects(openWs(WS_URL, { origin }), /401/);
+  });
+  await test('control plane requires its private token', async () => {
+    const publicUrl = new URL(cpUrl);
+    publicUrl.searchParams.set('token', token);
+    await assert.rejects(openWs(publicUrl), /401/);
+  });
+  const cp = await openWs(cpUrl);
 
   // ── Test 1: PING ──────────────────────────────────────────────────────────
   await test('PING returns PONG|ghostty-web|{pid}', async () => {
@@ -174,7 +209,7 @@ async function runTests(child) {
 
   // ── Test 3: LIST_TABS after /ws session ───────────────────────────────────
   await test('LIST_TABS after /ws connect shows 1 session', async () => {
-    const ptySock = await openWs(`${WS_URL}?cols=80&rows=24`);
+    const ptySock = await openPty();
     // Drain the welcome message(s) — demo.js sends several ws.send() calls
     await sleep(300);
 
@@ -197,7 +232,7 @@ async function runTests(child) {
 
   // ── Test 4: INPUT + TAIL ──────────────────────────────────────────────────
   await test('INPUT writes to PTY and TAIL returns output including hello-cp-test', async () => {
-    const ptySock = await openWs(`${WS_URL}?cols=80&rows=24`);
+    const ptySock = await openPty();
     try {
       await sleep(2000); // wait for shell (cmd.exe on Windows needs more time)
 
@@ -234,24 +269,27 @@ async function runTests(child) {
 
   // ── Test 5: CAPTURE_PANE ──────────────────────────────────────────────────
   await test('CAPTURE_PANE returns OK header and non-empty body', async () => {
-    const ptySock = await openWs(`${WS_URL}?cols=80&rows=24`);
-    await sleep(300);
-
-    const reply = await sendAndReceive(cp, 'CAPTURE_PANE');
-    const firstLine = reply.split('\n')[0];
-    assert.match(firstLine, /^OK\|ghostty-web\|CAPTURE_PANE\|epoch_ms=\d+\|lines=\d+$/);
-
-    // Body should be non-empty (at minimum the shell prompt has been written)
-    const body = reply.split('\n').slice(1).join('\n');
-    assert.ok(body.length > 0, 'CAPTURE_PANE body should be non-empty');
-
-    await closeWs(ptySock);
+    const ptySock = await openPty();
+    try {
+      ptySock.send("printf '%s\\n' capture-auth-check\r");
+      let body = '';
+      for (let i = 0; i < 20 && !body.includes('capture-auth-check'); i++) {
+        await sleep(100);
+        const reply = await sendAndReceive(cp, 'CAPTURE_PANE');
+        const [header, ...lines] = reply.split('\n');
+        assert.match(header, /^OK\|ghostty-web\|CAPTURE_PANE\|epoch_ms=\d+\|lines=\d+$/);
+        body = lines.join('\n');
+      }
+      assert.ok(body.includes('capture-auth-check'), 'CAPTURE_PANE should include shell output');
+    } finally {
+      await closeWs(ptySock);
+    }
     await sleep(100);
   });
 
   // ── Test 6: STATE ─────────────────────────────────────────────────────────
   await test('STATE returns STATE|ghostty-web|{pid}|0x0|...', async () => {
-    const ptySock = await openWs(`${WS_URL}?cols=80&rows=24`);
+    const ptySock = await openPty();
     await sleep(200);
 
     const reply = await sendAndReceive(cp, 'STATE');
@@ -279,7 +317,7 @@ async function runTests(child) {
 
   // ── Test 9: PASTE ─────────────────────────────────────────────────────────
   await test('PASTE returns QUEUED|ghostty-web|PASTE|cmd_...', async () => {
-    const ptySock = await openWs(`${WS_URL}?cols=80&rows=24`);
+    const ptySock = await openPty();
     await sleep(200);
 
     const b64 = Buffer.from('pasted text').toString('base64');
@@ -304,7 +342,7 @@ async function runTests(child) {
     await sleep(200);
 
     // Open a fresh CP to avoid any residual message ordering issues
-    const cp2 = await openWs(CP_URL);
+    const cp2 = await openWs(cpUrl);
 
     // Verify no sessions remain
     const listReply = await sendAndReceive(cp2, 'LIST_TABS');

@@ -252,11 +252,20 @@
         connectWebSocket();
       }
 
-      function connectWebSocket() {
+      async function connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws?cols=${term.cols}&rows=${term.rows}`;
-
-        ws = new WebSocket(wsUrl);
+        try {
+          const response = await fetch('/api/token', { cache: 'no-store' });
+          if (!response.ok) throw new Error('Terminal authorisation failed');
+          const { token } = await response.json();
+          const params = new URLSearchParams({ cols: term.cols, rows: term.rows, token });
+          ws = new WebSocket(`${protocol}//${window.location.host}/ws?${params}`);
+        } catch (error) {
+          console.error(error);
+          updateConnectionStatus(false);
+          setTimeout(connectWebSocket, 2000);
+          return;
+        }
 
         ws.onopen = () => {
           console.log('WebSocket connected');

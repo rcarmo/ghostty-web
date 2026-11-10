@@ -10,7 +10,7 @@ export default defineConfig({
     dts({
       include: ['lib/**/*.ts'],
       exclude: ['lib/**/*.test.ts'],
-      rollupTypes: true, // Bundle all .d.ts into single file
+      bundleTypes: { extractorConfig: { newlineKind: 'lf' } },
       copyDtsFiles: false, // Don't copy individual .d.ts files
     }),
   ],

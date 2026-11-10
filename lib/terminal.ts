@@ -15,6 +15,7 @@
  * ```
  */
 
+import { encodePaste } from './paste';
 import { BufferNamespace } from './buffer';
 import { EventEmitter } from './event-emitter';
 import type { Ghostty, GhosttyCell, GhosttyTerminal, GhosttyTerminalConfig } from './ghostty';
@@ -847,14 +848,7 @@ export class Terminal implements ITerminalCore {
 
     this.awaitingEcho = true;
 
-    // Check if terminal has bracketed paste mode enabled
-    if (this.wasmTerm!.hasBracketedPaste()) {
-      // Wrap with bracketed paste sequences (DEC mode 2004)
-      this.dataEmitter.fire('\x1b[200~' + data + '\x1b[201~');
-    } else {
-      // Send data directly
-      this.dataEmitter.fire(data);
-    }
+    this.dataEmitter.fire(encodePaste(data, this.wasmTerm!.hasBracketedPaste()));
   }
 
   /**
@@ -2289,9 +2283,17 @@ export class Terminal implements ITerminalCore {
 
       // OSC 0 and OSC 2 set the title
       if (ps === '0' || ps === '2') {
-        if (pt !== this.currentTitle) {
-          this.currentTitle = pt;
-          this.titleChangeEmitter.fire(pt);
+        // Match Ghostty's OSC title limit and omit control characters.
+        const title = Array.from(pt, (char) =>
+          char.charCodeAt(0) >= 0x20 && char.charCodeAt(0) !== 0x7f ? char : ''
+        ).join('');
+        if (
+          title !== this.currentTitle &&
+          title.length <= 255 &&
+          new TextEncoder().encode(title).length <= 255
+        ) {
+          this.currentTitle = title;
+          this.titleChangeEmitter.fire(title);
         }
       }
     }

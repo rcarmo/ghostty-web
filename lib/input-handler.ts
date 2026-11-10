@@ -13,6 +13,7 @@
  * - Captures all keyboard input (preventDefault on everything)
  */
 
+import { encodePaste } from './paste';
 import type { Ghostty } from './ghostty';
 import type { KeyEncoder } from './ghostty';
 import type { IKeyEvent } from './interfaces';
@@ -1016,13 +1017,7 @@ export class InputHandler {
    * Emit paste data with bracketed paste support
    */
   private emitPasteData(text: string): void {
-    const hasBracketedPaste = this.getModeCallback?.(2004) ?? false;
-
-    if (hasBracketedPaste) {
-      this.onDataCallback('\x1b[200~' + text + '\x1b[201~');
-    } else {
-      this.onDataCallback(text);
-    }
+    this.onDataCallback(encodePaste(text, this.getModeCallback?.(2004) ?? false));
   }
 
   /**

@@ -68,7 +68,7 @@ export class OSC8LinkProvider implements ILinkProvider {
         uri = this.terminal.wasmTerm.getHyperlinkUri(viewportRow, x);
       }
 
-      if (uri) {
+      if (uri && isSafeWebLink(uri)) {
         // Find the end of this link by scanning forward until we hit a cell
         // without a hyperlink or with a different URI
         let endX = x;
@@ -232,8 +232,19 @@ export class OSC8LinkProvider implements ILinkProvider {
 /**
  * Minimal terminal interface required by OSC8LinkProvider
  */
+function isSafeWebLink(url: string): boolean {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'https:' || protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 export function openLinkFromEvent(event: MouseEvent, url: string): void {
-  event.view?.open(url, '_blank', 'noopener,noreferrer');
+  if (isSafeWebLink(url)) {
+    event.view?.open(url, '_blank', 'noopener,noreferrer');
+  }
 }
 
 interface ITerminalForOSC8Provider {

@@ -1100,13 +1100,13 @@ describe('InputHandler', () => {
         inputElement as any
       );
 
-      const pasteText = 'Bracketed paste';
+      const pasteText = 'Bracketed\x03 paste\x1b[201~';
       const beforeInputEvent = createBeforeInputEvent('insertFromPaste', pasteText);
 
       inputElement.dispatchEvent(beforeInputEvent);
 
       expect(dataReceived.length).toBe(1);
-      expect(dataReceived[0]).toBe(`\x1b[200~${pasteText}\x1b[201~`);
+      expect(dataReceived[0]).toBe(`\x1b[200~Bracketed  paste [201~\x1b[201~`);
     });
 
     test('handles multi-line paste', () => {

@@ -1224,6 +1224,20 @@ describe('onTitleChange event', () => {
       term.dispose();
     });
 
+    test('strips title control characters and ignores oversized UTF-8 titles', async () => {
+      const term = await createIsolatedTerminal();
+      if (!container) return;
+      term.open(container);
+      const titles: string[] = [];
+      term.onTitleChange((title) => {
+        titles.push(title);
+      });
+      term.write('\x1b]2;ok\x03title\x7f\x07');
+      term.write(`\x1b]2;${'é'.repeat(128)}\x07`);
+      expect(titles).toEqual(['oktitle']);
+      term.dispose();
+    });
+
     test('should fire when OSC 0 sequence is written', async () => {
       const term = await createIsolatedTerminal({ cols: 80, rows: 24 });
       // Using shared container from beforeEach

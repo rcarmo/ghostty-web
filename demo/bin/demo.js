@@ -22,12 +22,25 @@ import { fileURLToPath } from 'url';
 import pty from 'node-pty';
 // WebSocket server
 import { WebSocketServer } from 'ws';
+import {
+  createAuthConfig,
+  validateLocalControlRequest,
+  validateTokenRequest,
+  validateWebSocketRequest,
+} from './auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DEV_MODE = process.argv.includes('--dev');
-const HTTP_PORT = process.env.PORT || (DEV_MODE ? 8000 : 8080);
+const HTTP_PORT = Number(process.env.PORT || (DEV_MODE ? 8000 : 8080));
+if (!Number.isInteger(HTTP_PORT) || HTTP_PORT < 1 || HTTP_PORT > 65535) {
+  throw new Error('PORT must be an integer from 1 to 65535');
+}
+const browserAuth = createAuthConfig();
+const controlAuth = createAuthConfig({ bindHost: browserAuth.bindHost });
+const HOST = browserAuth.bindHost;
+const urlHost = HOST.includes(':') ? '[' + HOST + ']' : HOST;
 
 // ============================================================================
 // Locate ghostty-web assets
@@ -278,7 +291,6 @@ const HTML_TEMPLATE = `<!doctype html>
 
       // Connect to WebSocket PTY server (use same origin as HTTP server)
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = protocol + '//' + window.location.host + '/ws?cols=' + term.cols + '&rows=' + term.rows;
       let ws;
 
       // Read total canvas pixel dims (CSS pixels). The server stuffs these
@@ -291,9 +303,20 @@ const HTML_TEMPLATE = `<!doctype html>
           : { xpixel: 0, ypixel: 0 };
       }
 
-      function connect() {
+      async function connect() {
         setStatus('connecting', 'Connecting...');
-        ws = new WebSocket(wsUrl);
+        try {
+          const response = await fetch('/api/token', { cache: 'no-store' });
+          if (!response.ok) throw new Error('Terminal authorisation failed');
+          const { token } = await response.json();
+          const params = new URLSearchParams({ cols: term.cols, rows: term.rows, token });
+          ws = new WebSocket(protocol + '//' + window.location.host + '/ws?' + params);
+        } catch (error) {
+          console.error(error);
+          setStatus('disconnected', 'Auth error');
+          setTimeout(connect, 2000);
+          return;
+        }
 
         ws.onopen = () => {
           setStatus('connected', 'Connected');
@@ -402,9 +425,51 @@ const MIME_TYPES = {
 // HTTP Server
 // ============================================================================
 
+function parseRequestUrl(req) {
+  try {
+    return new URL(req.url, 'http://127.0.0.1');
+  } catch {
+    return null;
+  }
+}
+
+function requestAuth(req) {
+  return {
+    host: req.headers.host,
+    origin: req.headers.origin,
+    remoteAddress: req.socket.remoteAddress,
+  };
+}
+
+function handleTokenRequest(req, res, pathname) {
+  if (pathname !== '/api/token') return false;
+  if (req.method !== 'GET') {
+    res.writeHead(405, { Allow: 'GET' }).end('Method Not Allowed');
+    return true;
+  }
+  const decision = validateTokenRequest(browserAuth, requestAuth(req));
+  if (!decision.ok) {
+    res.writeHead(decision.status).end(decision.reason);
+    return true;
+  }
+  res
+    .writeHead(200, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    })
+    .end(JSON.stringify({ token: browserAuth.token }));
+  return true;
+}
+
 const httpServer = http.createServer((req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  const url = parseRequestUrl(req);
+  if (!url) {
+    res.writeHead(400).end('Bad Request');
+    return;
+  }
   const pathname = url.pathname;
+  if (handleTokenRequest(req, res, pathname)) return;
 
   // Cross-origin isolation headers (required for SharedArrayBuffer / WASM)
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
@@ -419,6 +484,14 @@ const httpServer = http.createServer((req, res) => {
 
   // Graceful shutdown endpoint (for testing / programmatic control)
   if (pathname === '/shutdown' && req.method === 'POST') {
+    const decision = validateLocalControlRequest(controlAuth, {
+      ...requestAuth(req),
+      token: /^Bearer (.+)$/.exec(req.headers.authorization ?? '')?.[1],
+    });
+    if (!decision.ok) {
+      res.writeHead(decision.status).end(decision.reason);
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('shutting down\n');
     setImmediate(gracefulShutdown);
@@ -542,27 +615,36 @@ const wss = new WebSocketServer({ noServer: true });
 // WebSocket server for Control Plane endpoint
 const cpWss = new WebSocketServer({ noServer: true });
 
-// Handle HTTP upgrade for WebSocket connections
-httpServer.on('upgrade', (req, socket, head) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+function handleWebSocketUpgrade(req, socket, head) {
+  const url = parseRequestUrl(req);
+  const route = url?.pathname;
+  if (route !== '/ws' && route !== '/cp') return false;
 
-  if (url.pathname === '/ws') {
-    // In production, consider validating req.headers.origin to prevent CSRF
-    // For development/demo purposes, we allow all origins
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      wss.emit('connection', ws, req);
-    });
-  } else if (url.pathname === '/cp') {
-    cpWss.handleUpgrade(req, socket, head, (ws) => {
-      cpWss.emit('connection', ws, req);
-    });
-  } else {
-    socket.destroy();
+  const auth = { ...requestAuth(req), token: url.searchParams.get('token') };
+  const decision =
+    route === '/ws'
+      ? validateWebSocketRequest(browserAuth, auth)
+      : validateLocalControlRequest(controlAuth, auth);
+  if (!decision.ok) {
+    socket.end(
+      `HTTP/1.1 ${decision.status} ${decision.reason}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`
+    );
+    return true;
   }
+
+  const server = route === '/ws' ? wss : cpWss;
+  if (!socket.destroyed && !socket.readableEnded) {
+    server.handleUpgrade(req, socket, head, (ws) => server.emit('connection', ws, req));
+  }
+  return true;
+}
+
+httpServer.on('upgrade', (req, socket, head) => {
+  if (!handleWebSocketUpgrade(req, socket, head)) socket.destroy();
 });
 
 wss.on('connection', (ws, req) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  const url = parseRequestUrl(req);
   const cols = Number.parseInt(url.searchParams.get('cols') || '80');
   const rows = Number.parseInt(url.searchParams.get('rows') || '24');
 
@@ -835,7 +917,8 @@ cpWss.on('connection', (ws) => {
 function getSessionFilePath() {
   const pid = process.pid;
   const dir =
-    process.platform === 'win32'
+    process.env.GHOSTTY_SESSION_DIR ??
+    (process.platform === 'win32'
       ? path.join(
           process.env.LOCALAPPDATA || path.join(homedir(), 'AppData', 'Local'),
           'ghostty',
@@ -843,29 +926,32 @@ function getSessionFilePath() {
           'web',
           'sessions'
         )
-      : path.join(homedir(), '.local', 'share', 'ghostty', 'control-plane', 'web', 'sessions');
+      : path.join(homedir(), '.local', 'share', 'ghostty', 'control-plane', 'web', 'sessions'));
   return path.join(dir, `ghostty-web-${pid}.session`);
 }
+
+let sessionFilePath;
 
 function writeSessionFile(port) {
   const pid = process.pid;
   const filePath = getSessionFilePath();
   const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const content =
     [
       `session_name=ghostty-web-${pid}`,
       `safe_session_name=ghostty-web`,
       `pid=${pid}`,
-      `ws_url=ws://localhost:${port}/cp`,
+      `ws_url=ws://${urlHost}:${port}/cp?token=${controlAuth.token}`,
       `port=${port}`,
     ].join('\n') + '\n';
-  fs.writeFileSync(filePath, content, 'utf8');
+  fs.writeFileSync(filePath, content, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+  sessionFilePath = filePath;
 }
 
 function removeSessionFile() {
   try {
-    fs.unlinkSync(getSessionFilePath());
+    if (sessionFilePath) fs.unlinkSync(sessionFilePath);
   } catch (e) {
     // Ignore if file does not exist
   }
@@ -921,7 +1007,19 @@ if (DEV_MODE) {
   const { createServer } = await import('vite');
   const vite = await createServer({
     root: repoRoot,
+    plugins: [
+      {
+        name: 'ghostty-demo-auth',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (!handleTokenRequest(req, res, parseRequestUrl(req)?.pathname)) next();
+          });
+        },
+      },
+    ],
     server: {
+      host: HOST,
+      allowedHosts: browserAuth.allowedHosts,
       port: HTTP_PORT,
       strictPort: true,
     },
@@ -930,45 +1028,11 @@ if (DEV_MODE) {
   await vite.listen();
   writeSessionFile(HTTP_PORT);
 
-  // Attach WebSocket handler AFTER Vite has fully initialized
-  // Use prependListener (not prependOnceListener) so it runs for every request
-  // This ensures our handler runs BEFORE Vite's handlers
-  if (vite.httpServer) {
-    vite.httpServer.prependListener('upgrade', (req, socket, head) => {
-      const pathname = req.url?.split('?')[0] || req.url || '';
-
-      // Handle /ws and /cp — everything else passes through unchanged to Vite
-      if (pathname === '/ws') {
-        if (!socket.destroyed && !socket.readableEnded) {
-          wss.handleUpgrade(req, socket, head, (ws) => {
-            wss.emit('connection', ws, req);
-          });
-        }
-        // Stop here - we handled it, socket is consumed
-        // Don't call other listeners
-        return;
-      }
-
-      if (pathname === '/cp') {
-        if (!socket.destroyed && !socket.readableEnded) {
-          cpWss.handleUpgrade(req, socket, head, (ws) => {
-            cpWss.emit('connection', ws, req);
-          });
-        }
-        return;
-      }
-
-      // For non-/ws and non-/cp paths, explicitly do nothing and let the event propagate
-      // The key is: don't return, don't touch the socket, just let it pass through
-      // Vite's handlers (which were added before ours via prependListener) will process it
-    });
-  }
-
-  printBanner(`http://localhost:${HTTP_PORT}/demo/`);
+  vite.httpServer?.prependListener('upgrade', handleWebSocketUpgrade);
+  printBanner(`http://${urlHost}:${HTTP_PORT}/demo/`);
 } else {
-  // Production mode: static file server
-  httpServer.listen(HTTP_PORT, () => {
+  httpServer.listen(HTTP_PORT, HOST, () => {
     writeSessionFile(HTTP_PORT);
-    printBanner(`http://localhost:${HTTP_PORT}`);
+    printBanner(`http://${urlHost}:${HTTP_PORT}`);
   });
 }

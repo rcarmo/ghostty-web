@@ -28,7 +28,8 @@ const TOTAL_TIMEOUT_MS = 15000;
 
 function getSessionFilePath(pid) {
   const dir =
-    process.platform === 'win32'
+    process.env.GHOSTTY_SESSION_DIR ??
+    (process.platform === 'win32'
       ? path.join(
           process.env.LOCALAPPDATA || path.join(homedir(), 'AppData', 'Local'),
           'ghostty',
@@ -36,7 +37,7 @@ function getSessionFilePath(pid) {
           'web',
           'sessions'
         )
-      : path.join(homedir(), '.local', 'share', 'ghostty', 'control-plane', 'web', 'sessions');
+      : path.join(homedir(), '.local', 'share', 'ghostty', 'control-plane', 'web', 'sessions'));
   return path.join(dir, `ghostty-web-${pid}.session`);
 }
 
@@ -44,11 +45,12 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function httpPost(port, path) {
+function httpPost(port, path, token) {
   return new Promise((resolve, reject) => {
-    const req = http.request({ host: 'localhost', port, path, method: 'POST' }, (res) => {
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const req = http.request({ host: '127.0.0.1', port, path, method: 'POST', headers }, (res) => {
       res.resume();
-      res.on('end', resolve);
+      res.on('end', () => resolve(res.statusCode));
     });
     req.on('error', reject);
     req.end();
@@ -122,6 +124,8 @@ async function run() {
       fail('session file exists', e);
     }
 
+    let token;
+
     // 1b. File content format
     if (fs.existsSync(sessionFilePath)) {
       const content = fs.readFileSync(sessionFilePath, 'utf8');
@@ -152,7 +156,14 @@ async function run() {
       }
 
       try {
-        assert.strictEqual(kv.ws_url, `ws://localhost:${TEST_PORT}/cp`, 'ws_url field');
+        const url = new URL(kv.ws_url);
+        assert.equal(url.origin, `ws://127.0.0.1:${TEST_PORT}`);
+        assert.equal(url.pathname, '/cp');
+        token = url.searchParams.get('token');
+        assert.ok(token?.length >= 32);
+        if (process.platform !== 'win32') {
+          assert.equal(fs.statSync(sessionFilePath).mode & 0o777, 0o600);
+        }
         ok('ws_url field correct');
       } catch (e) {
         fail('ws_url field correct', e);
@@ -178,16 +189,17 @@ async function run() {
     }
 
     // ── Test 2: session file is removed on SIGINT ───────────────────────────
-    console.log('\nTest 2: session file deletion on SIGINT');
+    console.log('\nTest 2: session file deletion on authenticated shutdown');
 
-    await httpPost(TEST_PORT, '/shutdown');
+    assert.equal(await httpPost(TEST_PORT, '/shutdown'), 401);
+    assert.equal(await httpPost(TEST_PORT, '/shutdown', token), 200);
     await sleep(SHUTDOWN_WAIT_MS);
 
     try {
-      assert.ok(!fs.existsSync(sessionFilePath), 'session file should be deleted after SIGINT');
-      ok('session file removed after SIGINT');
+      assert.ok(!fs.existsSync(sessionFilePath), 'session file should be deleted after shutdown');
+      ok('session file removed after shutdown');
     } catch (e) {
-      fail('session file removed after SIGINT', e);
+      fail('session file removed after shutdown', e);
     }
   } finally {
     // Ensure child is terminated even if assertions throw
