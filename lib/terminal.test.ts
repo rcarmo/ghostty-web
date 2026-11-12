@@ -218,6 +218,16 @@ describe('Terminal', () => {
       expect(() => term.open(container!)).toThrow('has been disposed');
     });
 
+    test('preserves the constructor link activation handler', async () => {
+      const handler = jest.fn(() => true);
+      const term = await createIsolatedTerminal({ onLinkClick: handler });
+      try {
+        expect(term.options.onLinkClick).toBe(handler);
+      } finally {
+        term.dispose();
+      }
+    });
+
     test('refresh requests a complete repaint from retained terminal state', async () => {
       const term = await createIsolatedTerminal();
       term.open(container!);

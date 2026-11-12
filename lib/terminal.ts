@@ -181,6 +181,7 @@ export class Terminal implements ITerminalCore {
       smoothScrollDuration: options.smoothScrollDuration ?? 100, // Default: 100ms smooth scroll
       scrollSensitivity: options.scrollSensitivity ?? 1, // Wheel/trackpad scroll-speed multiplier
       renderer: options.renderer ?? 'canvas',
+      onLinkClick: options.onLinkClick,
     };
 
     // Wrap in Proxy to intercept runtime changes (xterm.js compatibility)

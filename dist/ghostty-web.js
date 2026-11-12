@@ -5331,7 +5331,8 @@ var Ht = class e {
 			copyMode: t.copyMode ?? "clipboard",
 			smoothScrollDuration: t.smoothScrollDuration ?? 100,
 			scrollSensitivity: t.scrollSensitivity ?? 1,
-			renderer: t.renderer ?? "canvas"
+			renderer: t.renderer ?? "canvas",
+			onLinkClick: t.onLinkClick
 		};
 		this.options = new Proxy(n, { set: (e, t, n) => {
 			let r = e[t];
