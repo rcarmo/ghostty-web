@@ -358,6 +358,7 @@ export interface KeyEvent {
  */
 export interface GhosttyWasmExports extends WebAssembly.Exports {
   memory: WebAssembly.Memory;
+  ghostty_type_json(): number;
 
   // Generic WASM ABI storage, aligned for all C types.
   ghostty_wasm_alloc(len: number): number;
@@ -398,6 +399,20 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
   ghostty_key_event_set_key(event: number, key: number): void;
   ghostty_key_event_set_mods(event: number, mods: number): void;
   ghostty_key_event_set_utf8(event: number, stringPtr: number): number;
+
+  ghostty_search_new(allocator: number, out: number, terminal: number): number;
+  ghostty_search_free(search: number): void;
+  ghostty_search_set(search: number, option: number, value: number): number;
+  ghostty_search_get(search: number, data: number, out: number): number;
+  ghostty_search_run(search: number): number;
+  ghostty_search_select_next(search: number): number;
+  ghostty_search_select_prev(search: number): number;
+  ghostty_terminal_point_from_grid_ref(
+    terminal: number,
+    ref: number,
+    tag: number,
+    point: number
+  ): number;
 
   // Terminal lifecycle
   ghostty_terminal_new(

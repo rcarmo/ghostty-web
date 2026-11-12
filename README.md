@@ -261,6 +261,38 @@ const term = new Terminal({
 
 `allowTransparency` can also be changed at runtime; the active renderer is updated and repainted.
 
+### Search
+
+```typescript
+import { SearchAddon } from 'ghostty-web';
+const search = new SearchAddon();
+term.loadAddon(search);
+search.onDidChangeResults(({ resultIndex, resultCount }) => {
+  console.log(resultIndex, resultCount);
+});
+search.findNext('error'); // Older output; wraps at the end
+search.findPrevious('error'); // Newer output
+search.clearDecorations();
+```
+
+Search covers the active screen and retained history. It matches literal text,
+folding ASCII letter case, and highlights the selected match without replacing
+caller decorations. Queries are limited to 1024 characters. Regular expressions,
+whole-word matching and Unicode case folding are not supported.
+
+### Output consumption
+
+Large writes are parsed in bounded chunks with time-limited work between browser
+tasks. A `write(data, callback)` callback runs after that write has been parsed,
+not after it has painted. Use completion callbacks when maintaining transport
+resume offsets. An empty write with a callback is an ordered parser barrier.
+Reset and disposal discard unparsed work. A terminal rejects a parser backlog
+over 8 MiB; `onWriteError` reports parser failures.
+
+The bridge reads compound layouts and packed style flags from the loaded WASM's
+ABI manifest, caches them per instance, and rejects incompatible selectors or
+unsupported ABI shapes before creating native handles.
+
 ### Canvas lifecycle restoration
 
 Mobile browsers may discard a canvas bitmap while an app is backgrounded even

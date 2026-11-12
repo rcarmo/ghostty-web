@@ -1,3 +1,4 @@
+import { WriteQueue } from './write-queue';
 /**
  * Terminal - Main terminal emulator class
  *
@@ -120,6 +121,25 @@ export class Terminal implements ITerminalCore {
 
   // Addons
   private addons: ITerminalAddon[] = [];
+  private decorations: ITerminalDecoration[] = [];
+  private searchDecorations: ITerminalDecoration[] = [];
+  private writeParsedEmitter = new EventEmitter<void>();
+  private writeErrorEmitter = new EventEmitter<Error>();
+  readonly onWriteError = this.writeErrorEmitter.event;
+  private parserQueue = new WriteQueue(
+    (data) => this.writeInternal(data),
+    (fn) => {
+      const view = this.getOwnerWindow();
+      if (view) {
+        const id = view.setTimeout(fn, 0);
+        return () => view.clearTimeout(id);
+      }
+      const id = setTimeout(fn, 0);
+      return () => clearTimeout(id);
+    },
+    (error) => this.writeErrorEmitter.fire(error)
+  );
+  readonly onWriteParsed = this.writeParsedEmitter.event;
 
   // Phase 1: Custom event handlers
   private customKeyEventHandler?: (event: KeyboardEvent) => boolean | undefined;
@@ -763,15 +783,14 @@ export class Terminal implements ITerminalCore {
       data = data.replace(/\n/g, '\r\n');
     }
 
-    this.writeInternal(data, callback);
+    this.parserQueue.enqueue(data, callback);
   }
 
   /**
    * Internal write implementation (extracted from write())
    */
-  private writeInternal(data: string | Uint8Array, callback?: () => void): void {
+  private writeInternal(data: string | Uint8Array): void {
     if ((typeof data === 'string' ? data.length : data.byteLength) === 0) {
-      if (callback) this.scheduleAnimationFrame(callback);
       return;
     }
 
@@ -821,12 +840,7 @@ export class Terminal implements ITerminalCore {
       this.checkForTitleChange(data);
     }
 
-    // Call callback if provided
-    if (callback) {
-      // Queue callback after next render
-      this.scheduleAnimationFrame(callback);
-    }
-
+    this.writeParsedEmitter.fire();
     if (this.awaitingEcho) {
       // Render echoed user input immediately to minimize perceived latency.
       this.awaitingEcho = false;
@@ -963,6 +977,7 @@ export class Terminal implements ITerminalCore {
    */
   reset(): void {
     this.assertOpen();
+    this.parserQueue.clear();
 
     this.clearSynchronizedOutputWait();
 
@@ -1139,13 +1154,22 @@ export class Terminal implements ITerminalCore {
         column: Math.max(0, Math.floor(decoration.column)),
         length: Math.floor(decoration.length),
       }));
-    this.renderer?.setDecorations(sanitized);
+    this.decorations = sanitized;
+    this.renderer?.setDecorations([...sanitized, ...this.searchDecorations]);
     this.requestRender();
   }
 
   /** Clear all general-purpose cell decorations. */
   public clearDecorations(): void {
-    this.renderer?.clearDecorations();
+    this.decorations = [];
+    this.renderer?.setDecorations(this.searchDecorations);
+    this.requestRender();
+  }
+
+  /** @internal Separate search highlights from caller-supplied decorations. */
+  setSearchDecorations(decorations: ITerminalDecoration[]): void {
+    this.searchDecorations = decorations;
+    this.renderer?.setDecorations([...this.decorations, ...decorations]);
     this.requestRender();
   }
 
@@ -1432,6 +1456,7 @@ export class Terminal implements ITerminalCore {
     }
 
     this.isDisposed = true;
+    this.parserQueue.dispose();
     this.isOpen = false;
     this.isSuspended = false;
 
@@ -1465,6 +1490,8 @@ export class Terminal implements ITerminalCore {
     this.cleanupComponents();
 
     // Dispose event emitters
+    this.writeParsedEmitter.dispose();
+    this.writeErrorEmitter.dispose();
     this.dataEmitter.dispose();
     this.resizeEmitter.dispose();
     this.bellEmitter.dispose();

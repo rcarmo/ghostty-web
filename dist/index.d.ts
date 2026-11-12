@@ -1,3 +1,26 @@
+declare class AbiLayout {
+    readonly version: string | undefined;
+    private types;
+    constructor(json: string);
+    private type;
+    /** Size in bytes of a type. */
+    size(name: string): number;
+    /** Byte offset of a struct field. */
+    offset(struct: string, field: string): number;
+    /** Bit position of a field in a packed type. */
+    bits(packed: string, field: string): BitField;
+    enumValue(name: string, value: string): number;
+    validateEnum(name: string, values: object, aliases?: Record<string, string>): void;
+    /** Bit position of a field nested inside a union arm of a packed type. */
+    unionBits(packed: string, field: string, arm: string, inner: string): BitField;
+}
+
+/** A bit field inside a packed value of up to 64 bits. */
+declare interface BitField {
+    lsb: number;
+    width: number;
+}
+
 export declare class CanvasRenderer {
     private canvas;
     private ctx;
@@ -475,7 +498,10 @@ export declare interface GhosttyCell {
 export declare class GhosttyTerminal {
     private exports;
     private memory;
+    private abi;
+    private styleMasks;
     private handle;
+    private searches;
     private renderHandle;
     private rowIter;
     private rowCells;
@@ -529,6 +555,7 @@ export declare class GhosttyTerminal {
      */
     private callbackRegistry?;
     constructor(exports: GhosttyWasmExports, memory: WebAssembly.Memory, cols?: number, rows?: number, config?: GhosttyTerminalConfig);
+    createSearch(): TerminalSearch;
     /**
      * Allocate an opaque handle through one of the new(allocator, *outHandle)
      * factory functions. Wraps the boilerplate of: alloc out-pointer, call
@@ -867,6 +894,7 @@ declare interface GhosttyTerminalConfig {
  */
 declare interface GhosttyWasmExports extends WebAssembly.Exports {
     memory: WebAssembly.Memory;
+    ghostty_type_json(): number;
     ghostty_wasm_alloc(len: number): number;
     ghostty_wasm_free(ptr: number, len: number): void;
     ghostty_wasm_alloc_opaque(): number;
@@ -888,6 +916,14 @@ declare interface GhosttyWasmExports extends WebAssembly.Exports {
     ghostty_key_event_set_key(event: number, key: number): void;
     ghostty_key_event_set_mods(event: number, mods: number): void;
     ghostty_key_event_set_utf8(event: number, stringPtr: number): number;
+    ghostty_search_new(allocator: number, out: number, terminal: number): number;
+    ghostty_search_free(search: number): void;
+    ghostty_search_set(search: number, option: number, value: number): number;
+    ghostty_search_get(search: number, data: number, out: number): number;
+    ghostty_search_run(search: number): number;
+    ghostty_search_select_next(search: number): number;
+    ghostty_search_select_prev(search: number): number;
+    ghostty_terminal_point_from_grid_ref(terminal: number, ref: number, tag: number, point: number): number;
     ghostty_terminal_new(allocatorPtr: number, terminalPtrPtr: number, cols: number, rows: number): number;
     ghostty_terminal_free(terminal: TerminalHandle): void;
     ghostty_terminal_resize(terminal: TerminalHandle, cols: number, rows: number, cellWidthPx: number, cellHeightPx: number): number;
@@ -1847,6 +1883,7 @@ export declare enum KeyAction {
 export declare class KeyEncoder {
     private exports;
     private encoder;
+    private abi;
     constructor(exports: GhosttyWasmExports);
     setOption(option: KeyEncoderOption, value: boolean | number): void;
     setKittyFlags(flags: KittyKeyFlags): void;
@@ -2125,6 +2162,38 @@ export declare interface RGB {
     b: number;
 }
 
+/** Focused-terminal literal search. findNext moves towards older output. */
+export declare class SearchAddon implements ITerminalAddon {
+    private terminal?;
+    private wasm?;
+    private search?;
+    private subscription?;
+    private cancelTimer?;
+    private text;
+    private disposed;
+    private results;
+    readonly onDidChangeResults: IEvent<SearchResults>;
+    activate(terminal: ITerminalCore): void;
+    refresh(text: string): boolean;
+    findNext(text: string): boolean;
+    findPrevious(text: string): boolean;
+    private find;
+    clearDecorations(): void;
+    dispose(): void;
+}
+
+declare interface SearchMatch {
+    startCol: number;
+    startRow: number;
+    endCol: number;
+    endRow: number;
+}
+
+export declare interface SearchResults {
+    resultIndex: number;
+    resultCount: number;
+}
+
 export declare interface SelectionCoordinates {
     startCol: number;
     startRow: number;
@@ -2369,6 +2438,13 @@ export declare class Terminal implements ITerminalCore {
     private synchronizedOutputTimer?;
     private synchronizedOutputExpired;
     private addons;
+    private decorations;
+    private searchDecorations;
+    private writeParsedEmitter;
+    private writeErrorEmitter;
+    readonly onWriteError: IEvent<Error>;
+    private parserQueue;
+    readonly onWriteParsed: IEvent<void>;
     private customKeyEventHandler?;
     private boundBeforeInputHandler?;
     private boundCanvasMouseDownFocusHandler?;
@@ -2537,6 +2613,7 @@ export declare class Terminal implements ITerminalCore {
     setDecorations(decorations: ITerminalDecoration[]): void;
     /** Clear all general-purpose cell decorations. */
     clearDecorations(): void;
+    /* Excluded from this release type: setSearchDecorations */
     /**
      * Get selection position as buffer range
      */
@@ -2787,6 +2864,28 @@ export declare class Terminal implements ITerminalCore {
  * Opaque terminal pointer (WASM memory address)
  */
 export declare type TerminalHandle = number;
+
+/** Literal, ASCII-case-insensitive search over the active screen and retained history. */
+declare class TerminalSearch {
+    private ex;
+    private abi;
+    private terminal;
+    private released;
+    private handle;
+    private needle;
+    constructor(ex: GhosttyWasmExports, abi: AbiLayout, terminal: number, released: () => void);
+    get disposed(): boolean;
+    private check;
+    private withBuffer;
+    setNeedle(text: string): void;
+    run(): void;
+    private read;
+    get count(): number;
+    get index(): number;
+    select(older?: boolean): boolean;
+    selectedMatch(): SearchMatch | null;
+    dispose(): void;
+}
 
 /**
  * URL Regex Provider

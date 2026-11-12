@@ -129,3 +129,6 @@ export { OSC8LinkProvider } from './providers/osc8-link-provider';
 export { UrlRegexProvider } from './providers/url-regex-provider';
 export { LinkDetector } from './link-detector';
 export type { ILink, ILinkProvider, IBufferCellPosition } from './types';
+
+export { SearchAddon } from './addons/search';
+export type { SearchResults } from './addons/search';
