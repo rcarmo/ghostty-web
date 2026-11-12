@@ -315,6 +315,12 @@ cell coordinates. Selected pins follow output scrolling/pruning, and copy uses
 the core formatter with a 1 MiB limit. Canvas and WebGL highlights preserve the
 rectangle's bounded columns on every row.
 
+Canvas and WebGL cell pitch and baseline are resolved on an integral physical
+pixel grid, including fractional device-pixel ratios. Owning-window resize/DPR
+changes remeasure metrics and request a full redraw. This avoids repeated canvas
+resize churn caused by comparing integer backing dimensions with fractional
+computed sizes.
+
 ### Canvas lifecycle restoration
 
 Mobile browsers may discard a canvas bitmap while an app is backgrounded even

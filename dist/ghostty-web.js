@@ -2888,16 +2888,17 @@ var at = class {
 		return e && t ? this.fontStrings.boldItalic : e ? this.fontStrings.bold : t ? this.fontStrings.italic : this.fontStrings.plain;
 	}
 	getDevicePixelRatio() {
-		return this.fixedDevicePixelRatio ?? this.canvas.ownerDocument.defaultView?.devicePixelRatio ?? 1;
+		let e = this.fixedDevicePixelRatio ?? this.canvas.ownerDocument.defaultView?.devicePixelRatio ?? 1;
+		return Number.isFinite(e) && e > 0 ? Math.min(e, 8) : 1;
 	}
 	measureFont() {
 		let e = this.canvas.ownerDocument.createElement("canvas").getContext("2d");
 		e.font = this.fontStrings.plain;
-		let t = e.measureText("M"), n = Math.ceil(t.width), r = t.fontBoundingBoxAscent ?? t.actualBoundingBoxAscent ?? this.fontSize * .8, i = t.fontBoundingBoxDescent ?? t.actualBoundingBoxDescent ?? this.fontSize * .2;
+		let t = e.measureText("M"), n = this.getDevicePixelRatio(), r = Math.max(1, Math.round(t.width * n)) / n, i = t.fontBoundingBoxAscent ?? t.actualBoundingBoxAscent ?? this.fontSize * .8, a = t.fontBoundingBoxDescent ?? t.actualBoundingBoxDescent ?? this.fontSize * .2, o = Math.max(1, Math.round((i + a) * n));
 		return {
-			width: n,
-			height: Math.ceil(r + i),
-			baseline: Math.ceil(r)
+			width: r,
+			height: o / n,
+			baseline: Math.max(0, Math.min(o, Math.round(i * n + (o - (i + a) * n) / 2))) / n
 		};
 	}
 	remeasureFont() {
@@ -2910,7 +2911,7 @@ var at = class {
 		if (!Number.isFinite(e) || !Number.isFinite(t) || e < 1 || t < 1) return;
 		e = Math.floor(e), t = Math.floor(t);
 		let n = e * this.metrics.width, r = t * this.metrics.height;
-		this.canvas.style.width = `${n}px`, this.canvas.style.height = `${r}px`, this.canvas.width = n * this.devicePixelRatio, this.canvas.height = r * this.devicePixelRatio, this.ctx.scale(this.devicePixelRatio, this.devicePixelRatio), this.ctx.textBaseline = "alphabetic", this.ctx.textAlign = "left", this.allowTransparency || (this.ctx.fillStyle = this.theme.background, this.ctx.fillRect(0, 0, n, r)), this.resizeOverlay();
+		this.canvas.style.width = `${n}px`, this.canvas.style.height = `${r}px`, this.canvas.width = Math.round(n * this.devicePixelRatio), this.canvas.height = Math.round(r * this.devicePixelRatio), this.ctx.scale(this.devicePixelRatio, this.devicePixelRatio), this.ctx.textBaseline = "alphabetic", this.ctx.textAlign = "left", this.allowTransparency || (this.ctx.fillStyle = this.theme.background, this.ctx.fillRect(0, 0, n, r)), this.resizeOverlay();
 	}
 	render(e, t = !1, n = 0, r, i = 1) {
 		this.currentBuffer = e, this.currentRenderBuffer = e;
@@ -2919,7 +2920,7 @@ var at = class {
 		let s = r ? r.getScrollbackLength() : 0;
 		e.needsFullRedraw?.() && (t = !0);
 		let c = this.getDevicePixelRatio();
-		c !== this.devicePixelRatio && (this.devicePixelRatio = c, t = !0), (this.canvas.width !== o.cols * this.metrics.width * this.devicePixelRatio || this.canvas.height !== o.rows * this.metrics.height * this.devicePixelRatio) && (this.resize(o.cols, o.rows), t = !0), n !== this.lastViewportY && (t = !0, this.lastViewportY = n);
+		c !== this.devicePixelRatio && (this.devicePixelRatio = c, this.metrics = this.measureFont(), t = !0), (this.canvas.width !== Math.round(o.cols * this.metrics.width * this.devicePixelRatio) || this.canvas.height !== Math.round(o.rows * this.metrics.height * this.devicePixelRatio)) && (this.resize(o.cols, o.rows), t = !0), n !== this.lastViewportY && (t = !0, this.lastViewportY = n);
 		let l = a.x !== this.lastCursorPosition.x || a.y !== this.lastCursorPosition.y;
 		if (l || this.cursorBlink) {
 			if (!t && !e.isRowDirty(a.y)) {
@@ -5072,7 +5073,7 @@ var qt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 		if (!Number.isFinite(e) || !Number.isFinite(t) || e < 1 || t < 1) return;
 		e = Math.floor(e), t = Math.floor(t), this.gridCols = e, this.gridRows = t;
 		let n = e * this.metrics.width, r = t * this.metrics.height;
-		this.canvas.style.width = `${n}px`, this.canvas.style.height = `${r}px`, this.canvas.width = Math.floor(n * this.dpr), this.canvas.height = Math.floor(r * this.dpr), this.cellSizePx = {
+		this.canvas.style.width = `${n}px`, this.canvas.style.height = `${r}px`, this.canvas.width = Math.round(n * this.dpr), this.canvas.height = Math.round(r * this.dpr), this.cellSizePx = {
 			width: this.metrics.width * this.dpr,
 			height: this.metrics.height * this.dpr,
 			baseline: this.metrics.baseline * this.dpr
@@ -5080,7 +5081,7 @@ var qt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 	}
 	render(e) {
 		let t = this.getDevicePixelRatio();
-		if (t !== this.dpr && (this.dpr = t, this.gridCols > 0 && this.gridRows > 0 && this.resize(this.gridCols, this.gridRows)), !this.prepareFrame(e)) return;
+		if (t !== this.dpr && (this.dpr = t, this.metrics = this.measureFont(), this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr), this.gridCols > 0 && this.gridRows > 0 && this.resize(this.gridCols, this.gridRows)), !this.prepareFrame(e)) return;
 		let n = pt();
 		this.updateInstanceData(e);
 		let r = e.cols * e.rows, i = pt(), a = this.gl, o = this.postProcessActive && !!this.sceneFramebuffer;
@@ -5231,7 +5232,7 @@ var qt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 	}
 	prepareFrame(e) {
 		if (!this.contextValid || !this.gl || !this.canvas) return !1;
-		let t = typeof window < "u" ? window.devicePixelRatio || 1 : this.dpr;
+		let t = this.getDevicePixelRatio();
 		return t !== this.dpr && this.setDevicePixelRatio(t), (e.cols !== this.gridCols || e.rows !== this.gridRows) && this.resize(e.cols, e.rows), this.theme = e.theme, !!this.cellBuffer && !!this.glyphAtlas;
 	}
 	updateInstanceData(e) {
@@ -5339,11 +5340,11 @@ var qt = "#version 300 es\nprecision highp float;\nprecision highp int;\n\nlayou
 			baseline: this.fontSize
 		};
 		t.font = `${this.fontWeight} ${this.fontSize}px ${this.fontFamily}`;
-		let n = t.measureText("M"), r = Math.ceil(n.width), i = n.actualBoundingBoxAscent || this.fontSize * .8, a = n.actualBoundingBoxDescent || this.fontSize * .2;
+		let n = t.measureText("M"), r = this.getDevicePixelRatio(), i = Math.max(1, Math.round(n.width * r)) / r, a = n.actualBoundingBoxAscent || this.fontSize * .8, o = n.actualBoundingBoxDescent || this.fontSize * .2;
 		return {
-			width: r,
-			height: Math.ceil(i + a) + 2,
-			baseline: Math.ceil(i) + 1
+			width: i,
+			height: Math.max(1, Math.round((a + o + 2) * r)) / r,
+			baseline: Math.round((a + 1) * r) / r
 		};
 	}
 	setDevicePixelRatio(e) {
@@ -6055,7 +6056,9 @@ var yn = class e {
 				capture: !0
 			}), this.boundVisibilityChangeHandler = () => {
 				n.visibilityState === "visible" && this.refresh();
-			}, this.boundPageShowHandler = () => this.refresh(), this.boundContextRestoredHandler = () => this.refresh(), n.addEventListener("visibilitychange", this.boundVisibilityChangeHandler), n.defaultView?.addEventListener("pageshow", this.boundPageShowHandler), this.canvas.addEventListener("webglcontextrestored", this.boundContextRestoredHandler), this.canvas.addEventListener("contextrestored", this.boundContextRestoredHandler), this.renderer.attachOverlayTo(e), this.renderFrame(!0), this.renderer.setOnRequestRender(() => this.requestRender()), this.renderTick(), this.openEmitter.fire(), this.openEmitter.dispose(), this.isAndroidPlatform || this.focus();
+			}, this.boundPageShowHandler = () => this.refresh(), this.boundContextRestoredHandler = () => this.refresh(), n.addEventListener("visibilitychange", this.boundVisibilityChangeHandler), n.defaultView?.addEventListener("pageshow", this.boundPageShowHandler), this.boundWindowResizeHandler = () => {
+				!this.isDisposed && this.isOpen && (this.renderer?.remeasureFont(), this.handleFontChange());
+			}, n.defaultView?.addEventListener("resize", this.boundWindowResizeHandler), this.canvas.addEventListener("webglcontextrestored", this.boundContextRestoredHandler), this.canvas.addEventListener("contextrestored", this.boundContextRestoredHandler), this.renderer.attachOverlayTo(e), this.renderFrame(!0), this.renderer.setOnRequestRender(() => this.requestRender()), this.renderTick(), this.openEmitter.fire(), this.openEmitter.dispose(), this.isAndroidPlatform || this.focus();
 		} catch (e) {
 			throw this.isOpen = !1, this.cleanupComponents(), Error(`Failed to open terminal: ${e}`);
 		}
@@ -6276,7 +6279,7 @@ var yn = class e {
 	cleanupComponents() {
 		this.clearSynchronizedOutputWait();
 		let e = this.canvas, t = this.element?.ownerDocument ?? e?.ownerDocument;
-		if (this.selectionManager &&= (this.selectionManager.dispose(), void 0), this.inputHandler &&= (this.inputHandler.dispose(), void 0), this.renderer &&= (this.renderer.dispose(), void 0), e?.parentNode && e.parentNode.removeChild(e), this.textarea && this.textarea.parentNode && (this.textarea.parentNode.removeChild(this.textarea), this.textarea = void 0), this.element && (this.boundBeforeInputHandler &&= (this.element.removeEventListener("beforeinput", this.boundBeforeInputHandler), void 0), this.element.removeEventListener("wheel", this.handleWheel, { capture: !0 }), this.element.removeEventListener("mousedown", this.handleMouseDown, { capture: !0 }), this.element.removeEventListener("mousemove", this.handleMouseMove), this.element.removeEventListener("mouseleave", this.handleMouseLeave), this.element.removeEventListener("click", this.handleClick), this.element.removeAttribute("contenteditable"), this.element.removeAttribute("role"), this.element.removeAttribute("aria-label"), this.element.removeAttribute("aria-multiline")), t?.removeEventListener("mouseup", this.handleMouseUp), this.boundVisibilityChangeHandler &&= (t?.removeEventListener("visibilitychange", this.boundVisibilityChangeHandler), void 0), this.boundPageShowHandler &&= (t?.defaultView?.removeEventListener("pageshow", this.boundPageShowHandler), void 0), e && (this.boundContextRestoredHandler && (e.removeEventListener("webglcontextrestored", this.boundContextRestoredHandler), e.removeEventListener("contextrestored", this.boundContextRestoredHandler)), this.boundCanvasMouseDownFocusHandler && e.removeEventListener("mousedown", this.boundCanvasMouseDownFocusHandler), this.boundCanvasTouchEndFocusHandler && e.removeEventListener("touchend", this.boundCanvasTouchEndFocusHandler)), this.boundCanvasMouseDownFocusHandler = void 0, this.boundCanvasTouchEndFocusHandler = void 0, this.boundContextRestoredHandler = void 0, this.scrollbarHideTimeout !== void 0) {
+		if (this.selectionManager &&= (this.selectionManager.dispose(), void 0), this.inputHandler &&= (this.inputHandler.dispose(), void 0), this.renderer &&= (this.renderer.dispose(), void 0), e?.parentNode && e.parentNode.removeChild(e), this.textarea && this.textarea.parentNode && (this.textarea.parentNode.removeChild(this.textarea), this.textarea = void 0), this.element && (this.boundBeforeInputHandler &&= (this.element.removeEventListener("beforeinput", this.boundBeforeInputHandler), void 0), this.element.removeEventListener("wheel", this.handleWheel, { capture: !0 }), this.element.removeEventListener("mousedown", this.handleMouseDown, { capture: !0 }), this.element.removeEventListener("mousemove", this.handleMouseMove), this.element.removeEventListener("mouseleave", this.handleMouseLeave), this.element.removeEventListener("click", this.handleClick), this.element.removeAttribute("contenteditable"), this.element.removeAttribute("role"), this.element.removeAttribute("aria-label"), this.element.removeAttribute("aria-multiline")), t?.removeEventListener("mouseup", this.handleMouseUp), this.boundVisibilityChangeHandler &&= (t?.removeEventListener("visibilitychange", this.boundVisibilityChangeHandler), void 0), this.boundWindowResizeHandler &&= (t?.defaultView?.removeEventListener("resize", this.boundWindowResizeHandler), void 0), this.boundPageShowHandler &&= (t?.defaultView?.removeEventListener("pageshow", this.boundPageShowHandler), void 0), e && (this.boundContextRestoredHandler && (e.removeEventListener("webglcontextrestored", this.boundContextRestoredHandler), e.removeEventListener("contextrestored", this.boundContextRestoredHandler)), this.boundCanvasMouseDownFocusHandler && e.removeEventListener("mousedown", this.boundCanvasMouseDownFocusHandler), this.boundCanvasTouchEndFocusHandler && e.removeEventListener("touchend", this.boundCanvasTouchEndFocusHandler)), this.boundCanvasMouseDownFocusHandler = void 0, this.boundCanvasTouchEndFocusHandler = void 0, this.boundContextRestoredHandler = void 0, this.scrollbarHideTimeout !== void 0) {
 			let e = this.getOwnerWindow();
 			e ? e.clearTimeout(this.scrollbarHideTimeout) : clearTimeout(this.scrollbarHideTimeout), this.scrollbarHideTimeout = void 0;
 		}

@@ -149,6 +149,7 @@ export class Terminal implements ITerminalCore {
   private boundVisibilityChangeHandler?: () => void;
   private boundPageShowHandler?: () => void;
   private boundContextRestoredHandler?: () => void;
+  private boundWindowResizeHandler?: () => void;
 
   // Phase 1: Title tracking
   private currentTitle: string = '';
@@ -734,6 +735,13 @@ export class Terminal implements ITerminalCore {
       this.boundContextRestoredHandler = () => this.refresh();
       ownerDocument.addEventListener('visibilitychange', this.boundVisibilityChangeHandler);
       ownerDocument.defaultView?.addEventListener('pageshow', this.boundPageShowHandler);
+      this.boundWindowResizeHandler = () => {
+        if (!this.isDisposed && this.isOpen) {
+          this.renderer?.remeasureFont();
+          this.handleFontChange();
+        }
+      };
+      ownerDocument.defaultView?.addEventListener('resize', this.boundWindowResizeHandler);
       this.canvas.addEventListener('webglcontextrestored', this.boundContextRestoredHandler);
       this.canvas.addEventListener('contextrestored', this.boundContextRestoredHandler);
 
@@ -1749,6 +1757,10 @@ export class Terminal implements ITerminalCore {
     if (this.boundVisibilityChangeHandler) {
       ownerDocument?.removeEventListener('visibilitychange', this.boundVisibilityChangeHandler);
       this.boundVisibilityChangeHandler = undefined;
+    }
+    if (this.boundWindowResizeHandler) {
+      ownerDocument?.defaultView?.removeEventListener('resize', this.boundWindowResizeHandler);
+      this.boundWindowResizeHandler = undefined;
     }
     if (this.boundPageShowHandler) {
       ownerDocument?.defaultView?.removeEventListener('pageshow', this.boundPageShowHandler);

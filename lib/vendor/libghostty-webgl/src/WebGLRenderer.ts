@@ -137,8 +137,8 @@ export class WebGLRenderer implements Renderer {
     const cssHeight = rows * this.metrics.height;
     this.canvas.style.width = `${cssWidth}px`;
     this.canvas.style.height = `${cssHeight}px`;
-    this.canvas.width = Math.floor(cssWidth * this.dpr);
-    this.canvas.height = Math.floor(cssHeight * this.dpr);
+    this.canvas.width = Math.round(cssWidth * this.dpr);
+    this.canvas.height = Math.round(cssHeight * this.dpr);
 
     this.cellSizePx = {
       width: this.metrics.width * this.dpr,
@@ -158,6 +158,8 @@ export class WebGLRenderer implements Renderer {
     const currentDpr = this.getDevicePixelRatio();
     if (currentDpr !== this.dpr) {
       this.dpr = currentDpr;
+      this.metrics = this.measureFont();
+      this.glyphAtlas?.reset(this.fontSize, this.fontFamily, this.fontWeight, this.dpr);
       if (this.gridCols > 0 && this.gridRows > 0) {
         this.resize(this.gridCols, this.gridRows);
       }
@@ -529,7 +531,7 @@ export class WebGLRenderer implements Renderer {
   private prepareFrame(input: RenderInput): boolean {
     if (!this.contextValid || !this.gl || !this.canvas) return false;
 
-    const currentDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : this.dpr;
+    const currentDpr = this.getDevicePixelRatio();
     if (currentDpr !== this.dpr) {
       this.setDevicePixelRatio(currentDpr);
     }
@@ -798,11 +800,13 @@ export class WebGLRenderer implements Renderer {
     }
     ctx.font = `${this.fontWeight} ${this.fontSize}px ${this.fontFamily}`;
     const metrics = ctx.measureText('M');
-    const width = Math.ceil(metrics.width);
+    const ratio = this.getDevicePixelRatio();
+    const width = Math.max(1, Math.round(metrics.width * ratio)) / ratio;
     const ascent = metrics.actualBoundingBoxAscent || this.fontSize * 0.8;
     const descent = metrics.actualBoundingBoxDescent || this.fontSize * 0.2;
-    const height = Math.ceil(ascent + descent) + 2;
-    const baseline = Math.ceil(ascent) + 1;
+    const physicalHeight = Math.max(1, Math.round((ascent + descent + 2) * ratio));
+    const height = physicalHeight / ratio;
+    const baseline = Math.round((ascent + 1) * ratio) / ratio;
     return { width, height, baseline };
   }
 

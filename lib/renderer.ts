@@ -364,9 +364,9 @@ export class CanvasRenderer {
   }
 
   private getDevicePixelRatio(): number {
-    return (
-      this.fixedDevicePixelRatio ?? this.canvas.ownerDocument.defaultView?.devicePixelRatio ?? 1
-    );
+    const value =
+      this.fixedDevicePixelRatio ?? this.canvas.ownerDocument.defaultView?.devicePixelRatio ?? 1;
+    return Number.isFinite(value) && value > 0 ? Math.min(value, 8) : 1;
   }
 
   private measureFont(): FontMetrics {
@@ -379,7 +379,8 @@ export class CanvasRenderer {
 
     // Measure width using 'M' (typically widest character)
     const widthMetrics = ctx.measureText('M');
-    const width = Math.ceil(widthMetrics.width);
+    const ratio = this.getDevicePixelRatio();
+    const width = Math.max(1, Math.round(widthMetrics.width * ratio)) / ratio;
 
     // Use font-level metrics (fontBoundingBox) rather than glyph-specific metrics (actualBoundingBox).
     // This ensures the cell height accommodates ALL glyphs in the font, including powerline
@@ -394,8 +395,16 @@ export class CanvasRenderer {
       widthMetrics.actualBoundingBoxDescent ??
       this.fontSize * 0.2;
 
-    const height = Math.ceil(ascent + descent);
-    const baseline = Math.ceil(ascent);
+    const physicalHeight = Math.max(1, Math.round((ascent + descent) * ratio));
+    const height = physicalHeight / ratio;
+    const baseline =
+      Math.max(
+        0,
+        Math.min(
+          physicalHeight,
+          Math.round(ascent * ratio + (physicalHeight - (ascent + descent) * ratio) / 2)
+        )
+      ) / ratio;
 
     return { width, height, baseline };
   }
@@ -437,8 +446,8 @@ export class CanvasRenderer {
     this.canvas.style.height = `${cssHeight}px`;
 
     // Set actual canvas size (scaled for DPI)
-    this.canvas.width = cssWidth * this.devicePixelRatio;
-    this.canvas.height = cssHeight * this.devicePixelRatio;
+    this.canvas.width = Math.round(cssWidth * this.devicePixelRatio);
+    this.canvas.height = Math.round(cssHeight * this.devicePixelRatio);
 
     // Scale context to match DPI (setting canvas.width/height resets the context)
     this.ctx.scale(this.devicePixelRatio, this.devicePixelRatio);
@@ -497,13 +506,14 @@ export class CanvasRenderer {
     const currentDevicePixelRatio = this.getDevicePixelRatio();
     if (currentDevicePixelRatio !== this.devicePixelRatio) {
       this.devicePixelRatio = currentDevicePixelRatio;
+      this.metrics = this.measureFont();
       forceAll = true;
     }
 
     // Resize canvas if dimensions changed
     const needsResize =
-      this.canvas.width !== dims.cols * this.metrics.width * this.devicePixelRatio ||
-      this.canvas.height !== dims.rows * this.metrics.height * this.devicePixelRatio;
+      this.canvas.width !== Math.round(dims.cols * this.metrics.width * this.devicePixelRatio) ||
+      this.canvas.height !== Math.round(dims.rows * this.metrics.height * this.devicePixelRatio);
 
     if (needsResize) {
       this.resize(dims.cols, dims.rows);

@@ -2505,6 +2505,7 @@ export declare class Terminal implements ITerminalCore {
     private boundVisibilityChangeHandler?;
     private boundPageShowHandler?;
     private boundContextRestoredHandler?;
+    private boundWindowResizeHandler?;
     private currentTitle;
     private currentTheme;
     viewportY: number;
