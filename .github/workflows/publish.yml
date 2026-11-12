@@ -44,7 +44,7 @@ jobs:
       - name: Setup Zig
         uses: ./.github/actions/setup-zig
         with:
-          version: 0.15.2
+          version: 0.17.0
 
       - name: Detect npm token
         id: npm

@@ -5,6 +5,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     zig-overlay.url = "github:mitchellh/zig-overlay";
+    zig-overlay.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs = { self, nixpkgs, flake-utils, zig-overlay }:
@@ -14,7 +15,7 @@
           inherit system;
           overlays = [ zig-overlay.overlays.default ];
         };
-        zig = pkgs.zigpkgs."0.15.2";
+        zig = pkgs.zigpkgs."0.17.0";
       in {
         devShells.default = pkgs.mkShell {
           buildInputs = [

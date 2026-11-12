@@ -455,15 +455,6 @@ export class InputHandler {
       return;
     }
 
-    // For printable characters without modifiers, send the character directly
-    // This handles: a-z, A-Z (with shift), 0-9, punctuation, etc.
-    if (this.isPrintableCharacter(event)) {
-      event.preventDefault();
-      this.onDataCallback(event.key);
-      this.recordKeyDownData(event.key);
-      return;
-    }
-
     // Map the physical key code
     const key = this.mapKeyCode(event.code);
     if (key === null) {
@@ -473,100 +464,14 @@ export class InputHandler {
 
     // Extract modifiers
     const mods = this.extractModifiers(event);
+    const action = event.repeat ? KeyAction.REPEAT : KeyAction.PRESS;
 
-    // Handle simple special keys that produce standard sequences
-    if (mods === Mods.NONE || mods === Mods.SHIFT) {
-      let simpleOutput: string | null = null;
-
-      switch (key) {
-        case Key.ENTER:
-          simpleOutput = '\r'; // Carriage return
-          break;
-        case Key.TAB:
-          if (mods === Mods.SHIFT) {
-            simpleOutput = '\x1b[Z'; // Backtab
-          } else {
-            simpleOutput = '\t'; // Tab
-          }
-          break;
-        case Key.BACKSPACE:
-          simpleOutput = '\x7F'; // DEL (most terminals use 0x7F for backspace)
-          break;
-        case Key.ESCAPE:
-          simpleOutput = '\x1B'; // ESC
-          break;
-        // Arrow keys are handled by the encoder (respects application cursor mode)
-        // Navigation keys
-        case Key.HOME:
-          simpleOutput = '\x1B[H';
-          break;
-        case Key.END:
-          simpleOutput = '\x1B[F';
-          break;
-        case Key.INSERT:
-          simpleOutput = '\x1B[2~';
-          break;
-        case Key.DELETE:
-          simpleOutput = '\x1B[3~';
-          break;
-        case Key.PAGE_UP:
-          simpleOutput = '\x1B[5~';
-          break;
-        case Key.PAGE_DOWN:
-          simpleOutput = '\x1B[6~';
-          break;
-        // Function keys
-        case Key.F1:
-          simpleOutput = '\x1BOP';
-          break;
-        case Key.F2:
-          simpleOutput = '\x1BOQ';
-          break;
-        case Key.F3:
-          simpleOutput = '\x1BOR';
-          break;
-        case Key.F4:
-          simpleOutput = '\x1BOS';
-          break;
-        case Key.F5:
-          simpleOutput = '\x1B[15~';
-          break;
-        case Key.F6:
-          simpleOutput = '\x1B[17~';
-          break;
-        case Key.F7:
-          simpleOutput = '\x1B[18~';
-          break;
-        case Key.F8:
-          simpleOutput = '\x1B[19~';
-          break;
-        case Key.F9:
-          simpleOutput = '\x1B[20~';
-          break;
-        case Key.F10:
-          simpleOutput = '\x1B[21~';
-          break;
-        case Key.F11:
-          simpleOutput = '\x1B[23~';
-          break;
-        case Key.F12:
-          simpleOutput = '\x1B[24~';
-          break;
-      }
-
-      if (simpleOutput !== null) {
-        event.preventDefault();
-        this.onDataCallback(simpleOutput);
-        this.recordKeyDownData(simpleOutput);
-        return;
-      }
-    }
-
-    // Determine action (we only care about PRESS for now, not RELEASE or REPEAT)
-    const action = KeyAction.PRESS;
-
-    // For non-printable keys or keys with modifiers, encode using Ghostty
     try {
+      // Preserve modified Enter encoding without changing ordinary Ctrl keys.
+      this.encoder.setOption(
+        KeyEncoderOption.MODIFY_OTHER_KEYS_STATE_2,
+        key === Key.ENTER && mods !== Mods.NONE
+      );
       // Sync encoder options with terminal mode state
       // Mode 1 (DECCKM) controls whether arrow keys send CSI or SS3 sequences
       if (this.getModeCallback) {
@@ -577,10 +482,7 @@ export class InputHandler {
       // For letter/number keys, even with modifiers, pass the base character
       // This helps the encoder produce correct control sequences (e.g., Ctrl+A = 0x01)
       // For special keys (Enter, Arrow keys, etc.), don't pass utf8
-      const utf8 =
-        event.key.length === 1 && event.key.charCodeAt(0) < 128
-          ? event.key.toLowerCase() // Use lowercase for consistency
-          : undefined;
+      const utf8 = Array.from(event.key).length === 1 ? event.key : undefined;
 
       const encoded = this.encoder.encode({
         action,

@@ -21,8 +21,7 @@ interface MockLine {
  * indices map 1:1 onto the cell array (matching the real BufferLine).
  */
 function createMockTerminal(lines: MockLine[] | string, cols = 80) {
-  const rows: MockLine[] =
-    typeof lines === 'string' ? [{ text: lines, isWrapped: false }] : lines;
+  const rows: MockLine[] = typeof lines === 'string' ? [{ text: lines, isWrapped: false }] : lines;
 
   function makeBufferLine(row: MockLine) {
     const chars = Array.from(row.text);
@@ -68,11 +67,7 @@ function getLinks(lineText: string): Promise<ILink[] | undefined> {
 /**
  * Helper to get links from a multi-row terminal at a specific row.
  */
-function getLinksAt(
-  rows: MockLine[],
-  y: number,
-  cols: number,
-): Promise<ILink[] | undefined> {
+function getLinksAt(rows: MockLine[], y: number, cols: number): Promise<ILink[] | undefined> {
   const terminal = createMockTerminal(rows, cols) as any;
   const provider = new UrlRegexProvider(terminal);
 

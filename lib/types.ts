@@ -106,12 +106,12 @@ export enum KittyKeyFlags {
  * Key encoder options
  */
 export enum KeyEncoderOption {
-  CURSOR_KEY_APPLICATION = 0, // DEC mode 1
-  KEYPAD_KEY_APPLICATION = 1, // DEC mode 66
-  IGNORE_KEYPAD_WITH_NUMLOCK = 2, // DEC mode 1035
-  ALT_ESC_PREFIX = 3, // DEC mode 1036
-  MODIFY_OTHER_KEYS_STATE_2 = 4, // xterm modifyOtherKeys
-  KITTY_KEYBOARD_FLAGS = 5, // Kitty protocol flags
+  CURSOR_KEY_APPLICATION = 1, // DEC mode 1
+  KEYPAD_KEY_APPLICATION = 2, // DEC mode 66
+  IGNORE_KEYPAD_WITH_NUMLOCK = 3, // DEC mode 1035
+  ALT_ESC_PREFIX = 4, // DEC mode 1036
+  MODIFY_OTHER_KEYS_STATE_2 = 5, // xterm modifyOtherKeys
+  KITTY_KEYBOARD_FLAGS = 6, // Kitty protocol flags
 }
 
 /**
@@ -359,17 +359,11 @@ export interface KeyEvent {
 export interface GhosttyWasmExports extends WebAssembly.Exports {
   memory: WebAssembly.Memory;
 
-  // Memory helpers
+  // Generic WASM ABI storage, aligned for all C types.
+  ghostty_wasm_alloc(len: number): number;
+  ghostty_wasm_free(ptr: number, len: number): void;
   ghostty_wasm_alloc_opaque(): number;
   ghostty_wasm_free_opaque(ptr: number): void;
-  ghostty_wasm_alloc_u8_array(len: number): number;
-  ghostty_wasm_free_u8_array(ptr: number, len: number): void;
-  ghostty_wasm_alloc_u16_array(len: number): number;
-  ghostty_wasm_free_u16_array(ptr: number, len: number): void;
-  ghostty_wasm_alloc_u8(): number;
-  ghostty_wasm_free_u8(ptr: number): void;
-  ghostty_wasm_alloc_usize(): number;
-  ghostty_wasm_free_usize(ptr: number): void;
 
   // SGR parser
   ghostty_sgr_new(allocator: number, parserPtrPtr: number): number;
@@ -384,13 +378,11 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
   ghostty_sgr_next(parser: number, attrPtr: number): boolean;
   ghostty_sgr_attribute_tag(attrPtr: number): number;
   ghostty_sgr_attribute_value(attrPtr: number, tagPtr: number): number;
-  ghostty_wasm_alloc_sgr_attribute(): number;
-  ghostty_wasm_free_sgr_attribute(ptr: number): void;
 
   // Key encoder
   ghostty_key_encoder_new(allocator: number, encoderPtrPtr: number): number;
   ghostty_key_encoder_free(encoder: number): void;
-  ghostty_key_encoder_setopt(encoder: number, option: number, valuePtr: number): number;
+  ghostty_key_encoder_set(encoder: number, option: number, valuePtr: number): number;
   ghostty_key_encoder_encode(
     encoder: number,
     eventPtr: number,
@@ -405,10 +397,15 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
   ghostty_key_event_set_action(event: number, action: number): void;
   ghostty_key_event_set_key(event: number, key: number): void;
   ghostty_key_event_set_mods(event: number, mods: number): void;
-  ghostty_key_event_set_utf8(event: number, ptr: number, len: number): void;
+  ghostty_key_event_set_utf8(event: number, stringPtr: number): number;
 
   // Terminal lifecycle
-  ghostty_terminal_new(allocatorPtr: number, terminalPtrPtr: number, optionsPtr: number): number; // GhosttyResult (0 = success)
+  ghostty_terminal_new(
+    allocatorPtr: number,
+    terminalPtrPtr: number,
+    cols: number,
+    rows: number
+  ): number; // GhosttyResult (0 = success)
   ghostty_terminal_free(terminal: TerminalHandle): void;
   ghostty_terminal_resize(
     terminal: TerminalHandle,
@@ -418,7 +415,6 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
     cellHeightPx: number
   ): number;
   ghostty_terminal_vt_write(terminal: TerminalHandle, dataPtr: number, dataLen: number): void;
-  ghostty_terminal_set_colors(terminal: TerminalHandle, configPtr: number): void;
 
   // RenderState API — render state is a separate object created from a terminal.
   // Read fields via the generic _get(state, key, *out) interface keyed by
@@ -581,8 +577,6 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
   ghostty_alloc(allocatorPtr: number, len: number): number;
   ghostty_free(allocatorPtr: number, ptr: number, len: number): void;
   // Mode queries: mode is a packed u16 (low 15 bits = mode value, bit 15 = ANSI flag).
-  ghostty_terminal_mode_get(terminal: TerminalHandle, mode: number, outBoolPtr: number): number;
-  ghostty_terminal_mode_set(terminal: TerminalHandle, mode: number, value: boolean): number;
   // grid_ref / point_from_grid_ref: row/cell-level access. Not yet wired
   // up on the TS side (used to implement isRowWrapped / getHyperlinkUri /
   // scrollback iteration).
@@ -631,7 +625,7 @@ export enum RenderStateData {
  * Options for ghostty_render_state_set(). Mirrors GhosttyRenderStateOption.
  */
 export enum RenderStateOption {
-  DIRTY = 0,
+  DIRTY = 1,
 }
 
 /**
@@ -650,6 +644,7 @@ export enum CursorVisualStyle {
  * enum has more (TITLE, PWD, SCROLLBAR, KITTY_KEYBOARD_FLAGS, palettes, ...).
  */
 export enum TerminalData {
+  MODE = 37,
   COLS = 1,
   ROWS = 2,
   CURSOR_X = 3,
@@ -685,18 +680,21 @@ export enum TerminalData {
  * more (callbacks for BELL/TITLE_CHANGED/etc., kitty-image limits, ...).
  */
 export enum TerminalOption {
-  USERDATA = 0,
-  WRITE_PTY = 1,
-  BELL = 2,
-  ENQUIRY = 3,
-  XTVERSION = 4,
-  TITLE_CHANGED = 5,
-  SIZE = 6,
-  COLOR_FOREGROUND = 11,
-  COLOR_BACKGROUND = 12,
-  COLOR_CURSOR = 13,
-  COLOR_PALETTE = 14,
-  KITTY_IMAGE_STORAGE_LIMIT = 15,
+  MODE = 35,
+  SCROLLBACK_MAX_BYTES = 28,
+  SCROLLBACK_MAX_LINES = 29,
+  USERDATA = 1,
+  WRITE_PTY = 2,
+  BELL = 3,
+  ENQUIRY = 4,
+  XTVERSION = 5,
+  TITLE_CHANGED = 6,
+  SIZE = 7,
+  COLOR_FOREGROUND = 12,
+  COLOR_BACKGROUND = 13,
+  COLOR_CURSOR = 14,
+  COLOR_PALETTE = 15,
+  KITTY_IMAGE_STORAGE_LIMIT = 16,
 }
 
 /**
@@ -704,9 +702,9 @@ export enum TerminalOption {
  * Process-global / per-WASM-instance settings.
  */
 export enum SysOption {
-  USERDATA = 0,
-  DECODE_PNG = 1,
-  LOG = 2,
+  USERDATA = 1,
+  DECODE_PNG = 2,
+  LOG = 3,
 }
 
 /**
@@ -745,8 +743,7 @@ export enum KittyGraphicsImageData {
   HEIGHT = 4,
   FORMAT = 5,
   COMPRESSION = 6,
-  DATA_PTR = 7,
-  DATA_LEN = 8,
+  PIXELS = 7,
 }
 
 /**
@@ -764,7 +761,7 @@ export enum KittyGraphicsPlacementLayer {
  * GhosttyKittyGraphicsPlacementIteratorOption.
  */
 export enum KittyGraphicsPlacementIteratorOption {
-  LAYER = 0,
+  LAYER = 1,
 }
 
 /**
@@ -875,7 +872,7 @@ export enum RenderStateRowData {
  * Options for ghostty_render_state_row_set(). Mirrors GhosttyRenderStateRowOption.
  */
 export enum RenderStateRowOption {
-  DIRTY = 0,
+  DIRTY = 1,
 }
 
 /**

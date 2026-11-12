@@ -543,9 +543,9 @@ export declare class GhosttyTerminal {
      * terminal via ghostty_terminal_set(COLOR_*).
      *
      * For the palette: the new C ABI takes a full 256-entry array, but coder's
-     * config carries only the legacy 16 ANSI entries (each as a 0xRRGGBB int,
-     * 0 meaning "use default"). To preserve indices ≥16 we read the existing
-     * default palette first, overlay the non-zero entries from config, and
+     * config carries 16 ANSI entries (each as a 0xRRGGBB int). Zero is black.
+     * To preserve indices ≥16 we read the existing default palette first,
+     * overlay the provided entries from config, and
      * write the merged 768-byte buffer back.
      */
     private applyConfig;
@@ -630,18 +630,6 @@ export declare class GhosttyTerminal {
      * (no sentinel — 0x000000 is valid black). Forces a full redraw on next render.
      */
     setColors(config: GhosttyTerminalConfig): void;
-    /**
-     * Write a GhosttyTerminalConfig into WASM memory at configPtr.
-     *
-     * Layout must match GhosttyTerminalConfig in src/terminal/c/terminal.zig:
-     *   scrollback_limit: u32  (+0)
-     *   fg_color:         u32  (+4)
-     *   bg_color:         u32  (+8)
-     *   cursor_color:     u32  (+12)
-     *   palette:          [16]u32 (+16..+79)
-     * Total: 80 bytes. Any struct change in Zig must be mirrored here.
-     */
-    private writeConfigToPtr;
     /**
      * Update render state from terminal.
      *
@@ -799,12 +787,12 @@ export declare class GhosttyTerminal {
     getScrollbackHyperlinkUri(offset: number, col: number): string | null;
     private readGridLine;
     /**
-     * Decode a GhosttyStyleColor (16 bytes at colorPtr — tag@0:u32,
-     * value@8:union) and write the resolved RGB into the cell's fg_*
+     * Decode a compact GhosttyStyleColor (4 bytes: tag@0:u8, value@1) and write the resolved RGB into the cell's fg_*
      * or bg_* triple. Tag values: NONE=0 (leaves zeros so the renderer's
      * theme fallback kicks in), PALETTE=1 (looks up the terminal's
      * effective palette), RGB=2 (direct read).
      */
+    private readStyleFlags;
     private resolveStyleColor;
     private readHyperlinkUri;
     private allocPoint;
@@ -878,16 +866,10 @@ declare interface GhosttyTerminalConfig {
  */
 declare interface GhosttyWasmExports extends WebAssembly.Exports {
     memory: WebAssembly.Memory;
+    ghostty_wasm_alloc(len: number): number;
+    ghostty_wasm_free(ptr: number, len: number): void;
     ghostty_wasm_alloc_opaque(): number;
     ghostty_wasm_free_opaque(ptr: number): void;
-    ghostty_wasm_alloc_u8_array(len: number): number;
-    ghostty_wasm_free_u8_array(ptr: number, len: number): void;
-    ghostty_wasm_alloc_u16_array(len: number): number;
-    ghostty_wasm_free_u16_array(ptr: number, len: number): void;
-    ghostty_wasm_alloc_u8(): number;
-    ghostty_wasm_free_u8(ptr: number): void;
-    ghostty_wasm_alloc_usize(): number;
-    ghostty_wasm_free_usize(ptr: number): void;
     ghostty_sgr_new(allocator: number, parserPtrPtr: number): number;
     ghostty_sgr_free(parser: number): void;
     ghostty_sgr_reset(parser: number): void;
@@ -895,23 +877,20 @@ declare interface GhosttyWasmExports extends WebAssembly.Exports {
     ghostty_sgr_next(parser: number, attrPtr: number): boolean;
     ghostty_sgr_attribute_tag(attrPtr: number): number;
     ghostty_sgr_attribute_value(attrPtr: number, tagPtr: number): number;
-    ghostty_wasm_alloc_sgr_attribute(): number;
-    ghostty_wasm_free_sgr_attribute(ptr: number): void;
     ghostty_key_encoder_new(allocator: number, encoderPtrPtr: number): number;
     ghostty_key_encoder_free(encoder: number): void;
-    ghostty_key_encoder_setopt(encoder: number, option: number, valuePtr: number): number;
+    ghostty_key_encoder_set(encoder: number, option: number, valuePtr: number): number;
     ghostty_key_encoder_encode(encoder: number, eventPtr: number, bufPtr: number, bufLen: number, writtenPtr: number): number;
     ghostty_key_event_new(allocator: number, eventPtrPtr: number): number;
     ghostty_key_event_free(event: number): void;
     ghostty_key_event_set_action(event: number, action: number): void;
     ghostty_key_event_set_key(event: number, key: number): void;
     ghostty_key_event_set_mods(event: number, mods: number): void;
-    ghostty_key_event_set_utf8(event: number, ptr: number, len: number): void;
-    ghostty_terminal_new(allocatorPtr: number, terminalPtrPtr: number, optionsPtr: number): number;
+    ghostty_key_event_set_utf8(event: number, stringPtr: number): number;
+    ghostty_terminal_new(allocatorPtr: number, terminalPtrPtr: number, cols: number, rows: number): number;
     ghostty_terminal_free(terminal: TerminalHandle): void;
     ghostty_terminal_resize(terminal: TerminalHandle, cols: number, rows: number, cellWidthPx: number, cellHeightPx: number): number;
     ghostty_terminal_vt_write(terminal: TerminalHandle, dataPtr: number, dataLen: number): void;
-    ghostty_terminal_set_colors(terminal: TerminalHandle, configPtr: number): void;
     ghostty_render_state_new(allocatorPtr: number, statePtrPtr: number): number;
     ghostty_render_state_free(state: number): void;
     ghostty_render_state_update(state: number, terminal: TerminalHandle): number;
@@ -960,8 +939,6 @@ declare interface GhosttyWasmExports extends WebAssembly.Exports {
     ghostty_sys_set(option: number, valuePtr: number): number;
     ghostty_alloc(allocatorPtr: number, len: number): number;
     ghostty_free(allocatorPtr: number, ptr: number, len: number): void;
-    ghostty_terminal_mode_get(terminal: TerminalHandle, mode: number, outBoolPtr: number): number;
-    ghostty_terminal_mode_set(terminal: TerminalHandle, mode: number, value: boolean): number;
 }
 
 /**
@@ -1867,12 +1844,12 @@ export declare class KeyEncoder {
  * Key encoder options
  */
 export declare enum KeyEncoderOption {
-    CURSOR_KEY_APPLICATION = 0,// DEC mode 1
-    KEYPAD_KEY_APPLICATION = 1,// DEC mode 66
-    IGNORE_KEYPAD_WITH_NUMLOCK = 2,// DEC mode 1035
-    ALT_ESC_PREFIX = 3,// DEC mode 1036
-    MODIFY_OTHER_KEYS_STATE_2 = 4,// xterm modifyOtherKeys
-    KITTY_KEYBOARD_FLAGS = 5
+    CURSOR_KEY_APPLICATION = 1,// DEC mode 1
+    KEYPAD_KEY_APPLICATION = 2,// DEC mode 66
+    IGNORE_KEYPAD_WITH_NUMLOCK = 3,// DEC mode 1035
+    ALT_ESC_PREFIX = 4,// DEC mode 1036
+    MODIFY_OTHER_KEYS_STATE_2 = 5,// xterm modifyOtherKeys
+    KITTY_KEYBOARD_FLAGS = 6
 }
 
 /**

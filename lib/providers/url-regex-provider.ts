@@ -84,10 +84,7 @@ export class UrlRegexProvider implements ILinkProvider {
     // Walk forward to the end of the chain by extending while the *next*
     // row is a continuation.
     let endRow = startRow;
-    while (
-      endRow - startRow < UrlRegexProvider.MAX_WRAP_CHAIN_ROWS &&
-      endRow < buffer.length - 1
-    ) {
+    while (endRow - startRow < UrlRegexProvider.MAX_WRAP_CHAIN_ROWS && endRow < buffer.length - 1) {
       const next = buffer.getLine(endRow + 1);
       if (!next || !next.isWrapped) break;
       endRow++;
@@ -184,7 +181,7 @@ export class UrlRegexProvider implements ILinkProvider {
   private joinedIdxToRowCol(
     joinedIdx: number,
     rowStartIdx: number[],
-    baseRow: number,
+    baseRow: number
   ): { x: number; y: number } {
     for (let i = rowStartIdx.length - 1; i >= 0; i--) {
       if (joinedIdx >= rowStartIdx[i]) {

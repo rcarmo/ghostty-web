@@ -420,7 +420,7 @@ The WASM binary is built from source, not committed to the repo.
 
 **Requirements:**
 
-- Zig 0.15.2+
+- Zig 0.17.0+
 - Git submodules initialized
 
 **Build:**
@@ -442,6 +442,13 @@ bun run build:wasm
 3. Builds WASM with the deterministic Zig bootstrap from `scripts/ensure-zig.sh`
 4. Outputs `ghostty-vt.wasm`
 5. Keeps Zig cache/tooling outside linted source paths
+
+The WASM bundle tracks official Ghostty `c6174c88f42b48adb14857c9233b16f6947ab732`
+(1.4.1-dev). Build it with Zig 0.17.0. Local patches enable browser-supplied
+Kitty graphics decoding and reject filesystem/shared-memory image transmission.
+The JavaScript bridge uses that revision's public C API and compact style layout.
+Scrollback is configured in lines; Ghostty reclaims whole pages, so the retained
+line count varies when pruning occurs.
 
 **Updating Ghostty:**
 

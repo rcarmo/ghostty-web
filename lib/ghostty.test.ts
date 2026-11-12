@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 
 import { Ghostty } from './ghostty';
-import { KittyImageFormat } from './types';
+import { CellFlags, KittyImageFormat } from './types';
 
 // Minimal WebAssembly.Instance stub — satisfies the Ghostty constructor which
 // only reads exports.memory at instantiation time.
@@ -209,5 +209,54 @@ describe('Ghostty.loadFromBytes', () => {
     expect(compileSpy).toHaveBeenCalledWith(bytes);
     expect(instantiateSpy).toHaveBeenCalledTimes(1);
     expect(ghostty).toBeInstanceOf(Ghostty);
+  });
+});
+
+describe('Current official Ghostty C ABI', () => {
+  test('reads compact style flags and truecolour cells', async () => {
+    const ghostty = await Ghostty.load();
+    const term = ghostty.createTerminal(10, 3);
+    try {
+      term.write('\x1b[1;3;4;38;2;12;34;56;48;2;65;43;21mA');
+      const cell = term.getViewport()[0]!;
+      expect(cell.codepoint).toBe(65);
+      expect(cell.flags & (CellFlags.BOLD | CellFlags.ITALIC | CellFlags.UNDERLINE)).toBe(
+        CellFlags.BOLD | CellFlags.ITALIC | CellFlags.UNDERLINE
+      );
+      expect([cell.fg_r, cell.fg_g, cell.fg_b]).toEqual([12, 34, 56]);
+      expect([cell.bg_r, cell.bg_g, cell.bg_b]).toEqual([65, 43, 21]);
+    } finally {
+      term.free();
+    }
+  });
+
+  test('updates theme colours through the public option API, including black', async () => {
+    const ghostty = await Ghostty.load();
+    const term = ghostty.createTerminal(10, 3);
+    try {
+      term.setColors({ fgColor: 0x123456, bgColor: 0, cursorColor: 0xabcdef });
+      expect(term.getColors()).toMatchObject({
+        foreground: { r: 18, g: 52, b: 86 },
+        background: { r: 0, g: 0, b: 0 },
+        cursor: { r: 171, g: 205, b: 239 },
+      });
+      term.setColors({ fgColor: 0 });
+      expect(term.getColors().foreground).toEqual({ r: 0, g: 0, b: 0 });
+    } finally {
+      term.free();
+    }
+  });
+
+  test('reads complete multi-codepoint graphemes through bounded buffers', async () => {
+    const ghostty = await Ghostty.load();
+    const term = ghostty.createTerminal(10, 3);
+    try {
+      const text = 'e\u0301';
+      term.write(text);
+      expect(term.getGraphemeString(0, 0)).toBe(text);
+      expect(term.getViewport()[0]!.codepoint).toBe(101);
+    } finally {
+      term.free();
+    }
   });
 });

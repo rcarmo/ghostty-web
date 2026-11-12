@@ -18,7 +18,7 @@ PATCH="patches/ghostty-wasm-api.patch"
 
 echo "🔨 Building ghostty-vt.wasm..."
 
-ZIG_BIN_DIR="$($SCRIPT_DIR/ensure-zig.sh 0.15.2)"
+ZIG_BIN_DIR="$($SCRIPT_DIR/ensure-zig.sh 0.17.0)"
 export PATH="$ZIG_BIN_DIR:$PATH"
 
 ZIG_VERSION=$(zig version)
@@ -35,22 +35,32 @@ fi
 # Ensure submodule worktree is clean before patching (in case a previous build was interrupted)
 cd ghostty
 if [ -n "$(git status --porcelain)" ]; then
-    echo "🧹 Submodule has leftover changes, resetting..."
-    git restore .
-    git clean -fd
+    echo "Refusing to overwrite changes in the Ghostty submodule." >&2
+    exit 1
 fi
 cd ..
+
+patch_applied=false
+cleanup_patch() {
+    if [ "$patch_applied" = true ]; then
+        git -C "$REPO_ROOT/ghostty" apply -R "$REPO_ROOT/$PATCH"
+    fi
+}
+trap cleanup_patch EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Apply patch (optional — skip if empty/missing)
 if [ -s "$PATCH" ]; then
     echo "🔧 Applying WASM API patch..."
     cd ghostty
-    git apply --3way --check "../$PATCH" || {
+    git apply --check "../$PATCH" || {
         echo "❌ Patch doesn't apply cleanly"
         echo "Ghostty may have changed. Check $PATCH"
         exit 1
     }
-    git apply --3way "../$PATCH"
+    git apply "../$PATCH"
+    patch_applied=true
     cd ..
 else
     echo "🔧 No patch to apply (skipping)"
@@ -65,15 +75,10 @@ cd ..
 # Copy to project root
 cp ghostty/zig-out/bin/ghostty-vt.wasm ./
 
-# Revert patch & clean any new files it created so the submodule stays clean
+# Revert only the patch applied by this build, preserving all other files.
 echo "🧹 Cleaning up..."
-cd ghostty
-if [ -s "../$PATCH" ]; then
-    git apply -R "../$PATCH"
-fi
-git restore .
-git clean -fd
-cd ..
+cleanup_patch
+patch_applied=false
 
 SIZE=$(du -h ghostty-vt.wasm | cut -f1)
 echo "✅ Built ghostty-vt.wasm ($SIZE)"

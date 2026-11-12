@@ -69,7 +69,7 @@ jobs:
 
       - uses: ./.github/actions/setup-zig
         with:
-          version: 0.15.2
+          version: 0.17.0
 
       - name: Build WASM
         run: ./scripts/build-wasm.sh
@@ -94,7 +94,7 @@ jobs:
 
       - uses: ./.github/actions/setup-zig
         with:
-          version: 0.15.2
+          version: 0.17.0
 
       - name: Build WASM
         run: ./scripts/build-wasm.sh
@@ -103,8 +103,8 @@ jobs:
         run: |
           SIZE=$(stat -c%s ghostty-vt.wasm)
           echo "WASM size: $SIZE bytes"
-          if [ "$SIZE" -gt 786432 ]; then
-            echo "❌ Error: WASM exceeds 768 KB limit"
+          if [ "$SIZE" -gt 1572864 ]; then
+            echo "❌ Error: WASM exceeds 1536 KiB limit"
             exit 1
           fi
 

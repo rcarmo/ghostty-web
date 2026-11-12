@@ -3,9 +3,9 @@ name: Actions cleanup
 on:
   workflow_run:
     workflows:
-      - "ci"
-      - "publish"
-      - "release"
+      - 'ci'
+      - 'publish'
+      - 'release'
     types: [completed]
   workflow_dispatch:
 

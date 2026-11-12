@@ -67,7 +67,13 @@ export class GlyphAtlas {
   private colorCanvas: HTMLCanvasElement | OffscreenCanvas;
   private colorCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-  constructor(gl: WebGL2RenderingContext, fontSize: number, fontFamily: string, fontWeight: number, dpr: number) {
+  constructor(
+    gl: WebGL2RenderingContext,
+    fontSize: number,
+    fontFamily: string,
+    fontWeight: number,
+    dpr: number
+  ) {
     this.gl = gl;
     this.fontSize = sanitizePositive(fontSize, 15);
     this.fontFamily = fontFamily;

@@ -1701,10 +1701,18 @@ describe('Terminal Config', () => {
 
       // Scrollback should be limited based on the config
       const scrollbackLength = term.wasmTerm!.getScrollbackLength();
-      // With 500 scrollback limit, we wrote 600 lines so scrollback should be capped
-      // The actual value depends on ghostty's implementation but should be around 500
+      // Current Ghostty prunes whole pages, so retained lines fluctuate.
+      // Verify the actual configured line budget rather than assuming an
+      // exact retained count immediately after a page has been pruned.
       expect(scrollbackLength).toBeLessThan(600);
-      expect(scrollbackLength).toBeGreaterThan(450);
+      const wasm = term.wasmTerm as any;
+      const out = wasm.exports.ghostty_wasm_alloc(4);
+      try {
+        expect(wasm.exports.ghostty_terminal_get(wasm.handle, 35, out)).toBe(0);
+        expect(new DataView(wasm.memory.buffer).getUint32(out, true)).toBe(500);
+      } finally {
+        wasm.exports.ghostty_wasm_free(out, 4);
+      }
     } finally {
       term.dispose();
     }
