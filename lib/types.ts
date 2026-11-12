@@ -359,6 +359,7 @@ export interface KeyEvent {
 export interface GhosttyWasmExports extends WebAssembly.Exports {
   memory: WebAssembly.Memory;
   ghostty_type_json(): number;
+  ghostty_terminal_scroll_viewport(terminal: number, behavior: number): number;
 
   // Generic WASM ABI storage, aligned for all C types.
   ghostty_wasm_alloc(len: number): number;

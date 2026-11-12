@@ -196,6 +196,7 @@ export class Terminal implements ITerminalCore {
       allowTransparency: options.allowTransparency ?? false,
       convertEol: options.convertEol ?? false,
       disableStdin: options.disableStdin ?? false,
+      emitTerminalResponses: options.emitTerminalResponses ?? true,
       copyOnSelect: options.copyOnSelect ?? true,
       copyMode: options.copyMode ?? 'clipboard',
       smoothScrollDuration: options.smoothScrollDuration ?? 100, // Default: 100ms smooth scroll
@@ -1279,6 +1280,18 @@ export class Terminal implements ITerminalCore {
 
       this.requestRender();
     }
+  }
+
+  /** Navigate OSC 133 prompt marks retained by the terminal core. */
+  scrollToPrompt(older = true): boolean {
+    if (!this.wasmTerm) return false;
+    const next = this.wasmTerm.promptViewport(this.viewportY, older ? -1 : 1);
+    if (next === null || next === this.viewportY) return false;
+    this.viewportY = next;
+    this.scrollEmitter.fire(next);
+    this.showScrollbar();
+    this.requestFullRender();
+    return true;
   }
 
   /**
@@ -2372,6 +2385,10 @@ export class Terminal implements ITerminalCore {
    */
   public processTerminalResponses(): void {
     if (!this.wasmTerm) return;
+    if (!this.options.emitTerminalResponses) {
+      this.wasmTerm.discardResponses();
+      return;
+    }
 
     // Read all pending responses from the WASM terminal
     // Multiple responses can be queued if a single write() contained multiple queries

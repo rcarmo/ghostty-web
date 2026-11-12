@@ -826,6 +826,9 @@ export declare class GhosttyTerminal {
     private readHyperlinkUri;
     private allocPoint;
     private makeEmptyCell;
+    /* Excluded from this release type: discardResponses */
+    /** Temporarily use core prompt navigation, returning the external viewport offset. */
+    promptViewport(current: number, delta: number): number | null;
     /**
      * Check if there are pending responses from the terminal.
      *
@@ -896,6 +899,7 @@ declare interface GhosttyTerminalConfig {
 declare interface GhosttyWasmExports extends WebAssembly.Exports {
     memory: WebAssembly.Memory;
     ghostty_type_json(): number;
+    ghostty_terminal_scroll_viewport(terminal: number, behavior: number): number;
     ghostty_wasm_alloc(len: number): number;
     ghostty_wasm_free(ptr: number, len: number): void;
     ghostty_wasm_alloc_opaque(): number;
@@ -1588,6 +1592,8 @@ export declare interface ITerminalOptions {
      */
     renderer?: 'canvas' | 'webgl';
     convertEol?: boolean;
+    /** False when an authoritative remote VT supplies terminal query replies. Default true. */
+    emitTerminalResponses?: boolean;
     disableStdin?: boolean;
     /** Copy selected text immediately. Explicit copy shortcuts remain active. Default: true. */
     copyOnSelect?: boolean;
@@ -2656,6 +2662,8 @@ export declare class Terminal implements ITerminalCore {
      * @param amount Number of lines to scroll (positive = down, negative = up)
      */
     scrollLines(amount: number): void;
+    /** Navigate OSC 133 prompt marks retained by the terminal core. */
+    scrollToPrompt(older?: boolean): boolean;
     /**
      * Scroll viewport by a number of pages
      * @param amount Number of pages to scroll (positive = down, negative = up)

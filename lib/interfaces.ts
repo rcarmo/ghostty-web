@@ -24,6 +24,8 @@ export interface ITerminalOptions {
 
   // Phase 1 additions
   convertEol?: boolean; // Convert \n to \r\n (default: false)
+  /** False when an authoritative remote VT supplies terminal query replies. Default true. */
+  emitTerminalResponses?: boolean;
   disableStdin?: boolean; // Disable keyboard input (default: false)
   /** Copy selected text immediately. Explicit copy shortcuts remain active. Default: true. */
   copyOnSelect?: boolean;

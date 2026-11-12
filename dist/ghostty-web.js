@@ -245,6 +245,15 @@ function ne(e) {
 			ptr: 4,
 			len: 4
 		},
+		GhosttyTerminalScrollbar: {
+			total: 8,
+			offset: 8,
+			len: 8
+		},
+		GhosttyTerminalScrollViewport: {
+			tag: 4,
+			value: 16
+		},
 		GhosttyColorRgb: {
 			r: 1,
 			g: 1,
@@ -1320,6 +1329,41 @@ var we = new TextDecoder(), M = class t {
 			hyperlink_id: 0,
 			grapheme_len: 0
 		};
+	}
+	discardResponses() {
+		this.pendingResponses = [];
+	}
+	promptViewport(e, t) {
+		if (this.isAlternateScreen()) return null;
+		let n = this.abi, r = this.exports, i = n.size("GhosttyTerminalScrollbar"), a = n.size("GhosttyTerminalScrollViewport"), o = r.ghostty_wasm_alloc(i), s = r.ghostty_wasm_alloc(a);
+		if (!o || !s) throw o && r.ghostty_wasm_free(o, i), s && r.ghostty_wasm_free(s, a), Error("Failed to allocate prompt navigation");
+		let c = () => {
+			if (r.ghostty_terminal_get(this.handle, d.SCROLLBAR, o) !== 0) throw Error("Failed to read viewport");
+			let e = new DataView(this.memory.buffer), t = (t) => Number(e.getBigUint64(o + n.offset("GhosttyTerminalScrollbar", t), !0));
+			return {
+				total: t("total"),
+				offset: t("offset"),
+				len: t("len")
+			};
+		}, l = (e, t) => {
+			new Uint8Array(this.memory.buffer, s, a).fill(0);
+			let i = new DataView(this.memory.buffer);
+			if (i.setUint32(s + n.offset("GhosttyTerminalScrollViewport", "tag"), n.enumValue("GhosttyTerminalScrollViewportTag", e), !0), i.setInt32(s + n.offset("GhosttyTerminalScrollViewport", "value"), t, !0), r.ghostty_terminal_scroll_viewport(this.handle, s) !== 0) throw Error("Prompt navigation failed");
+			this.invalidateCellCaches();
+		}, u;
+		try {
+			u = c();
+			let n = Math.max(0, u.total - u.len);
+			e = Math.max(0, Math.min(n, Math.floor(e))), l("ROW", n - e), l("DELTA_PROMPT", t);
+			let r = c(), i = Math.max(0, r.total - r.len - r.offset);
+			return i === e && t < 0 && (l("DELTA", -1), l("DELTA_PROMPT", t), r = c(), i = Math.max(0, r.total - r.len - r.offset)), i;
+		} finally {
+			try {
+				u && l("ROW", u.offset);
+			} finally {
+				r.ghostty_wasm_free(o, i), r.ghostty_wasm_free(s, a);
+			}
+		}
 	}
 	hasResponse() {
 		return this.pendingResponses.length > 0;
@@ -5652,6 +5696,7 @@ var Qt = class e {
 			allowTransparency: t.allowTransparency ?? !1,
 			convertEol: t.convertEol ?? !1,
 			disableStdin: t.disableStdin ?? !1,
+			emitTerminalResponses: t.emitTerminalResponses ?? !0,
 			copyOnSelect: t.copyOnSelect ?? !0,
 			copyMode: t.copyMode ?? "clipboard",
 			smoothScrollDuration: t.smoothScrollDuration ?? 100,
@@ -5991,6 +6036,11 @@ var Qt = class e {
 		let t = this.getScrollbackLength(), n = Math.max(0, Math.min(t, this.viewportY - e));
 		n !== this.viewportY && (this.viewportY = n, this.scrollEmitter.fire(this.viewportY), t > 0 && this.showScrollbar(), this.requestRender());
 	}
+	scrollToPrompt(e = !0) {
+		if (!this.wasmTerm) return !1;
+		let t = this.wasmTerm.promptViewport(this.viewportY, e ? -1 : 1);
+		return t === null || t === this.viewportY ? !1 : (this.viewportY = t, this.scrollEmitter.fire(t), this.showScrollbar(), this.requestFullRender(), !0);
+	}
 	scrollPages(e) {
 		Number.isFinite(e) && e !== 0 && this.scrollLines(e * this.rows);
 	}
@@ -6160,10 +6210,13 @@ var Qt = class e {
 		n();
 	}
 	processTerminalResponses() {
-		if (this.wasmTerm) for (;;) {
-			let e = this.wasmTerm.readResponse();
-			if (e === null) break;
-			this.dataEmitter.fire(e);
+		if (this.wasmTerm) {
+			if (!this.options.emitTerminalResponses) this.wasmTerm.discardResponses();
+			else for (;;) {
+				let e = this.wasmTerm.readResponse();
+				if (e === null) break;
+				this.dataEmitter.fire(e);
+			}
 		}
 	}
 	checkForTitleChange(e) {

@@ -203,6 +203,8 @@ export function moduleAbi(exports: GhosttyWasmExports): AbiLayout {
   // Layout offsets may move; scalar representations used by DataView must not.
   const fields: Record<string, Record<string, number>> = {
     GhosttyString: { ptr: 4, len: 4 },
+    GhosttyTerminalScrollbar: { total: 8, offset: 8, len: 8 },
+    GhosttyTerminalScrollViewport: { tag: 4, value: 16 },
     GhosttyColorRgb: { r: 1, g: 1, b: 1 },
     GhosttyPointCoordinate: { x: 2, y: 4 },
     GhosttyGridRef: { node: 4, x: 2, y: 2 },

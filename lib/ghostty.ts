@@ -2053,6 +2053,72 @@ export class GhosttyTerminal {
     };
   }
 
+  /** @internal Remote authoritative terminals do not need local parser replies. */
+  discardResponses(): void {
+    this.pendingResponses = [];
+  }
+
+  /** Temporarily use core prompt navigation, returning the external viewport offset. */
+  promptViewport(current: number, delta: number): number | null {
+    if (this.isAlternateScreen()) return null;
+    const abi = this.abi,
+      ex = this.exports;
+    const barSize = abi.size('GhosttyTerminalScrollbar'),
+      scrollSize = abi.size('GhosttyTerminalScrollViewport');
+    const bar = ex.ghostty_wasm_alloc(barSize),
+      behavior = ex.ghostty_wasm_alloc(scrollSize);
+    if (!bar || !behavior) {
+      if (bar) ex.ghostty_wasm_free(bar, barSize);
+      if (behavior) ex.ghostty_wasm_free(behavior, scrollSize);
+      throw new Error('Failed to allocate prompt navigation');
+    }
+    const read = () => {
+      if (ex.ghostty_terminal_get(this.handle, TerminalData.SCROLLBAR, bar) !== 0)
+        throw new Error('Failed to read viewport');
+      const view = new DataView(this.memory.buffer);
+      const field = (name: string) =>
+        Number(view.getBigUint64(bar + abi.offset('GhosttyTerminalScrollbar', name), true));
+      return { total: field('total'), offset: field('offset'), len: field('len') };
+    };
+    const scroll = (tag: string, value: number) => {
+      new Uint8Array(this.memory.buffer, behavior, scrollSize).fill(0);
+      const view = new DataView(this.memory.buffer);
+      view.setUint32(
+        behavior + abi.offset('GhosttyTerminalScrollViewport', 'tag'),
+        abi.enumValue('GhosttyTerminalScrollViewportTag', tag),
+        true
+      );
+      view.setInt32(behavior + abi.offset('GhosttyTerminalScrollViewport', 'value'), value, true);
+      if (ex.ghostty_terminal_scroll_viewport(this.handle, behavior) !== 0)
+        throw new Error('Prompt navigation failed');
+      this.invalidateCellCaches();
+    };
+    let original: ReturnType<typeof read> | undefined;
+    try {
+      original = read();
+      const maximum = Math.max(0, original.total - original.len);
+      current = Math.max(0, Math.min(maximum, Math.floor(current)));
+      scroll('ROW', maximum - current);
+      scroll('DELTA_PROMPT', delta);
+      let after = read(),
+        next = Math.max(0, after.total - after.len - after.offset);
+      if (next === current && delta < 0) {
+        scroll('DELTA', -1);
+        scroll('DELTA_PROMPT', delta);
+        after = read();
+        next = Math.max(0, after.total - after.len - after.offset);
+      }
+      return next;
+    } finally {
+      try {
+        if (original) scroll('ROW', original.offset);
+      } finally {
+        ex.ghostty_wasm_free(bar, barSize);
+        ex.ghostty_wasm_free(behavior, scrollSize);
+      }
+    }
+  }
+
   /**
    * Check if there are pending responses from the terminal.
    *

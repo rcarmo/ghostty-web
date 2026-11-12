@@ -280,6 +280,14 @@ folding ASCII letter case, and highlights the selected match without replacing
 caller decorations. Queries are limited to 1024 characters. Regular expressions,
 whole-word matching and Unicode case folding are not supported.
 
+Prompt marks emitted with OSC 133 can be navigated with `term.scrollToPrompt()`
+(older) and `term.scrollToPrompt(false)` (newer). Navigation returns false when
+no retained prompt is available or an alternate-screen application is active.
+
+For an authoritative remote VT service, use `emitTerminalResponses: false`:
+keyboard input still emits normally, while local parser-generated replies are
+discarded so the server can answer each query once.
+
 ### Output consumption
 
 Large writes are parsed in bounded chunks with time-limited work between browser
