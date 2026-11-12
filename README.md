@@ -321,6 +321,13 @@ changes remeasure metrics and request a full redraw. This avoids repeated canvas
 resize churn caused by comparing integer backing dimensions with fractional
 computed sizes.
 
+Kitty images use the core's resolved viewport rectangles, layers, offsets and
+content generations. Pixel snapshots are owned and bounded, so retransmission,
+memory growth and animation cannot reuse stale borrowed views. The terminal owns
+animation deadlines, pauses them during suspension/synchronized output, and
+cancels them on reset/disposal. Canvas rendering interleaves image layers with
+row backgrounds and text, clipping to rows being repainted.
+
 ### Canvas lifecycle restoration
 
 Mobile browsers may discard a canvas bitmap while an app is backgrounded even

@@ -1,3 +1,4 @@
+import { RenderImages, type ImageFrame } from './render-images';
 import { CoreSelection, type CoreSelectionRange } from './core-selection';
 import { TerminalSearch } from './search';
 /**
@@ -395,6 +396,8 @@ export class GhosttyTerminal {
   private handle: TerminalHandle;
   private searches = new Set<TerminalSearch>();
   private selection?: CoreSelection;
+  private images?: RenderImages;
+  private imageEpoch = 0;
   private renderHandle: number = 0;
   private rowIter: number = 0;
   private rowCells: number = 0;
@@ -622,6 +625,28 @@ export class GhosttyTerminal {
   }
   getSelectionText(): string {
     return this.coreSelection().text();
+  }
+
+  private imageState(): RenderImages {
+    if (!this.images)
+      this.images = new RenderImages(
+        this.exports,
+        this.handle,
+        this.renderHandle,
+        () => {
+          this.update();
+        },
+        () => ({ width: this.cellWidthPx, height: this.cellHeightPx }),
+        (graphics, id) => this.getKittyImagePixels(graphics, id),
+        this.abi
+      );
+    return this.images;
+  }
+  getImageFrame(viewportY = 0): ImageFrame {
+    return this.imageState().getFrame(this.imageEpoch, viewportY);
+  }
+  tickImages(now: number): { next: number | null; changed: boolean } {
+    return this.imageState().tick(now);
   }
 
   createSearch(): TerminalSearch {
@@ -1207,6 +1232,8 @@ export class GhosttyTerminal {
 
   free(): void {
     if (!this.handle) return;
+    this.images?.dispose();
+    this.images = undefined;
     for (const search of this.searches) search.dispose();
     this.invalidateCellCaches();
     if (this.callbackRegistry) {
@@ -2358,6 +2385,7 @@ export class GhosttyTerminal {
   // ==========================================================================
 
   private invalidateCellCaches(): void {
+    this.imageEpoch++;
     this.viewportCache = null;
     this.scrollbackLineCache.clear();
     this.scrollbackWrapCache.clear();

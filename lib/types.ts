@@ -431,6 +431,18 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
   ): number;
   ghostty_formatter_free(formatter: number): void;
 
+  ghostty_render_state_image_iterator_new(allocator: number, out: number): number;
+  ghostty_render_state_image_iterator_free(iterator: number): void;
+  ghostty_render_state_image_iterator_next(iterator: number): boolean;
+  ghostty_render_state_image_get_multi(
+    iterator: number,
+    count: number,
+    keys: number,
+    values: number,
+    written: number
+  ): number;
+  ghostty_kitty_graphics_animation_tick(graphics: number, now: bigint, next: number): number;
+
   // Terminal lifecycle
   ghostty_terminal_new(
     allocatorPtr: number,
@@ -634,6 +646,8 @@ export enum DirtyState {
  * Keys for ghostty_render_state_get(). Mirrors GhosttyRenderStateData.
  */
 export enum RenderStateData {
+  IMAGE_ITERATOR = 22,
+  IMAGE_PLACEMENTS_GENERATION = 23,
   COLS = 1,
   ROWS = 2,
   DIRTY = 3,
@@ -743,6 +757,7 @@ export enum SysOption {
  * Keys for ghostty_kitty_graphics_get(). Mirrors GhosttyKittyGraphicsData.
  */
 export enum KittyGraphicsData {
+  GENERATION = 2,
   PLACEMENT_ITERATOR = 1,
 }
 
@@ -769,6 +784,7 @@ export enum KittyGraphicsPlacementData {
  * Keys for ghostty_kitty_graphics_image_get(). Mirrors GhosttyKittyGraphicsImageData.
  */
 export enum KittyGraphicsImageData {
+  GENERATION = 9,
   ID = 1,
   NUMBER = 2,
   WIDTH = 3,
@@ -875,6 +891,7 @@ export const KITTY_PLACEMENT_RENDER_INFO_SIZE = 48;
  * mutating terminal call — copy out before vt_write if you need to retain.
  */
 export interface KittyImagePixels {
+  revision?: number;
   width: number;
   height: number;
   format: KittyImageFormat;

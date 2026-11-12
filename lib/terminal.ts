@@ -126,6 +126,7 @@ export class Terminal implements ITerminalCore {
   private writeParsedEmitter = new EventEmitter<void>();
   private writeErrorEmitter = new EventEmitter<Error>();
   readonly onWriteError = this.writeErrorEmitter.event;
+  private cancelImageAnimation?: () => void;
   private parserQueue = new WriteQueue(
     (data) => this.writeInternal(data),
     (fn) => {
@@ -850,6 +851,7 @@ export class Terminal implements ITerminalCore {
     }
 
     this.writeParsedEmitter.fire();
+    this.scheduleImageAnimation();
     if (this.awaitingEcho) {
       // Render echoed user input immediately to minimize perceived latency.
       this.awaitingEcho = false;
@@ -987,6 +989,8 @@ export class Terminal implements ITerminalCore {
   reset(): void {
     this.assertOpen();
     this.parserQueue.clear();
+    this.cancelImageAnimation?.();
+    this.cancelImageAnimation = undefined;
 
     this.clearSynchronizedOutputWait();
 
@@ -1052,6 +1056,8 @@ export class Terminal implements ITerminalCore {
   suspend(): void {
     if (this.isSuspended || !this.isOpen) return;
     this.isSuspended = true;
+    this.cancelImageAnimation?.();
+    this.cancelImageAnimation = undefined;
     this.cancelRenderLoop();
     this.cancelScrollAnimation();
   }
@@ -1063,6 +1069,7 @@ export class Terminal implements ITerminalCore {
   resume(): void {
     if (!this.isSuspended || !this.isOpen) return;
     this.isSuspended = false;
+    this.scheduleImageAnimation();
     if (this.scrollAnimationStartTime !== undefined && this.scrollAnimationFrame === undefined) {
       this.animateScroll();
     }
@@ -1482,6 +1489,8 @@ export class Terminal implements ITerminalCore {
     }
 
     this.isDisposed = true;
+    this.cancelImageAnimation?.();
+    this.cancelImageAnimation = undefined;
     this.parserQueue.dispose();
     this.isOpen = false;
     this.isSuspended = false;
@@ -1621,6 +1630,31 @@ export class Terminal implements ITerminalCore {
     this.requestRender();
   }
 
+  private scheduleImageAnimation(): void {
+    this.cancelImageAnimation?.();
+    this.cancelImageAnimation = undefined;
+    if (
+      this.isDisposed ||
+      this.isSuspended ||
+      !this.wasmTerm ||
+      (this.wasmTerm.getMode(2026) && !this.synchronizedOutputExpired)
+    )
+      return;
+    const view = this.getOwnerWindow();
+    const now = view?.performance.now() ?? performance.now();
+    const tick = this.wasmTerm.tickImages(now);
+    if (tick.changed) this.requestFullRender();
+    if (tick.next === null) return;
+    const delay = Math.max(8, Math.min(60000, tick.next - now));
+    if (view) {
+      const id = view.setTimeout(() => this.scheduleImageAnimation(), delay);
+      this.cancelImageAnimation = () => view.clearTimeout(id);
+    } else {
+      const id = setTimeout(() => this.scheduleImageAnimation(), delay);
+      this.cancelImageAnimation = () => clearTimeout(id);
+    }
+  }
+
   private clearSynchronizedOutputWait(): void {
     if (this.synchronizedOutputTimer !== undefined) {
       this.getOwnerWindow()?.clearTimeout(this.synchronizedOutputTimer);
@@ -1641,6 +1675,7 @@ export class Terminal implements ITerminalCore {
           this.synchronizedOutputTimer = this.getOwnerWindow()?.setTimeout(() => {
             this.synchronizedOutputTimer = undefined;
             this.synchronizedOutputExpired = true;
+            this.scheduleImageAnimation();
             this.requestFullRender();
           }, 1000);
         }

@@ -89,6 +89,9 @@ export declare class CanvasRenderer {
      * through every helper. Set at the top of render(), cleared at the end.
      */
     private currentRenderBuffer;
+    private resolvedImages?;
+    private resolvedRevision;
+    private resolvedCanvases;
     private currentKittyGraphics;
     private selectionManager?;
     private currentSelectionCoords;
@@ -206,6 +209,7 @@ export declare class CanvasRenderer {
      * matching virtual placement, or malformed diacritics).
      */
     private renderPlaceholderCell;
+    private drawResolvedLayer;
     private renderKittyImages;
     /**
      * Decode a kitty graphics image into a canvas suitable for drawImage.
@@ -512,6 +516,8 @@ export declare class GhosttyTerminal {
     private handle;
     private searches;
     private selection?;
+    private images?;
+    private imageEpoch;
     private renderHandle;
     private rowIter;
     private rowCells;
@@ -571,6 +577,12 @@ export declare class GhosttyTerminal {
     getSelectionRange(): CoreSelectionRange | null;
     clearSelection(): void;
     getSelectionText(): string;
+    private imageState;
+    getImageFrame(viewportY?: number): ImageFrame;
+    tickImages(now: number): {
+        next: number | null;
+        changed: boolean;
+    };
     createSearch(): TerminalSearch;
     /**
      * Allocate an opaque handle through one of the new(allocator, *outHandle)
@@ -950,6 +962,11 @@ declare interface GhosttyWasmExports extends WebAssembly.Exports {
     ghostty_formatter_set(formatter: number, option: number, value: number): number;
     ghostty_formatter_format_buf(formatter: number, output: number, length: number, written: number): number;
     ghostty_formatter_free(formatter: number): void;
+    ghostty_render_state_image_iterator_new(allocator: number, out: number): number;
+    ghostty_render_state_image_iterator_free(iterator: number): void;
+    ghostty_render_state_image_iterator_next(iterator: number): boolean;
+    ghostty_render_state_image_get_multi(iterator: number, count: number, keys: number, values: number, written: number): number;
+    ghostty_kitty_graphics_animation_tick(graphics: number, now: bigint, next: number): number;
     ghostty_terminal_new(allocatorPtr: number, terminalPtrPtr: number, cols: number, rows: number): number;
     ghostty_terminal_free(terminal: TerminalHandle): void;
     ghostty_terminal_resize(terminal: TerminalHandle, cols: number, rows: number, cellWidthPx: number, cellHeightPx: number): number;
@@ -1203,6 +1220,14 @@ export declare interface ILinkProvider {
     provideLinks(y: number, callback: (links: ILink[] | undefined) => void): void;
     /** Optional: called when terminal is disposed */
     dispose?(): void;
+}
+
+/** A synchronous render snapshot; consume pixels before the next terminal mutation. */
+declare interface ImageFrame {
+    /** Changes when geometry, image contents, pixel availability or terminal changes. */
+    revision: number;
+    placements: readonly RenderImage[];
+    pixels(imageId: number): KittyImagePixels | null;
 }
 
 /**
@@ -1499,6 +1524,7 @@ export declare interface IRenderable {
      * For simple cells, returns the single character.
      */
     getGraphemeString?(row: number, col: number): string;
+    getImageFrame?(viewportY?: number): ImageFrame;
     getKittyGraphics?(): number | null;
     iterPlacements?(graphics: number, onlyVisible?: boolean): Iterable<KittyPlacementInfo>;
     getKittyImagePixels?(graphics: number, imageId: number): KittyImagePixels | null;
@@ -1967,6 +1993,7 @@ declare enum KittyImageFormat {
  * mutating terminal call — copy out before vt_write if you need to retain.
  */
 declare interface KittyImagePixels {
+    revision?: number;
     width: number;
     height: number;
     format: KittyImageFormat;
@@ -2156,6 +2183,24 @@ export declare interface RendererOptions {
     devicePixelRatio?: number;
     scrollbarWidth?: number;
     allowTransparency?: boolean;
+}
+
+/** A resolved, viewport-relative rectangle. All geometry is in CSS pixels/cells. */
+declare interface RenderImage {
+    imageId: number;
+    generation: bigint;
+    layer: number;
+    z: number;
+    viewportCol: number;
+    viewportRow: number;
+    offsetX: number;
+    offsetY: number;
+    pixelWidth: number;
+    pixelHeight: number;
+    sourceX: number;
+    sourceY: number;
+    sourceWidth: number;
+    sourceHeight: number;
 }
 
 /**
@@ -2496,6 +2541,7 @@ export declare class Terminal implements ITerminalCore {
     private writeParsedEmitter;
     private writeErrorEmitter;
     readonly onWriteError: IEvent<Error>;
+    private cancelImageAnimation?;
     private parserQueue;
     readonly onWriteParsed: IEvent<void>;
     private customKeyEventHandler?;
@@ -2790,6 +2836,7 @@ export declare class Terminal implements ITerminalCore {
      */
     requestRender(): void;
     private requestFullRender;
+    private scheduleImageAnimation;
     private clearSynchronizedOutputWait;
     /** Parse continuously, but present DEC synchronized output as one frame. */
     private renderFrame;

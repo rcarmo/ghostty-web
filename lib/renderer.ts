@@ -1,3 +1,4 @@
+import type { ImageFrame } from './render-images';
 /**
  * Canvas Renderer for Terminal Display
  *
@@ -36,6 +37,7 @@ export interface IRenderable {
   // Kitty graphics — optional. When implemented, the renderer composites
   // images onto the canvas after text rendering. GhosttyTerminal provides
   // these; other IRenderable implementations (e.g. test fakes) can omit.
+  getImageFrame?(viewportY?: number): ImageFrame;
   getKittyGraphics?(): number | null;
   iterPlacements?(graphics: number, onlyVisible?: boolean): Iterable<KittyPlacementInfo>;
   getKittyImagePixels?(graphics: number, imageId: number): KittyImagePixels | null;
@@ -252,6 +254,9 @@ export class CanvasRenderer {
    * through every helper. Set at the top of render(), cleared at the end.
    */
   private currentRenderBuffer: IRenderable | null = null;
+  private resolvedImages?: ImageFrame;
+  private resolvedRevision = -1;
+  private resolvedCanvases = new Map<number, { generation: bigint; canvas: HTMLCanvasElement }>();
   private currentKittyGraphics: number | null = null;
 
   // Selection manager (for rendering selection)
@@ -495,7 +500,18 @@ export class CanvasRenderer {
     // kittyDamagedRows (rows where a placement was added/removed/moved/
     // re-decoded, so the text underneath needs repainting to clear stale
     // image pixels).
-    this.precomputeKittyState(buffer, dims.rows, Math.floor(viewportY));
+    this.resolvedImages = buffer.getImageFrame?.(Math.floor(viewportY));
+    if (this.resolvedImages) {
+      if (this.resolvedImages.revision !== this.resolvedRevision) {
+        forceAll = true;
+        this.resolvedRevision = this.resolvedImages.revision;
+      }
+      const ids = new Set(this.resolvedImages.placements.map((image) => image.imageId));
+      for (const id of this.resolvedCanvases.keys())
+        if (!ids.has(id)) this.resolvedCanvases.delete(id);
+      this.currentDirectPlacements = [];
+      this.kittyDamagedRows.clear();
+    } else this.precomputeKittyState(buffer, dims.rows, Math.floor(viewportY));
     const scrollbackLength = scrollbackProvider ? scrollbackProvider.getScrollbackLength() : 0;
 
     // Check if buffer needs full redraw (e.g., screen change between normal/alternate)
@@ -801,6 +817,7 @@ export class CanvasRenderer {
       this.ctx.fillRect(0, lineY, lineWidth, this.metrics.height);
     }
 
+    if (this.resolvedImages) this.drawResolvedLayer(0, y);
     // PASS 1: Draw all cell backgrounds first
     // This ensures all backgrounds are painted before any text, allowing text
     // to "bleed" across cell boundaries without being covered by adjacent backgrounds
@@ -810,6 +827,7 @@ export class CanvasRenderer {
       this.renderCellBackground(cell, x, y);
     }
 
+    if (this.resolvedImages) this.drawResolvedLayer(1, y);
     // PASS 2: Draw all cell text and decorations
     // Now text can safely extend beyond cell boundaries (for complex scripts)
     for (let x = 0; x < line.length; x++) {
@@ -817,6 +835,7 @@ export class CanvasRenderer {
       if (cell.width === 0) continue; // Skip spacer cells for wide characters
       this.renderCellText(cell, x, y);
     }
+    if (this.resolvedImages) this.drawResolvedLayer(2, y);
   }
 
   /**
@@ -978,6 +997,10 @@ export class CanvasRenderer {
     const textY = cellY + this.metrics.baseline;
 
     const codepoint = cell.codepoint || 32;
+    if (this.resolvedImages && codepoint === 0x10eeee) {
+      this.ctx.globalAlpha = 1;
+      return;
+    }
 
     // Handle special characters that need pixel-perfect rendering:
     // - Box drawing characters (U+2500-U+257F): geometric lines for connected TUI borders
@@ -1899,6 +1922,45 @@ export class CanvasRenderer {
     return true;
   }
 
+  private drawResolvedLayer(layer: number, row: number): void {
+    const frame = this.resolvedImages;
+    if (!frame) return;
+    const y = row * this.metrics.height;
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.rect(0, y, this.canvas.width / this.devicePixelRatio, this.metrics.height);
+    this.ctx.clip();
+    try {
+      for (const image of frame.placements) {
+        const top = image.viewportRow * this.metrics.height + image.offsetY;
+        if (image.layer !== layer || top >= y + this.metrics.height || top + image.pixelHeight <= y)
+          continue;
+        let cached = this.resolvedCanvases.get(image.imageId);
+        if (!cached || cached.generation !== image.generation) {
+          const pixels = frame.pixels(image.imageId);
+          if (!pixels) continue;
+          const canvas = this.decodeKittyImageToCanvas(pixels);
+          if (!canvas) continue;
+          cached = { canvas, generation: image.generation };
+          this.resolvedCanvases.set(image.imageId, cached);
+        }
+        this.ctx.drawImage(
+          cached.canvas,
+          image.sourceX,
+          image.sourceY,
+          image.sourceWidth,
+          image.sourceHeight,
+          image.viewportCol * this.metrics.width + image.offsetX,
+          top,
+          image.pixelWidth,
+          image.pixelHeight
+        );
+      }
+    } finally {
+      this.ctx.restore();
+    }
+  }
+
   private renderKittyImages(): void {
     const buffer = this.currentRenderBuffer;
     const graphics = this.currentKittyGraphics;
@@ -2432,6 +2494,8 @@ export class CanvasRenderer {
    * Cleanup resources
    */
   public dispose(): void {
+    this.resolvedCanvases.clear();
+    this.resolvedImages = undefined;
     this.stopCursorBlink();
 
     // Remove overlay canvas from DOM
