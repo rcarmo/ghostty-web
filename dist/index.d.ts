@@ -1353,6 +1353,18 @@ export declare class InputHandler {
      */
     private handleWheel;
     /**
+     * Send a wheel event as a mouse tracking sequence.
+     * Public so that Terminal can forward wheel events when mouse tracking is
+     * active (the Terminal-level capture handler stops propagation to prevent
+     * browser scrolling, so this method allows explicit forwarding).
+     */
+    handleWheelEvent(event: WheelEvent): void;
+    /**
+     * Encode and send a wheel event as a mouse tracking escape sequence.
+     * Button 64 = scroll up, button 65 = scroll down, with cell coordinates.
+     */
+    private sendWheelMouseEvent;
+    /**
      * Emit paste data with bracketed paste support
      */
     private emitPasteData;

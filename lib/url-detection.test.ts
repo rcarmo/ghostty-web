@@ -210,6 +210,34 @@ describe('URL Detection', () => {
     expect(links?.[0].text).toBe('tel:+1234567890');
   });
 
+  test('detects URLs with balanced parentheses (Wikipedia)', async () => {
+    const links = await getLinks('https://en.wikipedia.org/wiki/Rust_(programming_language)');
+    expect(links).toBeDefined();
+    expect(links?.length).toBe(1);
+    expect(links?.[0].text).toBe('https://en.wikipedia.org/wiki/Rust_(programming_language)');
+  });
+
+  test('strips unbalanced trailing paren from wrapped URL', async () => {
+    const links = await getLinks('(see https://en.wikipedia.org/wiki/Rust_(programming_language))');
+    expect(links).toBeDefined();
+    expect(links?.length).toBe(1);
+    expect(links?.[0].text).toBe('https://en.wikipedia.org/wiki/Rust_(programming_language)');
+  });
+
+  test('handles URL with multiple parenthesized path segments', async () => {
+    const links = await getLinks('https://example.com/a_(b)/c_(d)');
+    expect(links).toBeDefined();
+    expect(links?.length).toBe(1);
+    expect(links?.[0].text).toBe('https://example.com/a_(b)/c_(d)');
+  });
+
+  test('handles URL with nested parentheses', async () => {
+    const links = await getLinks('https://example.com/foo_(bar_(baz))');
+    expect(links).toBeDefined();
+    expect(links?.length).toBe(1);
+    expect(links?.[0].text).toBe('https://example.com/foo_(bar_(baz))');
+  });
+
   test('detects magnet: URLs', async () => {
     const links = await getLinks('Download magnet:?xt=urn:btih:abc123');
     expect(links).toBeDefined();
@@ -239,6 +267,32 @@ describe('URL Detection across soft-wrapped rows', () => {
     expect(linksOnContinuation).toBeDefined();
     expect(linksOnContinuation?.length).toBe(1);
     expect(linksOnContinuation?.[0].text).toBe('https://example.com/very/long/path');
+  });
+
+  test('trims unmatched parentheses without extending the wrapped highlight', async () => {
+    const cols = 20;
+    const url = 'https://example.com/a_(b)/long_(path)';
+    const text = `see ${url}).`;
+    const rows: MockLine[] = [];
+    for (let i = 0; i < text.length; i += cols)
+      rows.push({ text: text.slice(i, i + cols), isWrapped: i > 0 });
+    const links = await getLinksAt(rows, 1, cols);
+    expect(links?.[0].text).toBe(url);
+    expect(links?.[0].range.start).toEqual({ x: 4, y: 0 });
+    const end = 4 + url.length - 1;
+    expect(links?.[0].range.end).toEqual({ x: end % cols, y: Math.floor(end / cols) });
+  });
+
+  test('bounds long runs of unmatched closing parentheses', async () => {
+    const cols = 80;
+    const url = 'https://example.com/a_(b)';
+    const text = url + ')'.repeat(5000);
+    const rows: MockLine[] = [];
+    for (let i = 0; i < text.length; i += cols)
+      rows.push({ text: text.slice(i, i + cols), isWrapped: i > 0 });
+    const links = await getLinksAt(rows, 0, cols);
+    expect(links?.[0].text).toBe(url);
+    expect(links?.[0].range.end).toEqual({ x: url.length - 1, y: 0 });
   });
 
   test('walks across three wrapped rows', async () => {

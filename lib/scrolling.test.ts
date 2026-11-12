@@ -90,6 +90,69 @@ describe('Terminal Scrolling', () => {
     });
   });
 
+  describe('Application mouse tracking ownership', () => {
+    function wheel(deltaY: number) {
+      const canvas = terminal.renderer!.getCanvas();
+      const { width, height } = terminal.renderer!.getMetrics();
+      canvas.getBoundingClientRect = () => ({
+        left: 32,
+        top: 48,
+        right: 32 + width * 80,
+        bottom: 48 + height * 24,
+        width: width * 80,
+        height: height * 24,
+        x: 32,
+        y: 48,
+        toJSON: () => ({}),
+      });
+      const event = new WheelEvent('wheel', { deltaY, bubbles: true, cancelable: true });
+      // Happy DOM's WheelEvent omits MouseEvent coordinates; browsers inherit them.
+      Object.defineProperties(event, {
+        clientX: { value: 32 + width * 2.5 },
+        clientY: { value: 48 + height * 1.5 },
+      });
+      canvas.dispatchEvent(event);
+    }
+
+    test('SGR wheel reports include cell coordinates exactly once on either screen', () => {
+      const data: string[] = [];
+      terminal.onData((value) => data.push(value));
+      terminal.write('\x1b[?1000h\x1b[?1006h');
+      wheel(-100);
+      expect(data).toEqual(['\x1b[<64;3;2M']);
+      data.length = 0;
+      terminal.write('\x1b[?1049h');
+      wheel(100);
+      expect(data).toEqual(['\x1b[<65;3;2M']);
+    });
+
+    test('legacy mouse mode receives an X10 wheel report rather than arrows', () => {
+      const data: string[] = [];
+      terminal.onData((value) => data.push(value));
+      terminal.write('\x1b[?1049h\x1b[?1000h\x1b[?1006l');
+      wheel(-100);
+      expect(data).toHaveLength(1);
+      expect(Array.from(data[0], (char) => char.charCodeAt(0))).toEqual([27, 91, 77, 96, 35, 34]);
+    });
+
+    test('custom wheel ownership takes precedence over application tracking', () => {
+      const data: string[] = [];
+      terminal.onData((value) => data.push(value));
+      terminal.write('\x1b[?1000h\x1b[?1006h');
+      terminal.attachCustomWheelEventHandler(() => true);
+      wheel(-100);
+      expect(data).toEqual([]);
+    });
+
+    test('zero vertical delta does not emit a phantom down report', () => {
+      const data: string[] = [];
+      terminal.onData((value) => data.push(value));
+      terminal.write('\x1b[?1000h\x1b[?1006h');
+      wheel(0);
+      expect(data).toEqual([]);
+    });
+  });
+
   describe('Alternate Screen Mode', () => {
     beforeEach(async () => {
       // Enter alternate screen mode (vim, less, htop, etc.)

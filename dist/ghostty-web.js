@@ -1221,7 +1221,7 @@ var M = class {
 		} });
 	}
 	fire(e) {
-		for (let t of this.listeners) t(e);
+		for (let t of [...this.listeners]) t(e);
 	}
 	dispose() {
 		this.listeners = [];
@@ -1656,8 +1656,10 @@ var M = class {
 	pixelToCell(e) {
 		if (!this.mouseConfig) return null;
 		let t = this.mouseConfig.getCellDimensions(), n = this.mouseConfig.getCanvasOffset();
-		if (t.width <= 0 || t.height <= 0) return null;
-		let r = e.clientX - n.left, i = e.clientY - n.top, a = Math.floor(r / t.width) + 1, o = Math.floor(i / t.height) + 1;
+		if (!Number.isFinite(t.width) || !Number.isFinite(t.height) || t.width <= 0 || t.height <= 0) return null;
+		let r = e.clientX - n.left, i = e.clientY - n.top;
+		if (!Number.isFinite(r) || !Number.isFinite(i)) return null;
+		let a = Math.floor(r / t.width) + 1, o = Math.floor(i / t.height) + 1;
 		return {
 			col: Math.max(1, a),
 			row: Math.max(1, o)
@@ -1710,11 +1712,17 @@ var M = class {
 		i = this.mouseButtonsPressed & 1 ? 0 : this.mouseButtonsPressed & 2 ? 1 : this.mouseButtonsPressed & 4 ? 2 : 3, this.sendMouseEvent(i + 32, r.col, r.row, !1, e);
 	}
 	handleWheel(e) {
-		if (this.isDisposed || !this.mouseConfig?.hasMouseTracking()) return;
+		this.isDisposed || this.mouseConfig?.hasMouseTracking() && (this.sendWheelMouseEvent(e), e.preventDefault());
+	}
+	handleWheelEvent(e) {
+		!this.isDisposed && this.mouseConfig?.hasMouseTracking() && this.sendWheelMouseEvent(e);
+	}
+	sendWheelMouseEvent(e) {
+		if (e.deltaY === 0) return;
 		let t = this.pixelToCell(e);
 		if (!t) return;
 		let n = e.deltaY < 0 ? 64 : 65;
-		this.sendMouseEvent(n, t.col, t.row, !1, e), e.preventDefault();
+		this.sendMouseEvent(n, t.col, t.row, !1, e);
 	}
 	emitPasteData(e) {
 		this.onDataCallback(Oe(e, this.getModeCallback?.(2004) ?? !1));
@@ -1941,10 +1949,10 @@ function Le(e, t) {
 // lib/providers/url-regex-provider.ts
 var Re = class e {
 	static {
-		this.URL_REGEX = /(?:https?:\/\/|mailto:|ftp:\/\/|ssh:\/\/|git:\/\/|tel:|magnet:|gemini:\/\/|gopher:\/\/|news:)[\w\-.~:\/?#@!$&*+,;=%]+/gi;
+		this.URL_REGEX = /(?:https?:\/\/|mailto:|ftp:\/\/|ssh:\/\/|git:\/\/|tel:|magnet:|gemini:\/\/|gopher:\/\/|news:)[\w\-.~:\/?#@!$&*+,;=%()]+/gi;
 	}
 	static {
-		this.TRAILING_PUNCTUATION = /[.,;!?)\]]+$/;
+		this.TRAILING_PUNCTUATION = /[.,;!?\]]+$/;
 	}
 	static {
 		this.MAX_WRAP_CHAIN_ROWS = 256;
@@ -1981,7 +1989,12 @@ var Re = class e {
 		let u = e.URL_REGEX.exec(s);
 		for (; u !== null;) {
 			let n = u[0], r = u.index, a = r + n.length - 1, o = n.replace(e.TRAILING_PUNCTUATION, "");
-			if (o.length < n.length && (n = o, a = r + n.length - 1), n.length > 8) {
+			o.length < n.length && (n = o, a = r + n.length - 1);
+			let d = 0;
+			for (let e of n) e === ")" ? d++ : e === "(" && d--;
+			let f = n.length;
+			for (; d > 0 && n[f - 1] === ")";) f--, d--;
+			if (f < n.length && (n = n.slice(0, f), a = r + f - 1), n.length > 8) {
 				let e = this.joinedIdxToRowCol(r, c, i), o = this.joinedIdxToRowCol(a, c, i);
 				if (e.y <= t && o.y >= t) {
 					let t = {
@@ -5266,7 +5279,8 @@ var Ht = class e {
 			}
 		}, this.handleWheel = (e) => {
 			if (e.preventDefault(), e.stopPropagation(), !(this.customWheelEventHandler && this.customWheelEventHandler(e))) {
-				if (this.wasmTerm?.isAlternateScreen() ?? !1) {
+				if (this.wasmTerm?.hasMouseTracking()) this.inputHandler?.handleWheelEvent(e);
+				else if (this.wasmTerm?.isAlternateScreen() ?? !1) {
 					let t = e.deltaY > 0 ? "down" : "up", n = Math.min(Math.abs(Math.round(e.deltaY / 33)), 5);
 					for (let e = 0; e < n; e++) t === "up" ? this.dataEmitter.fire("\x1B[A") : this.dataEmitter.fire("\x1B[B");
 				} else {

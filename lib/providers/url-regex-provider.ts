@@ -37,13 +37,13 @@ export class UrlRegexProvider implements ILinkProvider {
    * Excludes file paths (no ./ or ../ or bare /)
    */
   private static readonly URL_REGEX =
-    /(?:https?:\/\/|mailto:|ftp:\/\/|ssh:\/\/|git:\/\/|tel:|magnet:|gemini:\/\/|gopher:\/\/|news:)[\w\-.~:\/?#@!$&*+,;=%]+/gi;
+    /(?:https?:\/\/|mailto:|ftp:\/\/|ssh:\/\/|git:\/\/|tel:|magnet:|gemini:\/\/|gopher:\/\/|news:)[\w\-.~:\/?#@!$&*+,;=%()]+/gi;
 
   /**
    * Characters to strip from end of URLs
    * Common punctuation that's unlikely to be part of the URL
    */
-  private static readonly TRAILING_PUNCTUATION = /[.,;!?)\]]+$/;
+  private static readonly TRAILING_PUNCTUATION = /[.,;!?\]]+$/;
 
   /**
    * Maximum number of soft-wrapped rows to traverse in either direction
@@ -117,6 +117,23 @@ export class UrlRegexProvider implements ILinkProvider {
       if (stripped.length < url.length) {
         url = stripped;
         endIdx = startIdx + url.length - 1;
+      }
+
+      // Strip only unmatched trailing closes. Count once so adversarial
+      // runs of ')' remain linear, and update the joined-row endpoint.
+      let extraCloses = 0;
+      for (const char of url) {
+        if (char === ')') extraCloses++;
+        else if (char === '(') extraCloses--;
+      }
+      let end = url.length;
+      while (extraCloses > 0 && url[end - 1] === ')') {
+        end--;
+        extraCloses--;
+      }
+      if (end < url.length) {
+        url = url.slice(0, end);
+        endIdx = startIdx + end - 1;
       }
 
       // Skip if URL is too short (e.g., just "http://")
