@@ -106,6 +106,12 @@ export class AbiLayout {
     return f.offset;
   }
 
+  expectFieldSize(struct: string, field: string, size: number): void {
+    this.offset(struct, field);
+    if (this.type(struct).fields![field].size !== size)
+      throw new Error(`Unsupported libghostty-vt field representation ${struct}.${field}`);
+  }
+
   /** Bit position of a field in a packed type. */
   bits(packed: string, field: string): BitField {
     const b = this.type(packed).bits?.[field];
@@ -171,6 +177,10 @@ export function moduleAbi(exports: GhosttyWasmExports): AbiLayout {
   );
   const tables: [string, object, Record<string, string>?][] = [
     ['GhosttyTerminalOption', C.TerminalOption],
+    ['GhosttyCursorStyle', C.CursorVisualStyle],
+    ['GhosttyRenderStateDirty', C.DirtyState, { NONE: 'FALSE' }],
+    ['GhosttyTerminalScreen', C.TerminalScreen],
+    ['GhosttyKittyImageFormat', C.KittyImageFormat],
     ['GhosttyTerminalData', C.TerminalData, { CURSOR_STYLE: 'CURSOR_SGR_STYLE' }],
     ['GhosttySysOption', C.SysOption],
     ['GhosttyRenderStateData', C.RenderStateData],
@@ -190,6 +200,34 @@ export function moduleAbi(exports: GhosttyWasmExports): AbiLayout {
   for (const [name, values, aliases] of tables) abi.validateEnum(name, values, aliases);
   if (abi.size('GhosttyCell') !== 8 || ![1, 2, 4].includes(abi.size('GhosttyStyleFlags')))
     throw new Error('Unsupported libghostty-vt cell/flags representation');
+  // Layout offsets may move; scalar representations used by DataView must not.
+  const fields: Record<string, Record<string, number>> = {
+    GhosttyString: { ptr: 4, len: 4 },
+    GhosttyColorRgb: { r: 1, g: 1, b: 1 },
+    GhosttyPointCoordinate: { x: 2, y: 4 },
+    GhosttyGridRef: { node: 4, x: 2, y: 2 },
+    GhosttyTerminalModeConfig: { mode: 2, value: 1 },
+    GhosttyStyleColor: { tag: 1 },
+    GhosttyCodepointBuffer: { ptr: 4, cap: 4, len: 4 },
+    GhosttySysImage: { width: 4, height: 4, data: 4, data_len: 4 },
+    GhosttySizeReportSize: { rows: 2, columns: 2, cell_width: 4, cell_height: 4 },
+    GhosttyKittyGraphicsPlacementRenderInfo: {
+      size: 4,
+      pixel_width: 4,
+      pixel_height: 4,
+      grid_cols: 4,
+      grid_rows: 4,
+      viewport_col: 4,
+      viewport_row: 4,
+      viewport_visible: 1,
+      source_x: 4,
+      source_y: 4,
+      source_width: 4,
+      source_height: 4,
+    },
+  };
+  for (const [type, entries] of Object.entries(fields))
+    for (const [field, size] of Object.entries(entries)) abi.expectFieldSize(type, field, size);
   layouts.set(exports, abi);
   return abi;
 }

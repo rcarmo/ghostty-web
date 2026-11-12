@@ -162,6 +162,9 @@ var D = /* @__PURE__ */ function(e) {
 		if (!Number.isSafeInteger(n.offset) || !Number.isSafeInteger(n.size) || n.offset < 0 || n.size <= 0 || n.offset + n.size > this.size(e)) throw Error(`Invalid libghostty-vt field ${e}.${t}`);
 		return n.offset;
 	}
+	expectFieldSize(e, t, n) {
+		if (this.offset(e, t), this.type(e).fields[t].size !== n) throw Error(`Unsupported libghostty-vt field representation ${e}.${t}`);
+	}
 	bits(e, t) {
 		let n = this.type(e).bits?.[t];
 		if (!n) throw Error(`libghostty-vt packed type ${e} has no field ${t}`);
@@ -197,8 +200,16 @@ function ne(e) {
 	let a = Math.min(i.length, n + 4194304), o = n;
 	for (; o < a && i[o] !== 0;) o++;
 	if (o === a) throw Error("Unterminated or oversized libghostty-vt manifest");
-	let s = new ee(new TextDecoder("utf-8", { fatal: !0 }).decode(i.subarray(n, o))), u = [
+	let E = new ee(new TextDecoder("utf-8", { fatal: !0 }).decode(i.subarray(n, o))), D = [
 		["GhosttyTerminalOption", f],
+		["GhosttyCursorStyle", u],
+		[
+			"GhosttyRenderStateDirty",
+			s,
+			{ NONE: "FALSE" }
+		],
+		["GhosttyTerminalScreen", v],
+		["GhosttyKittyImageFormat", _],
 		[
 			"GhosttyTerminalData",
 			d,
@@ -223,13 +234,69 @@ function ne(e) {
 		["GhosttyKittyGraphicsPlacementData", h],
 		["GhosttyKittyGraphicsImageData", g]
 	];
-	for (let [e, t, n] of u) s.validateEnum(e, t, n);
-	if (s.size("GhosttyCell") !== 8 || ![
+	for (let [e, t, n] of D) E.validateEnum(e, t, n);
+	if (E.size("GhosttyCell") !== 8 || ![
 		1,
 		2,
 		4
-	].includes(s.size("GhosttyStyleFlags"))) throw Error("Unsupported libghostty-vt cell/flags representation");
-	return te.set(e, s), s;
+	].includes(E.size("GhosttyStyleFlags"))) throw Error("Unsupported libghostty-vt cell/flags representation");
+	for (let [e, t] of Object.entries({
+		GhosttyString: {
+			ptr: 4,
+			len: 4
+		},
+		GhosttyColorRgb: {
+			r: 1,
+			g: 1,
+			b: 1
+		},
+		GhosttyPointCoordinate: {
+			x: 2,
+			y: 4
+		},
+		GhosttyGridRef: {
+			node: 4,
+			x: 2,
+			y: 2
+		},
+		GhosttyTerminalModeConfig: {
+			mode: 2,
+			value: 1
+		},
+		GhosttyStyleColor: { tag: 1 },
+		GhosttyCodepointBuffer: {
+			ptr: 4,
+			cap: 4,
+			len: 4
+		},
+		GhosttySysImage: {
+			width: 4,
+			height: 4,
+			data: 4,
+			data_len: 4
+		},
+		GhosttySizeReportSize: {
+			rows: 2,
+			columns: 2,
+			cell_width: 4,
+			cell_height: 4
+		},
+		GhosttyKittyGraphicsPlacementRenderInfo: {
+			size: 4,
+			pixel_width: 4,
+			pixel_height: 4,
+			grid_cols: 4,
+			grid_rows: 4,
+			viewport_col: 4,
+			viewport_row: 4,
+			viewport_visible: 1,
+			source_x: 4,
+			source_y: 4,
+			source_width: 4,
+			source_height: 4
+		}
+	})) for (let [n, r] of Object.entries(t)) E.expectFieldSize(e, n, r);
+	return te.set(e, E), E;
 }
 // lib/vendor/cf-wasm-png/png.js
 var re = class {
@@ -1206,7 +1273,7 @@ var we = new TextDecoder(), M = class t {
 		if (a === 1 && t) {
 			let n = i.getUint8(e + this.abi.offset("GhosttyStyleColor", "value"));
 			o = t[n * this.abi.size("GhosttyColorRgb") + this.abi.offset("GhosttyColorRgb", "r")], s = t[n * this.abi.size("GhosttyColorRgb") + this.abi.offset("GhosttyColorRgb", "g")], c = t[n * this.abi.size("GhosttyColorRgb") + this.abi.offset("GhosttyColorRgb", "b")];
-		} else a === 2 && (o = i.getUint8(e + this.abi.offset("GhosttyStyleColor", "value")), s = i.getUint8(e + this.abi.offset("GhosttyStyleColor", "value") + this.abi.offset("GhosttyColorRgb", "g")), c = i.getUint8(e + this.abi.offset("GhosttyStyleColor", "value") + this.abi.offset("GhosttyColorRgb", "b")));
+		} else a === 2 && (o = i.getUint8(e + this.abi.offset("GhosttyStyleColor", "value") + this.abi.offset("GhosttyColorRgb", "r")), s = i.getUint8(e + this.abi.offset("GhosttyStyleColor", "value") + this.abi.offset("GhosttyColorRgb", "g")), c = i.getUint8(e + this.abi.offset("GhosttyStyleColor", "value") + this.abi.offset("GhosttyColorRgb", "b")));
 		r ? (n.fg_r = o, n.fg_g = s, n.fg_b = c, n.fgIsDefault = l) : (n.bg_r = o, n.bg_g = s, n.bg_b = c, n.bgIsDefault = l);
 	}
 	readHyperlinkUri(e, t, n) {

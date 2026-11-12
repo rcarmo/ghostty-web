@@ -24,6 +24,7 @@ describe('module ABI manifest', () => {
       })
     );
     expect(() => abi.offset('Bad', 'field')).toThrow();
+    expect(() => abi.expectFieldSize('Flags', 'bad', 4)).toThrow();
     expect(() => abi.size('missing')).toThrow();
     expect(() => abi.bits('Flags', 'bad')).toThrow();
     expect(

@@ -1944,7 +1944,11 @@ export class GhosttyTerminal {
       b =
         palette[idx * this.abi.size('GhosttyColorRgb') + this.abi.offset('GhosttyColorRgb', 'b')]!;
     } else if (tag === 2 /* RGB */) {
-      r = view.getUint8(colorPtr + this.abi.offset('GhosttyStyleColor', 'value'));
+      r = view.getUint8(
+        colorPtr +
+          this.abi.offset('GhosttyStyleColor', 'value') +
+          this.abi.offset('GhosttyColorRgb', 'r')
+      );
       g = view.getUint8(
         colorPtr +
           this.abi.offset('GhosttyStyleColor', 'value') +

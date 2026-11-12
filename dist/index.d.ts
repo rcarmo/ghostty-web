@@ -7,6 +7,7 @@ declare class AbiLayout {
     size(name: string): number;
     /** Byte offset of a struct field. */
     offset(struct: string, field: string): number;
+    expectFieldSize(struct: string, field: string, size: number): void;
     /** Bit position of a field in a packed type. */
     bits(packed: string, field: string): BitField;
     enumValue(name: string, value: string): number;
