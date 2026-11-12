@@ -514,6 +514,7 @@ export declare class GhosttyTerminal {
     private viewportCache;
     /** Mutation-invalidated LRU for expensive historical row decoding. */
     private readonly scrollbackLineCache;
+    private readonly scrollbackWrapCache;
     private static readonly SCROLLBACK_LINE_CACHE_LIMIT;
     /**
      * Cell pixel dimensions last pushed to the WASM terminal via
@@ -805,6 +806,7 @@ export declare class GhosttyTerminal {
      * The text-extraction tests that drove this commit only check codepoints.
      */
     getScrollbackLine(offset: number): GhosttyCell[] | null;
+    isScrollbackRowWrapped(offset: number): boolean;
     /**
      * Get the hyperlink URI for a cell at the given position in the active
      * viewport. Returns null when no hyperlink is attached.
@@ -2177,14 +2179,25 @@ export declare class SearchAddon implements ITerminalAddon {
     private subscription?;
     private cancelTimer?;
     private text;
+    private options;
+    private generation;
+    private textIndex?;
+    private advancedKey;
+    private advancedMatches;
+    private advancedIndex;
+    private advancedTruncated;
+    private running;
+    private runningKey;
     private disposed;
     private results;
     readonly onDidChangeResults: IEvent<SearchResults>;
     activate(terminal: ITerminalCore): void;
-    refresh(text: string): boolean;
-    findNext(text: string): boolean;
-    findPrevious(text: string): boolean;
+    refresh(text: string, options?: SearchOptions): boolean;
+    findNext(text: string, options?: SearchOptions): boolean;
+    findPrevious(text: string, options?: SearchOptions): boolean;
     private find;
+    private findAdvanced;
+    private presentAdvanced;
     clearDecorations(): void;
     dispose(): void;
 }
@@ -2196,9 +2209,18 @@ declare interface SearchMatch {
     endRow: number;
 }
 
+export declare interface SearchOptions {
+    regex?: boolean;
+    caseSensitive?: boolean;
+    wholeWord?: boolean;
+}
+
 export declare interface SearchResults {
     resultIndex: number;
     resultCount: number;
+    pending?: boolean;
+    truncated?: boolean;
+    error?: string;
 }
 
 export declare interface SelectionCoordinates {

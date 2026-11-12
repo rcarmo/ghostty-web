@@ -187,7 +187,7 @@ export class Buffer implements IBuffer {
       cells = wasmTerm.getScrollbackLine(scrollbackOffset);
       // TODO: We'd need WASM API to check if scrollback line is wrapped
       // For now, assume not wrapped
-      isWrapped = false;
+      isWrapped = wasmTerm.isScrollbackRowWrapped(scrollbackOffset);
     } else {
       // Accessing visible screen
       lineNumber = this.bufferType === 'normal' ? y - scrollbackLength : y;
@@ -199,7 +199,11 @@ export class Buffer implements IBuffer {
       return undefined;
     }
 
-    return new BufferLine(cells, isWrapped, wasmTerm.cols);
+    const historical = this.bufferType === 'normal' && y < scrollbackLength;
+    const row = historical ? y : this.bufferType === 'normal' ? y - scrollbackLength : y;
+    return new BufferLine(cells, isWrapped, wasmTerm.cols, (x) =>
+      historical ? wasmTerm.getScrollbackGraphemeString(row, x) : wasmTerm.getGraphemeString(row, x)
+    );
   }
 
   getNullCell(): IBufferCell {
@@ -223,7 +227,12 @@ export class BufferLine implements IBufferLine {
   private _isWrapped: boolean;
   private _length: number;
 
-  constructor(cells: GhosttyCell[], isWrapped: boolean, length: number) {
+  constructor(
+    cells: GhosttyCell[],
+    isWrapped: boolean,
+    length: number,
+    private grapheme?: (x: number) => string
+  ) {
     this.cells = cells;
     this._isWrapped = isWrapped;
     this._length = length;
@@ -264,7 +273,7 @@ export class BufferLine implements IBufferLine {
       );
     }
 
-    return new BufferCell(this.cells[x], x);
+    return new BufferCell(this.cells[x], x, this.grapheme);
   }
 
   translateToString(trimRight = false, startColumn = 0, endColumn = this._length): string {
@@ -300,12 +309,17 @@ export class BufferCell implements IBufferCell {
   private cell: GhosttyCell;
   private x: number;
 
-  constructor(cell: GhosttyCell, x: number) {
+  constructor(
+    cell: GhosttyCell,
+    x: number,
+    private grapheme?: (x: number) => string
+  ) {
     this.cell = cell;
     this.x = x;
   }
 
   getChars(): string {
+    if (this.cell.grapheme_len > 0 && this.grapheme) return this.grapheme(this.x);
     const codepoint = this.cell.codepoint;
 
     // Return empty string for null character or invalid codepoints

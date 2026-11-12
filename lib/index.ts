@@ -132,3 +132,5 @@ export type { ILink, ILinkProvider, IBufferCellPosition } from './types';
 
 export { SearchAddon } from './addons/search';
 export type { SearchResults } from './addons/search';
+
+export type { SearchOptions } from './addons/text-search';

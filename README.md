@@ -275,10 +275,16 @@ search.findPrevious('error'); // Newer output
 search.clearDecorations();
 ```
 
-Search covers the active screen and retained history. It matches literal text,
-folding ASCII letter case, and highlights the selected match without replacing
-caller decorations. Queries are limited to 1024 characters. Regular expressions,
-whole-word matching and Unicode case folding are not supported.
+Search covers the active screen and retained history and highlights the selected
+match without replacing caller decorations. Literal searches use the core with
+ASCII case folding. Pass `{ caseSensitive: true }`, `{ wholeWord: true }` or
+`{ regex: true }` to use the bounded text-search path. Regex uses RE2JS's linear-time
+engine; unsupported syntax such as backreferences is reported through the result
+error field. Advanced snapshots are built cooperatively and cancelled if output
+changes. Result events expose `pending`, `truncated` and `error` where relevant.
+Limits are 1024 query characters, 500,000 cells/1 MiB of snapshot text and 10,000
+matches; truncated results are explicitly marked. Soft wraps and complete
+combining graphemes retain cell positions.
 
 Prompt marks emitted with OSC 133 can be navigated with `term.scrollToPrompt()`
 (older) and `term.scrollToPrompt(false)` (newer). Navigation returns false when

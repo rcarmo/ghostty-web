@@ -407,6 +407,7 @@ export class GhosttyTerminal {
 
   /** Mutation-invalidated LRU for expensive historical row decoding. */
   private readonly scrollbackLineCache = new Map<number, GhosttyCell[]>();
+  private readonly scrollbackWrapCache = new Map<number, boolean>();
   private static readonly SCROLLBACK_LINE_CACHE_LIMIT = 256;
 
   /**
@@ -1752,10 +1753,18 @@ export class GhosttyTerminal {
       this.scrollbackLineCache.set(offset, line);
       if (this.scrollbackLineCache.size > GhosttyTerminal.SCROLLBACK_LINE_CACHE_LIMIT) {
         const oldest = this.scrollbackLineCache.keys().next().value;
-        if (oldest !== undefined) this.scrollbackLineCache.delete(oldest);
+        if (oldest !== undefined) {
+          this.scrollbackLineCache.delete(oldest);
+          this.scrollbackWrapCache.delete(oldest);
+        }
       }
     }
     return line;
+  }
+
+  isScrollbackRowWrapped(offset: number): boolean {
+    if (!this.scrollbackWrapCache.has(offset)) this.getScrollbackLine(offset);
+    return this.scrollbackWrapCache.get(offset) ?? false;
   }
 
   /**
@@ -1798,6 +1807,25 @@ export class GhosttyTerminal {
     try {
       if (this.exports.ghostty_terminal_grid_ref(this.handle, pointPtr, refPtr) !== 0) {
         return null;
+      }
+
+      if (tag === PointTag.HISTORY) {
+        const rowPtr = this.exports.ghostty_wasm_alloc(8),
+          wrapPtr = this.exports.ghostty_wasm_alloc(1);
+        if (!rowPtr || !wrapPtr) {
+          if (rowPtr) this.exports.ghostty_wasm_free(rowPtr, 8);
+          if (wrapPtr) this.exports.ghostty_wasm_free(wrapPtr, 1);
+          throw new Error('Failed to read historical wrapping');
+        }
+        try {
+          this.exports.ghostty_grid_ref_row(refPtr, rowPtr);
+          const raw = new DataView(this.memory.buffer).getBigUint64(rowPtr, true);
+          this.exports.ghostty_row_get(raw, RowData.WRAP_CONTINUATION, wrapPtr);
+          this.scrollbackWrapCache.set(y, new DataView(this.memory.buffer).getUint8(wrapPtr) !== 0);
+        } finally {
+          this.exports.ghostty_wasm_free(rowPtr, 8);
+          this.exports.ghostty_wasm_free(wrapPtr, 1);
+        }
       }
 
       // Pre-fetch the terminal's effective palette (256 RGB triples =
@@ -1865,6 +1893,11 @@ export class GhosttyTerminal {
 
           const cell = this.makeEmptyCell();
           cell.codepoint = cp;
+          this.exports.ghostty_grid_ref_graphemes(refPtr, 0, 0, u32Ptr);
+          cell.grapheme_len = Math.max(
+            0,
+            new DataView(this.memory.buffer).getUint32(u32Ptr, true) - 1
+          );
           cell.width = width;
           cell.hyperlink_id = hasHyperlink ? 1 : 0;
 
@@ -2305,6 +2338,7 @@ export class GhosttyTerminal {
   private invalidateCellCaches(): void {
     this.viewportCache = null;
     this.scrollbackLineCache.clear();
+    this.scrollbackWrapCache.clear();
   }
 
   private initCellPool(): void {

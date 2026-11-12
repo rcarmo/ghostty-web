@@ -82,5 +82,8 @@
   },
   "overrides": {
     "picomatch": "^4.0.7"
+  },
+  "dependencies": {
+    "re2js": "2.10.0"
   }
 }
