@@ -1129,6 +1129,11 @@ export class Terminal implements ITerminalCore {
     this.selectionManager?.select(column, row, length);
   }
 
+  /** Select a rectangle of visible cells; Alt-drag provides the same gesture. */
+  selectRectangle(startCol: number, startRow: number, endCol: number, endRow: number): void {
+    this.selectionManager?.selectRectangle(startCol, startRow, endCol, endRow);
+  }
+
   /**
    * Select entire lines from start to end
    */

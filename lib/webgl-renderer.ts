@@ -381,6 +381,7 @@ export class WebGLRenderer implements ITerminalRenderer {
             startRow: selectionRange.startRow,
             endCol: selectionRange.endCol,
             endRow: selectionRange.endRow,
+            rectangle: selectionRange.rectangle,
           }
         : null,
       hoveredLink:

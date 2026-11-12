@@ -797,7 +797,7 @@ export class InputHandler {
    * Handle mousedown event
    */
   private handleMouseDown(event: MouseEvent): void {
-    if (this.isDisposed) return;
+    if (this.isDisposed || event.shiftKey || event.altKey) return;
     if (!this.mouseConfig?.hasMouseTracking()) return;
 
     const cell = this.pixelToCell(event);
@@ -869,7 +869,7 @@ export class InputHandler {
    * Handle mousemove event
    */
   private handleMouseMove(event: MouseEvent): void {
-    if (this.isDisposed) return;
+    if (this.isDisposed || event.shiftKey || event.altKey) return;
     if (!this.mouseConfig?.hasMouseTracking()) return;
 
     // Check if button motion mode or any-event tracking is enabled

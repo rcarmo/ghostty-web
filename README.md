@@ -307,6 +307,14 @@ The bridge reads compound layouts and packed style flags from the loaded WASM's
 ABI manifest, caches them per instance, and rejects incompatible selectors or
 unsupported ABI shapes before creating native handles.
 
+Selections are anchored and copied by the terminal core. Normal drags retain
+linear selection; **Alt-drag** selects a rectangle. Shift/Alt selection gestures
+do not send application mouse clicks. Programmatic rectangular selection is
+available as `term.selectRectangle(startCol, startRow, endCol, endRow)` in visible
+cell coordinates. Selected pins follow output scrolling/pruning, and copy uses
+the core formatter with a 1 MiB limit. Canvas and WebGL highlights preserve the
+rectangle's bounded columns on every row.
+
 ### Canvas lifecycle restoration
 
 Mobile browsers may discard a canvas bitmap while an app is backgrounded even

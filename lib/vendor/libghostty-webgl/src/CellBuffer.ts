@@ -236,7 +236,12 @@ export class CellBuffer {
     let selStart = -1;
     let selEnd = -1;
     if (selectionRange && row >= selectionRange.startRow && row <= selectionRange.endRow) {
-      if (selectionRange.startRow === selectionRange.endRow) {
+      if (selectionRange.rectangle) {
+        if (row >= selectionRange.startRow && row <= selectionRange.endRow) {
+          selStart = Math.min(selectionRange.startCol, selectionRange.endCol);
+          selEnd = Math.max(selectionRange.startCol, selectionRange.endCol);
+        }
+      } else if (selectionRange.startRow === selectionRange.endRow) {
         selStart = selectionRange.startCol;
         selEnd = selectionRange.endCol;
       } else if (row === selectionRange.startRow) {

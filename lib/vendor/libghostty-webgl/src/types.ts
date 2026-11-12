@@ -27,6 +27,7 @@ export interface TerminalTheme {
 }
 
 export interface SelectionRange {
+  rectangle?: boolean;
   startCol: number;
   startRow: number;
   endCol: number;

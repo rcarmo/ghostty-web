@@ -1,3 +1,4 @@
+import { CoreSelection, type CoreSelectionRange } from './core-selection';
 import { TerminalSearch } from './search';
 /**
  * TypeScript wrapper for libghostty-vt WASM API
@@ -393,6 +394,7 @@ export class GhosttyTerminal {
   private styleMasks: [number, number][];
   private handle: TerminalHandle;
   private searches = new Set<TerminalSearch>();
+  private selection?: CoreSelection;
   private renderHandle: number = 0;
   private rowIter: number = 0;
   private rowCells: number = 0;
@@ -600,6 +602,26 @@ export class GhosttyTerminal {
       this.cleanupOnConstructorFailure();
       throw error;
     }
+  }
+
+  private coreSelection(): CoreSelection {
+    if (!this.handle) throw new Error('Terminal has been freed');
+    if (!this.selection) this.selection = new CoreSelection(this.exports, this.abi, this.handle);
+    return this.selection;
+  }
+  setSelectionRange(range: CoreSelectionRange): boolean {
+    this.invalidateCellCaches();
+    return this.coreSelection().set(range);
+  }
+  getSelectionRange(): CoreSelectionRange | null {
+    return this.coreSelection().range();
+  }
+  clearSelection(): void {
+    this.coreSelection().clear();
+    this.invalidateCellCaches();
+  }
+  getSelectionText(): string {
+    return this.coreSelection().text();
   }
 
   createSearch(): TerminalSearch {

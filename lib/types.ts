@@ -415,6 +415,22 @@ export interface GhosttyWasmExports extends WebAssembly.Exports {
     point: number
   ): number;
 
+  ghostty_terminal_selection_ordered(
+    terminal: number,
+    selection: number,
+    order: number,
+    out: number
+  ): number;
+  ghostty_formatter_terminal_new(allocator: number, out: number, terminal: number): number;
+  ghostty_formatter_set(formatter: number, option: number, value: number): number;
+  ghostty_formatter_format_buf(
+    formatter: number,
+    output: number,
+    length: number,
+    written: number
+  ): number;
+  ghostty_formatter_free(formatter: number): void;
+
   // Terminal lifecycle
   ghostty_terminal_new(
     allocatorPtr: number,

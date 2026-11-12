@@ -345,6 +345,14 @@ export declare enum CellFlags {
     FAINT = 128
 }
 
+declare interface CoreSelectionRange {
+    startCol: number;
+    startRow: number;
+    endCol: number;
+    endRow: number;
+    rectangle: boolean;
+}
+
 /**
  * Cursor position and visibility
  */
@@ -503,6 +511,7 @@ export declare class GhosttyTerminal {
     private styleMasks;
     private handle;
     private searches;
+    private selection?;
     private renderHandle;
     private rowIter;
     private rowCells;
@@ -557,6 +566,11 @@ export declare class GhosttyTerminal {
      */
     private callbackRegistry?;
     constructor(exports: GhosttyWasmExports, memory: WebAssembly.Memory, cols?: number, rows?: number, config?: GhosttyTerminalConfig);
+    private coreSelection;
+    setSelectionRange(range: CoreSelectionRange): boolean;
+    getSelectionRange(): CoreSelectionRange | null;
+    clearSelection(): void;
+    getSelectionText(): string;
     createSearch(): TerminalSearch;
     /**
      * Allocate an opaque handle through one of the new(allocator, *outHandle)
@@ -931,6 +945,11 @@ declare interface GhosttyWasmExports extends WebAssembly.Exports {
     ghostty_search_select_next(search: number): number;
     ghostty_search_select_prev(search: number): number;
     ghostty_terminal_point_from_grid_ref(terminal: number, ref: number, tag: number, point: number): number;
+    ghostty_terminal_selection_ordered(terminal: number, selection: number, order: number, out: number): number;
+    ghostty_formatter_terminal_new(allocator: number, out: number, terminal: number): number;
+    ghostty_formatter_set(formatter: number, option: number, value: number): number;
+    ghostty_formatter_format_buf(formatter: number, output: number, length: number, written: number): number;
+    ghostty_formatter_free(formatter: number): void;
     ghostty_terminal_new(allocatorPtr: number, terminalPtrPtr: number, cols: number, rows: number): number;
     ghostty_terminal_free(terminal: TerminalHandle): void;
     ghostty_terminal_resize(terminal: TerminalHandle, cols: number, rows: number, cellWidthPx: number, cellHeightPx: number): number;
@@ -2228,6 +2247,7 @@ export declare interface SelectionCoordinates {
     startRow: number;
     endCol: number;
     endRow: number;
+    rectangle?: boolean;
 }
 
 export declare class SelectionManager {
@@ -2238,6 +2258,8 @@ export declare class SelectionManager {
     private selectionStart;
     private selectionEnd;
     private isSelecting;
+    private rectangle;
+    private coreSignature;
     private mouseDownX;
     private mouseDownY;
     private dragThresholdMet;
@@ -2282,6 +2304,7 @@ export declare class SelectionManager {
      * Get the selected text as a string
      */
     getSelection(): string;
+    private syncCoreSelection;
     /**
      * Check if there's an active selection
      */
@@ -2305,6 +2328,7 @@ export declare class SelectionManager {
      * xterm.js compatible API
      */
     select(column: number, row: number, length: number): void;
+    selectRectangle(startCol: number, startRow: number, endCol: number, endRow: number): void;
     /**
      * Select entire lines from start to end
      * xterm.js compatible API
@@ -2631,6 +2655,8 @@ export declare class Terminal implements ITerminalCore {
      * Select text at specific column and row with length
      */
     select(column: number, row: number, length: number): void;
+    /** Select a rectangle of visible cells; Alt-drag provides the same gesture. */
+    selectRectangle(startCol: number, startRow: number, endCol: number, endRow: number): void;
     /**
      * Select entire lines from start to end
      */

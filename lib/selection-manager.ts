@@ -26,6 +26,7 @@ export interface SelectionCoordinates {
   startRow: number;
   endCol: number;
   endRow: number;
+  rectangle?: boolean;
 }
 
 // ============================================================================
@@ -43,6 +44,8 @@ export class SelectionManager {
   private selectionStart: { col: number; absoluteRow: number } | null = null;
   private selectionEnd: { col: number; absoluteRow: number } | null = null;
   private isSelecting: boolean = false;
+  private rectangle = false;
+  private coreSignature = '';
   private mouseDownX: number = 0;
   private mouseDownY: number = 0;
   private dragThresholdMet: boolean = false;
@@ -114,6 +117,8 @@ export class SelectionManager {
     this.terminal = terminal;
     this.renderer = renderer;
     this.wasmTerm = wasmTerm;
+    this.coreSignature = '';
+    this.rectangle = false;
     this.textarea = textarea;
 
     // Attach mouse event listeners
@@ -134,6 +139,9 @@ export class SelectionManager {
     this.wasmTerm = wasmTerm;
     this.selectionStart = null;
     this.selectionEnd = null;
+    this.coreSignature = '';
+    this.rectangle = false;
+    this.wasmTerm.clearSelection();
     this.isSelecting = false;
     this.dragThresholdMet = false;
     this.mouseDownTarget = null;
@@ -145,100 +153,71 @@ export class SelectionManager {
    * Get the selected text as a string
    */
   getSelection(): string {
-    if (!this.selectionStart || !this.selectionEnd) return '';
+    if (!this.syncCoreSelection()) return '';
+    return this.wasmTerm.getSelectionText();
+  }
 
-    // Get absolute row coordinates (not clamped to viewport)
-    let { col: startCol, absoluteRow: startAbsRow } = this.selectionStart;
-    let { col: endCol, absoluteRow: endAbsRow } = this.selectionEnd;
-
-    // Swap if selection goes backwards
-    if (startAbsRow > endAbsRow || (startAbsRow === endAbsRow && startCol > endCol)) {
-      [startCol, endCol] = [endCol, startCol];
-      [startAbsRow, endAbsRow] = [endAbsRow, startAbsRow];
+  private syncCoreSelection(): import('./core-selection').CoreSelectionRange | null {
+    if (!this.selectionStart || !this.selectionEnd) return null;
+    if (this.isSelecting && !this.dragThresholdMet) return null;
+    const range = {
+      startCol: this.selectionStart.col,
+      startRow: this.selectionStart.absoluteRow,
+      endCol: this.selectionEnd.col,
+      endRow: this.selectionEnd.absoluteRow,
+      rectangle: this.rectangle,
+    };
+    const signature = JSON.stringify(range);
+    if (signature !== this.coreSignature) {
+      if (!this.wasmTerm.setSelectionRange(range)) return null;
+      this.coreSignature = signature;
     }
-
-    const scrollbackLength = this.wasmTerm.getScrollbackLength();
-    let text = '';
-
-    for (let absRow = startAbsRow; absRow <= endAbsRow; absRow++) {
-      // Fetch line based on absolute row position
-      // Absolute row < scrollbackLength means it's in scrollback
-      // Absolute row >= scrollbackLength means it's in the screen buffer
-      let line: GhosttyCell[] | null = null;
-
-      if (absRow < scrollbackLength) {
-        // Row is in scrollback
-        line = this.wasmTerm.getScrollbackLine(absRow);
-      } else {
-        // Row is in screen buffer
-        const screenRow = absRow - scrollbackLength;
-        line = this.wasmTerm.getLine(screenRow);
-      }
-
-      if (!line) continue;
-
-      // Track the last non-empty column for trimming trailing spaces
-      let lastNonEmpty = -1;
-
-      // Determine column range for this row
-      const colStart = absRow === startAbsRow ? startCol : 0;
-      const colEnd = absRow === endAbsRow ? endCol : line.length - 1;
-
-      // Build the line text
-      let lineText = '';
-      for (let col = colStart; col <= colEnd; col++) {
-        const cell = line[col];
-        if (cell && cell.codepoint !== 0) {
-          // Use grapheme lookup for cells with multi-codepoint characters
-          let char: string;
-          if (cell.grapheme_len > 0) {
-            // Row is in scrollback or screen - determine which and use appropriate method
-            if (absRow < scrollbackLength) {
-              char = this.wasmTerm.getScrollbackGraphemeString(absRow, col);
-            } else {
-              const screenRow = absRow - scrollbackLength;
-              char = this.wasmTerm.getGraphemeString(screenRow, col);
-            }
-          } else {
-            char = String.fromCodePoint(cell.codepoint);
-          }
-          lineText += char;
-          if (char.trim()) {
-            lastNonEmpty = lineText.length;
-          }
-        } else {
-          lineText += ' ';
-        }
-      }
-
-      // Trim trailing spaces from each line
-      if (lastNonEmpty >= 0) {
-        lineText = lineText.substring(0, lastNonEmpty);
-      } else {
-        lineText = '';
-      }
-
-      text += lineText;
-
-      // Add newline between rows (but not after the last row)
-      if (absRow < endAbsRow) {
-        text += '\n';
-      }
+    const actual = this.wasmTerm.getSelectionRange();
+    if (!actual) {
+      this.selectionStart = this.selectionEnd = null;
+      this.coreSignature = '';
+      return null;
     }
-
-    return text;
+    // Preserve gesture direction while core pins follow scrolling/pruning.
+    const reverseRows = range.startRow > range.endRow;
+    const reverseLinear =
+      reverseRows || (range.startRow === range.endRow && range.startCol > range.endCol);
+    if (range.rectangle) {
+      const reverseColumns = range.startCol > range.endCol;
+      this.selectionStart = {
+        col: reverseColumns ? actual.endCol : actual.startCol,
+        absoluteRow: reverseRows ? actual.endRow : actual.startRow,
+      };
+      this.selectionEnd = {
+        col: reverseColumns ? actual.startCol : actual.endCol,
+        absoluteRow: reverseRows ? actual.startRow : actual.endRow,
+      };
+    } else {
+      this.selectionStart = {
+        col: reverseLinear ? actual.endCol : actual.startCol,
+        absoluteRow: reverseLinear ? actual.endRow : actual.startRow,
+      };
+      this.selectionEnd = {
+        col: reverseLinear ? actual.startCol : actual.endCol,
+        absoluteRow: reverseLinear ? actual.startRow : actual.endRow,
+      };
+    }
+    this.rectangle = actual.rectangle;
+    this.coreSignature = JSON.stringify({
+      startCol: this.selectionStart.col,
+      startRow: this.selectionStart.absoluteRow,
+      endCol: this.selectionEnd.col,
+      endRow: this.selectionEnd.absoluteRow,
+      rectangle: this.rectangle,
+    });
+    return actual;
   }
 
   /**
    * Check if there's an active selection
    */
   hasSelection(): boolean {
-    if (!this.selectionStart || !this.selectionEnd) return false;
-
-    // Don't report selection until drag threshold is met (prevents flash on click)
-    if (this.isSelecting && !this.dragThresholdMet) return false;
-
-    return true;
+    return !!this.syncCoreSelection();
   }
 
   private copySelectionAutomatically(): void {
@@ -279,6 +258,9 @@ export class SelectionManager {
 
     this.selectionStart = null;
     this.selectionEnd = null;
+    this.coreSignature = '';
+    this.rectangle = false;
+    this.wasmTerm.clearSelection();
     this.isSelecting = false;
 
     // Force redraw of previously selected lines to clear the overlay
@@ -291,8 +273,11 @@ export class SelectionManager {
   selectAll(): void {
     const dims = this.wasmTerm.getDimensions();
     const viewportY = this.getViewportY();
-    this.selectionStart = { col: 0, absoluteRow: viewportY };
-    this.selectionEnd = { col: dims.cols - 1, absoluteRow: viewportY + dims.rows - 1 };
+    this.selectionStart = { col: 0, absoluteRow: this.viewportRowToAbsolute(0) };
+    this.selectionEnd = {
+      col: dims.cols - 1,
+      absoluteRow: this.viewportRowToAbsolute(dims.rows - 1),
+    };
     this.requestRender();
     this.selectionChangedEmitter.fire();
   }
@@ -329,8 +314,23 @@ export class SelectionManager {
 
     // Convert viewport rows to absolute rows
     const viewportY = this.getViewportY();
-    this.selectionStart = { col: column, absoluteRow: viewportY + row };
-    this.selectionEnd = { col: endCol, absoluteRow: viewportY + endRow };
+    this.selectionStart = { col: column, absoluteRow: this.viewportRowToAbsolute(row) };
+    this.selectionEnd = { col: endCol, absoluteRow: this.viewportRowToAbsolute(endRow) };
+    this.requestRender();
+    this.selectionChangedEmitter.fire();
+  }
+
+  selectRectangle(startCol: number, startRow: number, endCol: number, endRow: number): void {
+    const dims = this.wasmTerm.getDimensions();
+    if ([startCol, startRow, endCol, endRow].some((value) => !Number.isFinite(value))) return;
+    startCol = Math.max(0, Math.min(dims.cols - 1, Math.floor(startCol)));
+    endCol = Math.max(0, Math.min(dims.cols - 1, Math.floor(endCol)));
+    startRow = Math.max(0, Math.min(dims.rows - 1, Math.floor(startRow)));
+    endRow = Math.max(0, Math.min(dims.rows - 1, Math.floor(endRow)));
+    this.rectangle = true;
+    this.isSelecting = false;
+    this.selectionStart = { col: startCol, absoluteRow: this.viewportRowToAbsolute(startRow) };
+    this.selectionEnd = { col: endCol, absoluteRow: this.viewportRowToAbsolute(endRow) };
     this.requestRender();
     this.selectionChangedEmitter.fire();
   }
@@ -500,6 +500,8 @@ export class SelectionManager {
     // Mouse down - start selection or clear existing
     this.boundCanvasMouseDownHandler = (e: MouseEvent) => {
       if (e.button === 0) {
+        if (this.wasmTerm.hasMouseTracking() && !e.shiftKey && !e.altKey) return;
+        this.rectangle = e.altKey;
         // Left click only
 
         // CRITICAL: Focus the terminal so it can receive keyboard input
@@ -516,6 +518,7 @@ export class SelectionManager {
           this.clearSelection();
         }
 
+        this.rectangle = e.altKey;
         // Start new selection (convert to absolute coordinates)
         const absoluteRow = this.viewportRowToAbsolute(cell.row);
         this.selectionStart = { col: cell.col, absoluteRow };
@@ -937,10 +940,13 @@ export class SelectionManager {
    * Returns coordinates in VIEWPORT space for rendering, clamped to visible area
    */
   private normalizeSelection(): SelectionCoordinates | null {
-    if (!this.selectionStart || !this.selectionEnd) return null;
+    const actual = this.syncCoreSelection();
+    if (!actual) return null;
 
-    let { col: startCol, absoluteRow: startAbsRow } = this.selectionStart;
-    let { col: endCol, absoluteRow: endAbsRow } = this.selectionEnd;
+    let startCol = actual.startCol,
+      startAbsRow = actual.startRow,
+      endCol = actual.endCol,
+      endAbsRow = actual.endRow;
 
     // Swap if selection goes backwards
     if (startAbsRow > endAbsRow || (startAbsRow === endAbsRow && startCol > endCol)) {
@@ -964,14 +970,14 @@ export class SelectionManager {
     // Clamp rows to visible range, adjusting columns for partial rows
     if (startRow < 0) {
       startRow = 0;
-      startCol = 0; // Selection starts from beginning of first visible row
+      if (!this.rectangle) startCol = 0; // Selection starts from beginning of first visible row
     }
     if (endRow > maxRow) {
       endRow = maxRow;
-      endCol = dims.cols - 1; // Selection extends to end of last visible row
+      if (!this.rectangle) endCol = dims.cols - 1; // Selection extends to end of last visible row
     }
 
-    return { startCol, startRow, endCol, endRow };
+    return { startCol, startRow, endCol, endRow, rectangle: this.rectangle };
   }
 
   /**
