@@ -1,4 +1,5 @@
 import type { ImageFrame } from './render-images';
+import type { RowBidiMapper, RowBidiMap } from './bidi';
 /**
  * Canvas Renderer for Terminal Display
  *
@@ -33,6 +34,7 @@ export interface IRenderable {
    * For simple cells, returns the single character.
    */
   getGraphemeString?(row: number, col: number): string;
+  getScrollbackGrapheme?(row: number, col: number): number[] | null;
 
   // Kitty graphics — optional. When implemented, the renderer composites
   // images onto the canvas after text rendering. GhosttyTerminal provides
@@ -254,6 +256,22 @@ export class CanvasRenderer {
    * through every helper. Set at the top of render(), cleared at the end.
    */
   private currentRenderBuffer: IRenderable | null = null;
+  private bidiMapper?: RowBidiMapper;
+  private bidiRows = new Map<number, RowBidiMap>();
+
+  public setBidiMapper(mapper?: RowBidiMapper): void {
+    this.bidiMapper = mapper;
+    this.bidiRows.clear();
+  }
+  private logicalColumn(x: number, y: number): number {
+    return this.bidiRows.get(y)?.visualToLogical[x] ?? x;
+  }
+  private paintCell(line: GhosttyCell[], x: number, y: number): GhosttyCell {
+    const logical = this.logicalColumn(x, y);
+    const cell = line[logical];
+    const mirror = this.bidiRows.get(y)?.mirror?.get(logical);
+    return mirror === undefined ? cell : { ...cell, codepoint: mirror };
+  }
   private resolvedImages?: ImageFrame;
   private resolvedRevision = -1;
   private resolvedCanvases = new Map<number, { generation: bigint; canvas: HTMLCanvasElement }>();
@@ -774,7 +792,10 @@ export class CanvasRenderer {
     if (viewportY === 0 && cursor.visible && this.cursorVisible) {
       // Use cursor style from buffer if provided, otherwise use renderer default
       const cursorStyle = cursor.style ?? this.cursorStyle;
-      this.renderCursor(cursor.x, cursor.y, cursorStyle);
+      const line = buffer.getLine(cursor.y);
+      if (line && this.bidiMapper) this.bidiRows.set(cursor.y, this.bidiMapper.getMap(line));
+      const visualX = this.bidiRows.get(cursor.y)?.logicalToVisual[cursor.x] ?? cursor.x;
+      this.renderCursor(visualX, cursor.y, cursorStyle);
     }
 
     // Render scrollbar if scrolled or scrollback exists (with opacity for fade effect)
@@ -803,6 +824,7 @@ export class CanvasRenderer {
    * cover any left-extending portions of graphemes from cell N-1.
    */
   private renderLine(line: GhosttyCell[], y: number, cols: number): void {
+    if (this.bidiMapper) this.bidiRows.set(y, this.bidiMapper.getMap(line));
     const lineY = y * this.metrics.height;
     const lineWidth = cols * this.metrics.width;
 
@@ -822,7 +844,7 @@ export class CanvasRenderer {
     // This ensures all backgrounds are painted before any text, allowing text
     // to "bleed" across cell boundaries without being covered by adjacent backgrounds
     for (let x = 0; x < line.length; x++) {
-      const cell = line[x];
+      const cell = this.paintCell(line, x, y);
       if (cell.width === 0) continue; // Skip spacer cells for wide characters
       this.renderCellBackground(cell, x, y);
     }
@@ -831,7 +853,7 @@ export class CanvasRenderer {
     // PASS 2: Draw all cell text and decorations
     // Now text can safely extend beyond cell boundaries (for complex scripts)
     for (let x = 0; x < line.length; x++) {
-      const cell = line[x];
+      const cell = this.paintCell(line, x, y);
       if (cell.width === 0) continue; // Skip spacer cells for wide characters
       this.renderCellText(cell, x, y);
     }
@@ -894,6 +916,7 @@ export class CanvasRenderer {
   }
 
   private getDecorationAt(x: number, viewportRow: number): ITerminalDecoration | null {
+    x = this.logicalColumn(x, viewportRow);
     if (this.decorations.length === 0) return null;
     const absoluteLine =
       viewportRow + this.currentScrollbackLength - Math.floor(this.currentViewportY);
@@ -1016,7 +1039,26 @@ export class CanvasRenderer {
       // Use grapheme lookup for complex scripts, single codepoint otherwise
       const char =
         cell.grapheme_len > 0 && this.currentBuffer?.getGraphemeString
-          ? this.currentBuffer.getGraphemeString(y, x)
+          ? (() => {
+              const logical = this.logicalColumn(x, y);
+              const screenRow = y - Math.floor(this.currentViewportY);
+              const history =
+                screenRow < 0
+                  ? this.currentBuffer!.getScrollbackGrapheme?.(
+                      this.currentScrollbackLength + screenRow,
+                      logical
+                    )
+                  : null;
+              const text =
+                screenRow < 0
+                  ? history?.length
+                    ? String.fromCodePoint(...history)
+                    : String.fromCodePoint(codepoint)
+                  : this.currentBuffer!.getGraphemeString!(screenRow, logical);
+              return this.bidiRows.get(y)?.mirror?.has(logical)
+                ? String.fromCodePoint(codepoint) + Array.from(text).slice(1).join('')
+                : text;
+            })()
           : String.fromCodePoint(codepoint);
       this.ctx.fillText(char, textX, textY);
     }
@@ -1039,10 +1081,15 @@ export class CanvasRenderer {
     }
     if (this.hoveredLinkRange) {
       const range = this.hoveredLinkRange;
+      const logicalX = this.logicalColumn(x, y);
       const isInRange =
-        (y === range.startY && x >= range.startX && (y < range.endY || x <= range.endX)) ||
+        (y === range.startY &&
+          logicalX >= range.startX &&
+          (y < range.endY || logicalX <= range.endX)) ||
         (y > range.startY && y < range.endY) ||
-        (y === range.endY && x <= range.endX && (y > range.startY || x >= range.startX));
+        (y === range.endY &&
+          logicalX <= range.endX &&
+          (y > range.startY || logicalX >= range.startX));
       if (isInRange) {
         this.drawHorizontalLine(cellX, underlineY, cellWidth, LINK_HOVER_COLOR);
       }
@@ -2084,12 +2131,13 @@ export class CanvasRenderer {
         // Re-draw character under cursor with cursorAccent color
         {
           const line = this.currentBuffer?.getLine(y);
-          if (line?.[x]) {
+          const logicalX = this.logicalColumn(x, y);
+          if (line?.[logicalX]) {
             this.ctx.save();
             this.ctx.beginPath();
             this.ctx.rect(cursorX, cursorY, this.metrics.width, this.metrics.height);
             this.ctx.clip();
-            this.renderCellText(line[x], x, y, this.theme.cursorAccent);
+            this.renderCellText(this.paintCell(line, x, y), x, y, this.theme.cursorAccent);
             this.ctx.restore();
           }
         }
@@ -2316,6 +2364,7 @@ export class CanvasRenderer {
         x <= Math.max(startCol, endCol)
       );
 
+    x = this.logicalColumn(x, y);
     // Single line selection
     if (startRow === endRow) {
       return y === startRow && x >= startCol && x <= endCol;
@@ -2494,6 +2543,7 @@ export class CanvasRenderer {
    * Cleanup resources
    */
   public dispose(): void {
+    this.bidiRows.clear();
     this.resolvedCanvases.clear();
     this.resolvedImages = undefined;
     this.stopCursorBlink();

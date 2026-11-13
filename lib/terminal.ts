@@ -1,4 +1,5 @@
 import { WriteQueue } from './write-queue';
+import { RowBidiMapper } from './bidi';
 /**
  * Terminal - Main terminal emulator class
  *
@@ -43,6 +44,7 @@ import type { ITerminalRenderer } from './renderer-contract';
 import { SelectionManager } from './selection-manager';
 import type { ILink, ILinkProvider } from './types';
 import { WebGLRenderer } from './webgl-renderer';
+import { WebGPURenderer } from './webgpu-renderer';
 
 // ============================================================================
 // Terminal Class
@@ -75,6 +77,9 @@ export class Terminal implements ITerminalCore {
   private inputHandler?: InputHandler;
   private selectionManager?: SelectionManager;
   private canvas?: HTMLCanvasElement;
+  private preparedGPU?: WebGPURenderer;
+  private preparingGPU = false;
+  private bidiMapper?: RowBidiMapper;
 
   // Link detection system
   private linkDetector?: LinkDetector;
@@ -204,6 +209,7 @@ export class Terminal implements ITerminalCore {
       smoothScrollDuration: options.smoothScrollDuration ?? 100, // Default: 100ms smooth scroll
       scrollSensitivity: options.scrollSensitivity ?? 1, // Wheel/trackpad scroll-speed multiplier
       renderer: options.renderer ?? 'canvas',
+      bidi: options.bidi ?? false,
       onLinkClick: options.onLinkClick,
     };
 
@@ -211,6 +217,8 @@ export class Terminal implements ITerminalCore {
     (this.options as any) = new Proxy(baseOptions, {
       set: (target: any, prop: string, value: any) => {
         const oldValue = target[prop];
+        if (prop === 'bidi' && value && this.isOpen && !(this.renderer instanceof CanvasRenderer))
+          throw new Error('BiDi requires reopening with Canvas or WebGPU');
         target[prop] = value;
 
         // Apply runtime changes if terminal is open
@@ -224,6 +232,7 @@ export class Terminal implements ITerminalCore {
 
     this.cols = this.options.cols;
     this.rows = this.options.rows;
+    if (this.options.bidi) this.bidiMapper = new RowBidiMapper();
 
     // Initialize accumulated theme (merge user theme with defaults)
     this.currentTheme = { ...DEFAULT_THEME, ...options.theme };
@@ -261,6 +270,14 @@ export class Terminal implements ITerminalCore {
     if (newValue === oldValue) return;
 
     switch (key) {
+      case 'bidi':
+        if (this.renderer instanceof CanvasRenderer) {
+          this.bidiMapper = newValue ? new RowBidiMapper() : undefined;
+          this.renderer.setBidiMapper(this.bidiMapper);
+          this.selectionManager?.clearSelection();
+          this.requestFullRender();
+        }
+        break;
       case 'disableStdin':
         // Input handler already checks this.options.disableStdin dynamically
         // No action needed
@@ -500,7 +517,54 @@ export class Terminal implements ITerminalCore {
    * Initializes all components and starts rendering.
    * Requires a pre-loaded Ghostty instance passed to the constructor.
    */
+  /** Await optional WebGPU initialization. Existing synchronous open() stays compatible. */
+  async openAsync(parent: HTMLElement): Promise<void> {
+    if (this.isOpen || this.preparingGPU) throw new Error('Terminal is already open or opening');
+    if (this.isDisposed) throw new Error('Terminal has been disposed');
+    if (this.options.renderer === 'webgpu') {
+      this.preparingGPU = true;
+      try {
+        this.preparedGPU = await WebGPURenderer.create(
+          parent.ownerDocument.createElement('canvas'),
+          this.options
+        );
+      } catch (error) {
+        console.warn('WebGPU unavailable; using CanvasRenderer', error);
+      } finally {
+        this.preparingGPU = false;
+      }
+      if (this.isDisposed) {
+        this.preparedGPU?.dispose();
+        this.preparedGPU = undefined;
+        throw new Error('Terminal has been disposed');
+      }
+    }
+    this.open(parent);
+  }
+
+  private rebindRendererCanvas(oldCanvas: HTMLCanvasElement, newCanvas: HTMLCanvasElement): void {
+    if (this.isDisposed || !this.isOpen) return;
+    if (this.boundCanvasMouseDownFocusHandler) {
+      oldCanvas.removeEventListener('mousedown', this.boundCanvasMouseDownFocusHandler);
+      newCanvas.addEventListener('mousedown', this.boundCanvasMouseDownFocusHandler);
+    }
+    if (this.boundCanvasTouchEndFocusHandler) {
+      oldCanvas.removeEventListener('touchend', this.boundCanvasTouchEndFocusHandler);
+      newCanvas.addEventListener('touchend', this.boundCanvasTouchEndFocusHandler);
+    }
+    if (this.boundContextRestoredHandler) {
+      for (const name of ['webglcontextrestored', 'contextrestored']) {
+        oldCanvas.removeEventListener(name, this.boundContextRestoredHandler);
+        newCanvas.addEventListener(name, this.boundContextRestoredHandler);
+      }
+    }
+    this.canvas = newCanvas;
+    this.selectionManager?.rebindCanvas(oldCanvas);
+    this.requestFullRender();
+  }
+
   open(parent: HTMLElement): void {
+    if (this.preparingGPU) throw new Error('Terminal is opening');
     if (this.isOpen) {
       throw new Error('Terminal is already open');
     }
@@ -508,6 +572,7 @@ export class Terminal implements ITerminalCore {
       throw new Error('Terminal has been disposed');
     }
 
+    this.bidiMapper = this.options.bidi ? new RowBidiMapper() : undefined;
     // Store parent element
     this.element = parent;
     this.isOpen = true;
@@ -541,7 +606,7 @@ export class Terminal implements ITerminalCore {
       const ownerDocument = parent.ownerDocument;
 
       // Create canvas element
-      this.canvas = ownerDocument.createElement('canvas');
+      this.canvas = this.preparedGPU?.getCanvas() ?? ownerDocument.createElement('canvas');
       this.canvas.style.display = 'block';
       this.canvas.style.cursor = 'text';
 
@@ -596,7 +661,17 @@ export class Terminal implements ITerminalCore {
         scrollbarWidth: this.options.scrollbarWidth,
         allowTransparency: this.options.allowTransparency,
       };
-      if (this.options.renderer === 'webgl' && WebGLRenderer.canUse(this.canvas)) {
+      if (this.preparedGPU) {
+        this.renderer = this.preparedGPU;
+        this.preparedGPU = undefined;
+        (this.renderer as WebGPURenderer).onCanvasReplacement((oldCanvas, newCanvas) =>
+          this.rebindRendererCanvas(oldCanvas, newCanvas)
+        );
+      } else if (
+        !this.options.bidi &&
+        this.options.renderer === 'webgl' &&
+        WebGLRenderer.canUse(this.canvas)
+      ) {
         try {
           this.renderer = new WebGLRenderer(this.canvas, rendererOptions);
         } catch (error) {
@@ -620,6 +695,7 @@ export class Terminal implements ITerminalCore {
         this.renderer = new CanvasRenderer(this.canvas, rendererOptions);
       }
 
+      if (this.renderer instanceof CanvasRenderer) this.renderer.setBidiMapper(this.bidiMapper);
       // Size canvas to terminal dimensions (use renderer.resize for proper DPI scaling)
       this.renderer.resize(this.cols, this.rows);
 
@@ -628,8 +704,6 @@ export class Terminal implements ITerminalCore {
       this.updateWasmPixelSize();
 
       // Create mouse tracking configuration
-      const canvas = this.canvas;
-      const renderer = this.renderer;
       const wasmTerm = this.wasmTerm;
       const mouseConfig: MouseTrackingConfig = {
         // Terminal.reset() replaces the WASM terminal while InputHandler and
@@ -637,11 +711,12 @@ export class Terminal implements ITerminalCore {
         hasMouseTracking: () => this.wasmTerm?.hasMouseTracking() ?? false,
         hasSgrMouseMode: () => this.wasmTerm?.getMode(1006, false) ?? true, // SGR extended mode
         getCellDimensions: () => ({
-          width: renderer.charWidth,
-          height: renderer.charHeight,
+          width: this.renderer!.charWidth,
+          height: this.renderer!.charHeight,
         }),
+        toLogicalColumn: (column, row) => this.visualToLogicalColumn(column, row),
         getCanvasOffset: () => {
-          const rect = canvas.getBoundingClientRect();
+          const rect = this.canvas!.getBoundingClientRect();
           return { left: rect.left, top: rect.top };
         },
       };
@@ -1898,13 +1973,82 @@ export class Terminal implements ITerminalCore {
   /**
    * Process mouse move for link detection (internal, called by throttled handler)
    */
+  /** Row in absolute logical buffer coordinates; never mutates core storage. */
+  public getLogicalLine(absoluteRow: number): GhosttyCell[] | null {
+    if (!this.wasmTerm || absoluteRow < 0) return null;
+    const history = this.wasmTerm.getScrollbackLength();
+    return absoluteRow < history
+      ? this.wasmTerm.getScrollbackLine(absoluteRow)
+      : this.wasmTerm.getLine(absoluteRow - history);
+  }
+
+  public visualToLogicalColumn(column: number, viewportRow: number): number {
+    if (!this.bidiMapper || !this.wasmTerm) return column;
+    const absolute =
+      this.wasmTerm.getScrollbackLength() - Math.floor(this.getViewportY()) + viewportRow;
+    const line = this.getLogicalLine(absolute);
+    return line ? (this.bidiMapper.getMap(line).visualToLogical[column] ?? column) : column;
+  }
+
+  public getVisualCursor(): { x: number; y: number } {
+    const cursor = this.wasmTerm?.getCursor() ?? { x: 0, y: 0 };
+    const line = this.wasmTerm?.getLine(cursor.y);
+    return {
+      x:
+        this.bidiMapper && line
+          ? (this.bidiMapper.getMap(line).logicalToVisual[cursor.x] ?? cursor.x)
+          : cursor.x,
+      y: cursor.y,
+    };
+  }
+
+  /** Rectangles are visual boxes; copy their cells in logical order per row. */
+  public getBidiRectangleText(
+    startRow: number,
+    endRow: number,
+    startCol: number,
+    endCol: number
+  ): string {
+    if (!this.wasmTerm || !this.bidiMapper) return '';
+    const history = this.wasmTerm.getScrollbackLength(),
+      rows: string[] = [];
+    for (let row = startRow; row <= endRow; row++) {
+      const line = this.getLogicalLine(row);
+      if (!line) continue;
+      const map = this.bidiMapper.getMap(line);
+      const columns = new Set<number>();
+      for (let visual = startCol; visual <= endCol; visual++) {
+        const logical = map.visualToLogical[visual];
+        if (logical === undefined) continue;
+        columns.add(line[logical]?.width === 0 && logical > 0 ? logical - 1 : logical);
+      }
+      rows.push(
+        [...columns]
+          .sort((a, b) => a - b)
+          .map((col) => {
+            if (!line[col] || line[col].width === 0) return '';
+            const grapheme =
+              row < history
+                ? this.wasmTerm!.getScrollbackGrapheme(row, col)
+                : this.wasmTerm!.getGrapheme(row - history, col);
+            return grapheme?.length
+              ? String.fromCodePoint(...grapheme)
+              : String.fromCodePoint(line[col].codepoint || 32);
+          })
+          .join('')
+      );
+    }
+    return rows.join('\n');
+  }
+
   private processMouseMove(e: MouseEvent): void {
     if (!this.canvas || !this.renderer || !this.linkDetector || !this.wasmTerm) return;
 
     // Convert mouse coordinates to terminal cell position
     const rect = this.canvas.getBoundingClientRect();
-    const x = Math.floor((e.clientX - rect.left) / this.renderer.charWidth);
+    const visualX = Math.floor((e.clientX - rect.left) / this.renderer.charWidth);
     const y = Math.floor((e.clientY - rect.top) / this.renderer.charHeight);
+    const x = this.visualToLogicalColumn(visualX, y);
 
     // Get hyperlink_id directly from the cell at this position
     // Must account for viewportY (scrollback position)
@@ -2081,8 +2225,9 @@ export class Terminal implements ITerminalCore {
 
     // Get click position
     const rect = this.canvas.getBoundingClientRect();
-    const x = Math.floor((e.clientX - rect.left) / this.renderer.charWidth);
+    const visualX = Math.floor((e.clientX - rect.left) / this.renderer.charWidth);
     const y = Math.floor((e.clientY - rect.top) / this.renderer.charHeight);
+    const x = this.visualToLogicalColumn(visualX, y);
 
     // Calculate buffer row (same logic as processMouseMove)
     const viewportRow = y;
@@ -2543,7 +2688,8 @@ export class Terminal implements ITerminalCore {
     if (!this.renderer) return;
     const buf = this.buffer?.active;
     if (!buf) return;
-    this.renderer.drawPreedit(text, buf.cursorX, buf.cursorY);
+    const cursor = this.getVisualCursor();
+    this.renderer.drawPreedit(text, cursor.x, cursor.y);
   }
 
   /**

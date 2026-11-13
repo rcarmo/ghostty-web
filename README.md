@@ -546,6 +546,43 @@ cd ..
 
 **CI:** The WASM is built as part of the `test` and `build` jobs.
 
+## Optional WebGPU and RTL/BiDi
+
+Canvas remains the default. To request WebGPU, await initialization:
+
+```typescript
+const term = new Terminal({ renderer: 'webgpu', bidi: true });
+await term.openAsync(document.getElementById('terminal')!);
+```
+
+WebGPU requires a supported browser in a secure context (HTTPS or localhost).
+Unavailable adapters, initialization errors, device loss and excessive texture
+sizes fall back to Canvas. The VT, selection and input survive device loss.
+Synchronous `open()` remains supported and uses Canvas when WebGPU has not
+been initialized.
+
+This backend uses Canvas for glyph rasterization and WebGPU for composition and
+presentation; it is not GPU-side text layout or an instanced glyph renderer.
+Additional GPU texture storage is capped at 64 MiB per pane. GPU display behaviour
+has not been validated in the development environment; keep the option off if
+your browser has display problems.
+
+`bidi: true` enables row-local bidirectional ordering with an LTR paragraph
+base. Cursor, IME placement, search highlights, hyperlinks, mouse reports and
+linear copy use coherent visual/logical coordinates. Rectangles select visual
+columns and copy the selected cells in logical order per row. Core storage,
+exports and programmatic linear selection remain logical.
+
+BiDi uses bidi-js 1.0.3's Unicode 13 tables, independently of the VT core's
+Unicode tables. It does not provide Arabic joining/shaping or paragraph layout
+across wrapped rows. Rows containing Kitty Unicode image placeholders retain
+logical order to preserve image placement. BiDi selects Canvas instead of WebGL;
+WebGPU shares the Canvas text path. Use the default mode for cursor-addressed
+programs that do their own BiDi layout.
+
+The row mapper is adapted from [NimbleMarkets/ghostty-web](https://github.com/NimbleMarkets/ghostty-web/tree/64200917c61d64f0933b2034b0bbb186e3d2b914).
+Retained notices are in [licenses/](licenses/).
+
 ## Testing
 
 Run the test suite:
@@ -559,7 +596,7 @@ bun run build           # Build distribution
 
 **Test Coverage:**
 
-The current suite covers terminal integration, Ghostty ABI behavior, input handling, selection, renderer behavior, WebGL adapter/vendor pieces, FitAddon, kitty graphics, scrollback regressions, viewport corruption/merge regressions, and PNG decoding. As of this update the full suite reports `388 tests across 15 files`, with two intentionally skipped historical scrollback assumption tests.
+The current suite covers terminal integration, Ghostty ABI behavior, input handling, selection, renderer behavior, WebGL adapter/vendor pieces, FitAddon, kitty graphics, scrollback regressions, viewport corruption/merge regressions, and PNG decoding. The suite includes WebGPU resource/fallback and BiDi mapping/copy tests. The current run reports 532 passing tests and two existing historical scrollback skips.
 
 ## Documentation
 
@@ -573,4 +610,4 @@ The current suite covers terminal integration, Ghostty ABI behavior, input handl
 
 ## License
 
-See cmux LICENSE (AGPL-3.0)
+[MIT](LICENSE). Third-party code retains its own notices, including [bidi-js](licenses/bidi-js-MIT.txt) and the [adapted BiDi mapper](licenses/nimble-bidi-MIT.txt).

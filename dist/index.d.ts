@@ -89,6 +89,11 @@ export declare class CanvasRenderer {
      * through every helper. Set at the top of render(), cleared at the end.
      */
     private currentRenderBuffer;
+    private bidiMapper?;
+    private bidiRows;
+    setBidiMapper(mapper?: RowBidiMapper): void;
+    private logicalColumn;
+    private paintCell;
     private resolvedImages?;
     private resolvedRevision;
     private resolvedCanvases;
@@ -1524,6 +1529,7 @@ export declare interface IRenderable {
      * For simple cells, returns the single character.
      */
     getGraphemeString?(row: number, col: number): string;
+    getScrollbackGrapheme?(row: number, col: number): number[] | null;
     getImageFrame?(viewportY?: number): ImageFrame;
     getKittyGraphics?(): number | null;
     iterPlacements?(graphics: number, onlyVisible?: boolean): Iterable<KittyPlacementInfo>;
@@ -1636,8 +1642,11 @@ export declare interface ITerminalOptions {
      * Rendering backend selection.
      * - canvas: always use Canvas2D renderer (default)
      * - webgl: try WebGL renderer first, fallback to Canvas2D if init fails
+     * - webgpu: GPU compositor with Canvas glyph rasterization; use openAsync().
      */
-    renderer?: 'canvas' | 'webgl';
+    renderer?: 'canvas' | 'webgl' | 'webgpu';
+    /** Opt-in row-local Unicode 13 BiDi. Canvas/WebGPU; no Arabic joining/shaping. */
+    bidi?: boolean;
     convertEol?: boolean;
     /** False when an authoritative remote VT supplies terminal query replies. Default true. */
     emitTerminalResponses?: boolean;
@@ -2148,6 +2157,8 @@ declare interface MouseTrackingConfig {
         left: number;
         top: number;
     };
+    /** Optional visual-to-logical mapping; arguments are zero-based. */
+    toLogicalColumn?: (column: number, row: number) => number;
 }
 
 /**
@@ -2233,6 +2244,37 @@ export declare interface RGB {
     r: number;
     g: number;
     b: number;
+}
+
+declare interface RowBidiMap {
+    /**
+     * True when the row needs no bidi work at all: identity permutation and
+     * nothing to mirror. Consumers may skip map lookups entirely.
+     */
+    isIdentity: boolean;
+    /** Visual column → logical column. Length === row length. */
+    visualToLogical: Uint32Array;
+    /** Logical column → visual column. Inverse of visualToLogical. */
+    logicalToVisual: Uint32Array;
+    /**
+     * Logical column → replacement codepoint for UBA rule L4 glyph mirroring
+     * (e.g. "(" inside an RTL run paints as ")"). Null when nothing mirrors.
+     * Applies to PAINTING only — copy reads the logical cell untouched.
+     */
+    mirror: Map<number, number> | null;
+}
+
+declare class RowBidiMapper {
+    private bidi;
+    private identityByLen;
+    /** FNV-1a-hashed, content-verified LRU. 128 entries ≈ several screens of
+     *  distinct RTL rows; maps are cheap to recompute on miss. */
+    private static readonly CACHE_MAX;
+    private cache;
+    constructor();
+    getMap(line: GhosttyCell[]): RowBidiMap;
+    private identity;
+    private compute;
 }
 
 /** Focused-terminal literal search. findNext moves towards older output. */
@@ -2422,6 +2464,9 @@ export declare class SelectionManager {
      * Cleanup resources
      */
     dispose(): void;
+    /** Preserve the gesture/core selection when a renderer promotes its fallback canvas. */
+    rebindCanvas(oldCanvas: HTMLCanvasElement): void;
+    private detachEventListeners;
     /**
      * Attach mouse event listeners to canvas
      */
@@ -2493,6 +2538,9 @@ export declare class Terminal implements ITerminalCore {
     private inputHandler?;
     private selectionManager?;
     private canvas?;
+    private preparedGPU?;
+    private preparingGPU;
+    private bidiMapper?;
     private linkDetector?;
     private currentHoveredLink?;
     private hoveredHyperlinkId;
@@ -2606,6 +2654,9 @@ export declare class Terminal implements ITerminalCore {
      * Initializes all components and starts rendering.
      * Requires a pre-loaded Ghostty instance passed to the constructor.
      */
+    /** Await optional WebGPU initialization. Existing synchronous open() stays compatible. */
+    openAsync(parent: HTMLElement): Promise<void>;
+    private rebindRendererCanvas;
     open(parent: HTMLElement): void;
     /**
      * Write data to terminal
@@ -2867,6 +2918,15 @@ export declare class Terminal implements ITerminalCore {
     /**
      * Process mouse move for link detection (internal, called by throttled handler)
      */
+    /** Row in absolute logical buffer coordinates; never mutates core storage. */
+    getLogicalLine(absoluteRow: number): GhosttyCell[] | null;
+    visualToLogicalColumn(column: number, viewportRow: number): number;
+    getVisualCursor(): {
+        x: number;
+        y: number;
+    };
+    /** Rectangles are visual boxes; copy their cells in logical order per row. */
+    getBidiRectangleText(startRow: number, endRow: number, startCol: number, endCol: number): string;
     private processMouseMove;
     /**
      * Handle mouse leave to clear link hover
@@ -3054,6 +3114,45 @@ export declare class UrlRegexProvider implements ILinkProvider {
 }
 
 export { }
+
+/**
+ * Local type declarations for bidi-js 1.0.3 (lojjic/bidi-js), which ships
+ * no TypeScript types. API per its README; indices are UTF-16 code-unit
+ * positions into the input string.
+ */
+declare module 'bidi-js' {
+  export interface EmbeddingLevelsResult {
+    /** Embedding level per code unit; odd = RTL scope. */
+    levels: Uint8Array;
+    paragraphs: { start: number; end: number; level: number }[];
+  }
+  export interface BidiApi {
+    getEmbeddingLevels(text: string, explicitDirection?: 'ltr' | 'rtl'): EmbeddingLevelsResult;
+    /** Returns indices in visual order: result[visualPos] = logical code-unit index. */
+    getReorderedIndices(
+      text: string,
+      embeddingLevels: EmbeddingLevelsResult,
+      start?: number,
+      end?: number
+    ): number[];
+    getReorderSegments(
+      text: string,
+      embeddingLevels: EmbeddingLevelsResult,
+      start?: number,
+      end?: number
+    ): [number, number][];
+    getMirroredCharacter(char: string): string | null;
+    /** Map of code-unit index → replacement character (UBA rule L4).
+     * embeddingLevels is the raw Uint8Array from EmbeddingLevelsResult.levels. */
+    getMirroredCharactersMap(
+      text: string,
+      embeddingLevels: Uint8Array,
+      start?: number,
+      end?: number
+    ): Map<number, string>;
+  }
+  export default function bidiFactory(): BidiApi;
+}
 
 declare module 'debug' {
   export default function debug(namespace: string): (...args: unknown[]) => void;

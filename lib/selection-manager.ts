@@ -153,7 +153,15 @@ export class SelectionManager {
    * Get the selected text as a string
    */
   getSelection(): string {
-    if (!this.syncCoreSelection()) return '';
+    const range = this.syncCoreSelection();
+    if (!range) return '';
+    if (this.rectangle && this.terminal.options.bidi)
+      return this.terminal.getBidiRectangleText(
+        range.startRow,
+        range.endRow,
+        range.startCol,
+        range.endCol
+      );
     return this.wasmTerm.getSelectionText();
   }
 
@@ -177,6 +185,11 @@ export class SelectionManager {
       this.selectionStart = this.selectionEnd = null;
       this.coreSignature = '';
       return null;
+    }
+    // Core pins retain row ownership; BiDi rectangle columns are visual, not logical.
+    if (range.rectangle && this.terminal.options.bidi) {
+      actual.startCol = Math.min(range.startCol, range.endCol);
+      actual.endCol = Math.max(range.startCol, range.endCol);
     }
     // Preserve gesture direction while core pins follow scrolling/pruning.
     const reverseRows = range.startRow > range.endRow;
@@ -427,12 +440,21 @@ export class SelectionManager {
    */
   dispose(): void {
     this.selectionChangedEmitter.dispose();
+    this.detachEventListeners(this.renderer.getCanvas());
+  }
 
+  /** Preserve the gesture/core selection when a renderer promotes its fallback canvas. */
+  rebindCanvas(oldCanvas: HTMLCanvasElement): void {
+    this.detachEventListeners(oldCanvas);
+    this.attachEventListeners();
+  }
+
+  private detachEventListeners(canvas: HTMLCanvasElement): void {
     // Stop auto-scroll if active
     this.stopAutoScroll();
 
     // Clean up document event listener
-    const ownerDocument = this.renderer.getCanvas().ownerDocument;
+    const ownerDocument = canvas.ownerDocument;
     if (this.boundMouseUpHandler) {
       ownerDocument.removeEventListener('mouseup', this.boundMouseUpHandler);
       this.boundMouseUpHandler = null;
@@ -444,7 +466,6 @@ export class SelectionManager {
       this.boundDocumentMouseMoveHandler = null;
     }
 
-    const canvas = this.renderer.getCanvas();
     if (this.boundCanvasMouseDownHandler) {
       canvas.removeEventListener('mousedown', this.boundCanvasMouseDownHandler);
       this.boundCanvasMouseDownHandler = null;
@@ -928,10 +949,14 @@ export class SelectionManager {
     const col = Math.floor(x / metrics.width);
     const row = Math.floor(y / metrics.height);
 
-    // Clamp to terminal bounds
+    // Rectangular gestures stay visual; linear selections use core logical pins.
+    const clampedCol = Math.max(0, Math.min(col, this.terminal.cols - 1));
+    const clampedRow = Math.max(0, Math.min(row, this.terminal.rows - 1));
     return {
-      col: Math.max(0, Math.min(col, this.terminal.cols - 1)),
-      row: Math.max(0, Math.min(row, this.terminal.rows - 1)),
+      col: this.rectangle
+        ? clampedCol
+        : this.terminal.visualToLogicalColumn(clampedCol, clampedRow),
+      row: clampedRow,
     };
   }
 

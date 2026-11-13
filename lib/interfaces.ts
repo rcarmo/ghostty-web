@@ -19,8 +19,11 @@ export interface ITerminalOptions {
    * Rendering backend selection.
    * - canvas: always use Canvas2D renderer (default)
    * - webgl: try WebGL renderer first, fallback to Canvas2D if init fails
+   * - webgpu: GPU compositor with Canvas glyph rasterization; use openAsync().
    */
-  renderer?: 'canvas' | 'webgl';
+  renderer?: 'canvas' | 'webgl' | 'webgpu';
+  /** Opt-in row-local Unicode 13 BiDi. Canvas/WebGPU; no Arabic joining/shaping. */
+  bidi?: boolean;
 
   // Phase 1 additions
   convertEol?: boolean; // Convert \n to \r\n (default: false)

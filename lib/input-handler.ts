@@ -171,6 +171,8 @@ export interface MouseTrackingConfig {
   getCellDimensions: () => { width: number; height: number };
   /** Get canvas/container offset for accurate position calculation */
   getCanvasOffset: () => { left: number; top: number };
+  /** Optional visual-to-logical mapping; arguments are zero-based. */
+  toLogicalColumn?: (column: number, row: number) => number;
 }
 
 export class InputHandler {
@@ -715,7 +717,9 @@ export class InputHandler {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
 
     // Convert to 1-based cell coordinates (terminal uses 1-based)
-    const col = Math.floor(x / dims.width) + 1;
+    const visualCol = Math.floor(x / dims.width);
+    const col =
+      (this.mouseConfig.toLogicalColumn?.(visualCol, Math.floor(y / dims.height)) ?? visualCol) + 1;
     const row = Math.floor(y / dims.height) + 1;
 
     // Clamp to valid range (at least 1)
